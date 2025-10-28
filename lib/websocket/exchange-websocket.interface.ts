@@ -20,6 +20,13 @@ export interface OrderBookData {
   asks: OrderBookLevel[];
 }
 
+export interface TradeData {
+  time: number;
+  price: number;
+  size: number;
+  side: 'buy' | 'sell';
+}
+
 export interface CandleSubscriptionParams {
   coin: string;
   interval: string;
@@ -29,13 +36,20 @@ export interface OrderBookSubscriptionParams {
   coin: string;
 }
 
+export interface TradeSubscriptionParams {
+  coin: string;
+}
+
 export type CandleCallback = (candle: CandleData) => void;
 export type OrderBookCallback = (orderBook: OrderBookData) => void;
+export type TradeCallback = (trades: TradeData | TradeData[]) => void;
 
 export interface ExchangeWebSocketService {
   subscribeToCandles(params: CandleSubscriptionParams, callback: CandleCallback): string;
 
   subscribeToOrderBook(params: OrderBookSubscriptionParams, callback: OrderBookCallback): string;
+
+  subscribeToTrades(params: TradeSubscriptionParams, callback: TradeCallback): string;
 
   unsubscribe(subscriptionId: string): void;
 

@@ -2,18 +2,21 @@ import type {
   ExchangeWebSocketService,
   CandleSubscriptionParams,
   OrderBookSubscriptionParams,
+  TradeSubscriptionParams,
   CandleCallback,
   OrderBookCallback,
+  TradeCallback,
   CandleData,
-  OrderBookData
+  OrderBookData,
+  TradeData
 } from './exchange-websocket.interface';
 
 import { EventClient, WebSocketTransport } from '@nktkas/hyperliquid';
-import type { Candle, Book } from '@nktkas/hyperliquid';
+import type { Candle, Book, Trade } from '@nktkas/hyperliquid';
 
 interface Subscription {
   id: string;
-  type: 'candle' | 'orderBook';
+  type: 'candle' | 'orderBook' | 'trade';
   params: any;
   callback: any;
   unsubscribeFn: () => void;
@@ -148,6 +151,48 @@ export class HyperliquidWebSocketService implements ExchangeWebSocketService {
       this.subscriptions.set(subscriptionId, subscription);
     }).catch((error) => {
       console.error('[HyperliquidWS] Failed to subscribe to order book:', error);
+    });
+
+    return subscriptionId;
+  }
+
+  subscribeToTrades(params: TradeSubscriptionParams, callback: TradeCallback): string {
+    const subscriptionId = `trade_${params.coin}_${Date.now()}`;
+
+    this.initialize().then(() => {
+      if (!this.eventClient) {
+        console.error('[HyperliquidWS] EventClient not initialized');
+        return;
+      }
+
+      const unsubscribeFn = this.eventClient.trades(
+        { coin: params.coin },
+        (trades: Trade[]) => {
+          try {
+            const tradeBatch = trades.map((trade: Trade): TradeData => ({
+              time: trade.time,
+              price: parseFloat(trade.px),
+              size: parseFloat(trade.sz),
+              side: trade.side === 'B' ? 'buy' : 'sell'
+            }));
+            callback(tradeBatch);
+          } catch (error) {
+            console.error('[HyperliquidWS] Error processing trade:', error);
+          }
+        }
+      );
+
+      const subscription: Subscription = {
+        id: subscriptionId,
+        type: 'trade',
+        params,
+        callback,
+        unsubscribeFn
+      };
+
+      this.subscriptions.set(subscriptionId, subscription);
+    }).catch((error) => {
+      console.error('[HyperliquidWS] Failed to subscribe to trades:', error);
     });
 
     return subscriptionId;

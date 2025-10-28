@@ -15,4 +15,11 @@ export interface MarketStats {
   low24h: number;
 }
 
+export interface Trade {
+  time: number;
+  price: number;
+  size: number;
+  side: 'buy' | 'sell';
+}
+
 export type TimeInterval = '1m' | '5m' | '15m' | '1h' | '4h' | '1d';
