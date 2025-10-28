@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { CandleData, TimeInterval } from '@/types';
-import { useWebSocketService } from '@/lib/websocket';
+import { useCandleStore } from '@/stores/useCandleStore';
+import { getThemeColors } from '@/lib/theme-utils';
 
 interface CandlestickChartProps {
   coin: string;
@@ -49,7 +50,7 @@ function detectCrossovers(ema5: number[], ema13: number[], candles: CandleData[]
       markers.push({
         time: candles[i].time / 1000,
         position: 'belowBar',
-        color: '#44baba',
+        color: 'var(--primary)',
         shape: 'arrowUp',
         text: 'Buy'
       });
@@ -57,7 +58,7 @@ function detectCrossovers(ema5: number[], ema13: number[], candles: CandleData[]
       markers.push({
         time: candles[i].time / 1000,
         position: 'aboveBar',
-        color: '#ef5350',
+        color: 'var(--status-bearish)',
         shape: 'arrowDown',
         text: 'Sell'
       });
@@ -75,12 +76,15 @@ export default function CandlestickChart({ coin, interval, onPriceUpdate, onChar
   const volumeSeriesRef = useRef<any>(null);
   const ema5SeriesRef = useRef<any>(null);
   const ema13SeriesRef = useRef<any>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [chartReady, setChartReady] = useState(false);
   const candlesBufferRef = useRef<CandleData[]>([]);
   const markersRef = useRef<CrossoverMarker[]>([]);
   const lastEmaRef = useRef<{ ema5: number; ema13: number } | null>(null);
   const lastCandleTimeRef = useRef<number | null>(null);
+
+  const candleKey = `${coin}-${interval}`;
+  const candles = useCandleStore((state) => state.candles[candleKey]) || [];
+  const isLoading = useCandleStore((state) => state.loading[candleKey]) || false;
 
   useEffect(() => {
     let mounted = true;
@@ -94,16 +98,18 @@ export default function CandlestickChart({ coin, interval, onPriceUpdate, onChar
 
         if (!mounted || !chartContainerRef.current) return;
 
+        const colors = getThemeColors();
+
         const chart = createChart(chartContainerRef.current, {
           width: chartContainerRef.current.clientWidth,
           height: 350,
           layout: {
-            background: { color: getComputedStyle(document.documentElement).getPropertyValue('--background-primary').trim() },
-            textColor: getComputedStyle(document.documentElement).getPropertyValue('--primary-muted').trim(),
+            background: { color: colors.backgroundPrimary },
+            textColor: colors.primaryMuted,
           },
           grid: {
-            vertLines: { color: getComputedStyle(document.documentElement).getPropertyValue('--primary-dark').trim() },
-            horzLines: { color: getComputedStyle(document.documentElement).getPropertyValue('--primary-dark').trim() },
+            vertLines: { color: colors.primaryDark },
+            horzLines: { color: colors.primaryDark },
           },
           timeScale: {
             timeVisible: true,
@@ -122,15 +128,15 @@ export default function CandlestickChart({ coin, interval, onPriceUpdate, onChar
         });
 
         const candleSeries = chart.addCandlestickSeries({
-          upColor: '#26a69a',
-          downColor: '#ef5350',
+          upColor: colors.statusBullish,
+          downColor: colors.statusBearish,
           borderVisible: false,
-          wickUpColor: '#26a69a',
-          wickDownColor: '#ef5350',
+          wickUpColor: colors.statusBullish,
+          wickDownColor: colors.statusBearish,
         });
 
         const volumeSeries = chart.addHistogramSeries({
-          color: '#26a69a',
+          color: colors.statusBullish,
           priceFormat: {
             type: 'volume',
           },
@@ -145,13 +151,13 @@ export default function CandlestickChart({ coin, interval, onPriceUpdate, onChar
         });
 
         const ema5Series = chart.addLineSeries({
-          color: '#3274aa',
+          color: colors.accentBlue,
           lineWidth: 2,
           title: '5 EMA',
         });
 
         const ema13Series = chart.addLineSeries({
-          color: '#c2968d',
+          color: colors.accentRose,
           lineWidth: 2,
           title: '13 EMA',
         });
@@ -204,182 +210,94 @@ export default function CandlestickChart({ coin, interval, onPriceUpdate, onChar
   useEffect(() => {
     if (!chartReady) return;
 
-    const fetchCandles = async () => {
-      setIsLoading(true);
-      try {
-        const endTime = Date.now();
-        const startTime = endTime - (24 * 60 * 60 * 1000);
+    const endTime = Date.now();
+    const startTime = endTime - (24 * 60 * 60 * 1000);
 
-        const response = await fetch(
-          `/api/candles?coin=${coin}&interval=${interval}&startTime=${startTime}&endTime=${endTime}`
-        );
-        const candles: CandleData[] = await response.json();
+    const { fetchCandles, subscribeToCandles, unsubscribeFromCandles } = useCandleStore.getState();
+    fetchCandles(coin, interval, startTime, endTime);
+    subscribeToCandles(coin, interval);
 
-        candlesBufferRef.current = candles;
-
-        if (candleSeriesRef.current && volumeSeriesRef.current && ema5SeriesRef.current && ema13SeriesRef.current) {
-          const candleData = candles.map(c => ({
-            time: (c.time / 1000) as any,
-            open: c.open,
-            high: c.high,
-            low: c.low,
-            close: c.close,
-          }));
-
-          const volumeData = candles.map(c => ({
-            time: (c.time / 1000) as any,
-            value: c.volume,
-            color: c.close >= c.open ? '#26a69a80' : '#ef535080',
-          }));
-
-          const closePrices = candles.map(c => c.close);
-          const ema5 = calculateEMA(closePrices, 5);
-          const ema13 = calculateEMA(closePrices, 13);
-          const markers = detectCrossovers(ema5, ema13, candles);
-
-          markersRef.current = markers;
-          if (ema5.length > 0 && ema13.length > 0) {
-            lastEmaRef.current = {
-              ema5: ema5[ema5.length - 1],
-              ema13: ema13[ema13.length - 1]
-            };
-          }
-
-          if (candles.length > 0) {
-            lastCandleTimeRef.current = candles[candles.length - 1].time;
-          }
-
-          const ema5Data = ema5.map((value, i) => ({
-            time: (candles[i].time / 1000) as any,
-            value,
-          }));
-
-          const ema13Data = ema13.map((value, i) => ({
-            time: (candles[i].time / 1000) as any,
-            value,
-          }));
-
-          candleSeriesRef.current.setData(candleData);
-          volumeSeriesRef.current.setData(volumeData);
-          ema5SeriesRef.current.setData(ema5Data);
-          ema13SeriesRef.current.setData(ema13Data);
-          candleSeriesRef.current.setMarkers(markers);
-        }
-      } catch (error) {
-        console.error('Error fetching candles:', error);
-      } finally {
-        setIsLoading(false);
-      }
+    return () => {
+      const { unsubscribeFromCandles } = useCandleStore.getState();
+      unsubscribeFromCandles(coin, interval);
     };
-
-    fetchCandles();
   }, [coin, interval, chartReady]);
 
   useEffect(() => {
-    if (!chartReady) return;
+    if (!chartReady || !candleSeriesRef.current || candles.length === 0) return;
 
-    const { service: wsService, trackSubscription } = useWebSocketService('hyperliquid', false);
-    const untrackSubscription = trackSubscription();
+    candlesBufferRef.current = candles;
 
-    const subscriptionId = wsService.subscribeToCandles(
-      { coin, interval },
-      (candle) => {
-        const isNewCandle = lastCandleTimeRef.current !== null && candle.time !== lastCandleTimeRef.current;
+    const candleData = candles.map(c => ({
+      time: (c.time / 1000) as any,
+      open: c.open,
+      high: c.high,
+      low: c.low,
+      close: c.close,
+    }));
 
-        if (isNewCandle) {
-          candlesBufferRef.current = [...candlesBufferRef.current.slice(-200), candle];
-        } else {
-          const buffer = [...candlesBufferRef.current];
-          if (buffer.length > 0) {
-            buffer[buffer.length - 1] = candle;
-          } else {
-            buffer.push(candle);
-          }
-          candlesBufferRef.current = buffer;
-        }
+    const colors = getThemeColors();
+    const volumeData = candles.map(c => ({
+      time: (c.time / 1000) as any,
+      value: c.volume,
+      color: c.close >= c.open ? colors.statusBullish + '80' : colors.statusBearish + '80',
+    }));
 
-        lastCandleTimeRef.current = candle.time;
+    const closePrices = candles.map(c => c.close);
+    const ema5 = calculateEMA(closePrices, 5);
+    const ema13 = calculateEMA(closePrices, 13);
 
-        if (candleSeriesRef.current && volumeSeriesRef.current && ema5SeriesRef.current && ema13SeriesRef.current) {
-          const candleData = {
-            time: (candle.time / 1000) as any,
-            open: candle.open,
-            high: candle.high,
-            low: candle.low,
-            close: candle.close,
-          };
+    if (ema5.length > 0 && ema13.length > 0) {
+      const currentEma5 = ema5[ema5.length - 1];
+      const currentEma13 = ema13[ema13.length - 1];
 
-          const volumeData = {
-            time: (candle.time / 1000) as any,
-            value: candle.volume,
-            color: candle.close >= candle.open ? '#26a69a80' : '#ef535080',
-          };
+      const lastCandle = candles[candles.length - 1];
+      const isNewCandle = lastCandleTimeRef.current !== null && lastCandle.time !== lastCandleTimeRef.current;
 
-          candleSeriesRef.current.update(candleData);
-          volumeSeriesRef.current.update(volumeData);
+      if (isNewCandle || lastCandleTimeRef.current === null) {
+        const markers = detectCrossovers(ema5, ema13, candles);
+        markersRef.current = markers;
+        candleSeriesRef.current.setData(candleData);
+        volumeSeriesRef.current.setData(volumeData);
 
-          const closePrices = candlesBufferRef.current.map(c => c.close);
-          const ema5 = calculateEMA(closePrices, 5);
-          const ema13 = calculateEMA(closePrices, 13);
+        const ema5Data = ema5.map((value, i) => ({
+          time: (candles[i].time / 1000) as any,
+          value,
+        }));
 
-          if (ema5.length > 0 && ema13.length > 0) {
-            const currentEma5 = ema5[ema5.length - 1];
-            const currentEma13 = ema13[ema13.length - 1];
+        const ema13Data = ema13.map((value, i) => ({
+          time: (candles[i].time / 1000) as any,
+          value,
+        }));
 
-            ema5SeriesRef.current.update({
-              time: (candle.time / 1000) as any,
-              value: currentEma5,
-            });
-            ema13SeriesRef.current.update({
-              time: (candle.time / 1000) as any,
-              value: currentEma13,
-            });
-
-            if (isNewCandle && lastEmaRef.current) {
-              const prevEma5 = lastEmaRef.current.ema5;
-              const prevEma13 = lastEmaRef.current.ema13;
-
-              if (prevEma5 <= prevEma13 && currentEma5 > currentEma13) {
-                markersRef.current.push({
-                  time: candle.time / 1000,
-                  position: 'belowBar',
-                  color: '#44baba',
-                  shape: 'arrowUp',
-                  text: 'Buy'
-                });
-                candleSeriesRef.current.setMarkers([...markersRef.current]);
-              } else if (prevEma5 >= prevEma13 && currentEma5 < currentEma13) {
-                markersRef.current.push({
-                  time: candle.time / 1000,
-                  position: 'aboveBar',
-                  color: '#ef5350',
-                  shape: 'arrowDown',
-                  text: 'Sell'
-                });
-                candleSeriesRef.current.setMarkers([...markersRef.current]);
-              }
-            }
-
-            if (isNewCandle) {
-              lastEmaRef.current = {
-                ema5: currentEma5,
-                ema13: currentEma13
-              };
-            }
-          }
-
-          if (onPriceUpdate) {
-            onPriceUpdate(candle.close);
-          }
-        }
+        ema5SeriesRef.current.setData(ema5Data);
+        ema13SeriesRef.current.setData(ema13Data);
+        candleSeriesRef.current.setMarkers(markers);
+      } else {
+        candleSeriesRef.current.update(candleData[candleData.length - 1]);
+        volumeSeriesRef.current.update(volumeData[volumeData.length - 1]);
+        ema5SeriesRef.current.update({
+          time: (lastCandle.time / 1000) as any,
+          value: currentEma5,
+        });
+        ema13SeriesRef.current.update({
+          time: (lastCandle.time / 1000) as any,
+          value: currentEma13,
+        });
       }
-    );
 
-    return () => {
-      wsService.unsubscribe(subscriptionId);
-      untrackSubscription();
-    };
-  }, [coin, interval, onPriceUpdate, chartReady]);
+      lastEmaRef.current = {
+        ema5: currentEma5,
+        ema13: currentEma13
+      };
+
+      lastCandleTimeRef.current = lastCandle.time;
+
+      if (onPriceUpdate) {
+        onPriceUpdate(lastCandle.close);
+      }
+    }
+  }, [candles, chartReady, onPriceUpdate]);
 
   return (
     <div className="relative">
@@ -391,20 +309,20 @@ export default function CandlestickChart({ coin, interval, onPriceUpdate, onChar
       <div ref={chartContainerRef} />
       <div className="mt-1 flex gap-3 text-xs flex-wrap">
         <div className="flex items-center gap-1">
-          <div className="w-6 h-0.5 bg-[#3274aa]"></div>
-          <span className="text-[#537270]">5 EMA</span>
+          <div className="w-6 h-0.5" style={{ backgroundColor: 'var(--accent-blue)' }}></div>
+          <span className="text-primary-muted">5 EMA</span>
         </div>
         <div className="flex items-center gap-1">
-          <div className="w-6 h-0.5 bg-[#c2968d]"></div>
-          <span className="text-[#537270]">13 EMA</span>
+          <div className="w-6 h-0.5" style={{ backgroundColor: 'var(--accent-rose)' }}></div>
+          <span className="text-primary-muted">13 EMA</span>
         </div>
         <div className="flex items-center gap-1">
-          <span className="text-[#44baba]">↑</span>
-          <span className="text-[#537270]">Buy</span>
+          <span className="text-primary">↑</span>
+          <span className="text-primary-muted">Buy</span>
         </div>
         <div className="flex items-center gap-1">
-          <span className="text-[#ef5350]">↓</span>
-          <span className="text-[#537270]">Sell</span>
+          <span className="text-bearish">↓</span>
+          <span className="text-primary-muted">Sell</span>
         </div>
       </div>
     </div>

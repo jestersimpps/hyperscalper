@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { CandleData, TimeInterval } from '@/types';
-import { useWebSocketService } from '@/lib/websocket';
+import { useCandleStore } from '@/stores/useCandleStore';
+import { getThemeColors } from '@/lib/theme-utils';
 
 interface CombinedStochasticChartProps {
   coin: string;
@@ -72,17 +73,15 @@ export default function CombinedStochasticChart({ coin, onChartReady }: Combined
   const stoch5mDSeriesRef = useRef<any>(null);
   const stoch15mKSeriesRef = useRef<any>(null);
   const stoch15mDSeriesRef = useRef<any>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [chartReady, setChartReady] = useState(false);
-  const candlesBufferRef = useRef<{
-    '1m': CandleData[];
-    '5m': CandleData[];
-    '15m': CandleData[];
-  }>({
-    '1m': [],
-    '5m': [],
-    '15m': []
-  });
+
+  const candles1m = useCandleStore((state) => state.candles[`${coin}-1m`]) || [];
+  const candles5m = useCandleStore((state) => state.candles[`${coin}-5m`]) || [];
+  const candles15m = useCandleStore((state) => state.candles[`${coin}-15m`]) || [];
+  const loading1m = useCandleStore((state) => state.loading[`${coin}-1m`]) || false;
+  const loading5m = useCandleStore((state) => state.loading[`${coin}-5m`]) || false;
+  const loading15m = useCandleStore((state) => state.loading[`${coin}-15m`]) || false;
+  const isLoading = loading1m || loading5m || loading15m;
 
   useEffect(() => {
     let mounted = true;
@@ -96,16 +95,18 @@ export default function CombinedStochasticChart({ coin, onChartReady }: Combined
 
         if (!mounted || !chartContainerRef.current) return;
 
+        const colors = getThemeColors();
+
         const chart = createChart(chartContainerRef.current, {
           width: chartContainerRef.current.clientWidth,
           height: 250,
           layout: {
-            background: { color: getComputedStyle(document.documentElement).getPropertyValue('--background-primary').trim() },
-            textColor: getComputedStyle(document.documentElement).getPropertyValue('--primary-muted').trim(),
+            background: { color: colors.backgroundPrimary },
+            textColor: colors.primaryMuted,
           },
           grid: {
-            vertLines: { color: getComputedStyle(document.documentElement).getPropertyValue('--primary-dark').trim() },
-            horzLines: { color: getComputedStyle(document.documentElement).getPropertyValue('--primary-dark').trim() },
+            vertLines: { color: colors.primaryDark },
+            horzLines: { color: colors.primaryDark },
           },
           timeScale: {
             timeVisible: true,
@@ -124,39 +125,39 @@ export default function CombinedStochasticChart({ coin, onChartReady }: Combined
         });
 
         const stoch1mKSeries = chart.addLineSeries({
-          color: '#3274aa',
+          color: colors.accentBlue,
           lineWidth: 2,
           title: '1m %K',
         });
 
         const stoch1mDSeries = chart.addLineSeries({
-          color: '#29486b',
+          color: colors.accentBlueDark,
           lineWidth: 1,
           lineStyle: 2,
           title: '1m %D',
         });
 
         const stoch5mKSeries = chart.addLineSeries({
-          color: '#c2968d',
+          color: colors.accentRose,
           lineWidth: 2,
           title: '5m %K',
         });
 
         const stoch5mDSeries = chart.addLineSeries({
-          color: '#ef5350',
+          color: colors.statusBearish,
           lineWidth: 1,
           lineStyle: 2,
           title: '5m %D',
         });
 
         const stoch15mKSeries = chart.addLineSeries({
-          color: '#44baba',
+          color: colors.primary,
           lineWidth: 2,
           title: '15m %K',
         });
 
         const stoch15mDSeries = chart.addLineSeries({
-          color: '#244140',
+          color: colors.primaryDark,
           lineWidth: 1,
           lineStyle: 2,
           title: '15m %D',
@@ -208,119 +209,68 @@ export default function CombinedStochasticChart({ coin, onChartReady }: Combined
   useEffect(() => {
     if (!chartReady) return;
 
-    const fetchAllCandles = async () => {
-      setIsLoading(true);
-      try {
-        const endTime = Date.now();
-        const startTime = endTime - (24 * 60 * 60 * 1000);
+    const endTime = Date.now();
+    const startTime = endTime - (24 * 60 * 60 * 1000);
 
-        const intervals: TimeInterval[] = ['1m', '5m', '15m'];
-        const responses = await Promise.all(
-          intervals.map(interval =>
-            fetch(`/api/candles?coin=${coin}&interval=${interval}&startTime=${startTime}&endTime=${endTime}`)
-              .then(res => res.json())
-          )
-        );
-
-        candlesBufferRef.current = {
-          '1m': responses[0],
-          '5m': responses[1],
-          '15m': responses[2]
-        };
-
-        if (stoch1mKSeriesRef.current && stoch5mKSeriesRef.current && stoch15mKSeriesRef.current) {
-          const stoch1m = calculateStochastic(responses[0]);
-          const stoch5m = calculateStochastic(responses[1]);
-          const stoch15m = calculateStochastic(responses[2]);
-
-          const offset1m = responses[0].length - stoch1m.length;
-          const offset5m = responses[1].length - stoch5m.length;
-          const offset15m = responses[2].length - stoch15m.length;
-
-          stoch1mKSeriesRef.current.setData(stoch1m.map((s, i) => ({
-            time: (responses[0][i + offset1m].time / 1000) as any,
-            value: s.k,
-          })));
-
-          stoch1mDSeriesRef.current.setData(stoch1m.map((s, i) => ({
-            time: (responses[0][i + offset1m].time / 1000) as any,
-            value: s.d,
-          })));
-
-          stoch5mKSeriesRef.current.setData(stoch5m.map((s, i) => ({
-            time: (responses[1][i + offset5m].time / 1000) as any,
-            value: s.k,
-          })));
-
-          stoch5mDSeriesRef.current.setData(stoch5m.map((s, i) => ({
-            time: (responses[1][i + offset5m].time / 1000) as any,
-            value: s.d,
-          })));
-
-          stoch15mKSeriesRef.current.setData(stoch15m.map((s, i) => ({
-            time: (responses[2][i + offset15m].time / 1000) as any,
-            value: s.k,
-          })));
-
-          stoch15mDSeriesRef.current.setData(stoch15m.map((s, i) => ({
-            time: (responses[2][i + offset15m].time / 1000) as any,
-            value: s.d,
-          })));
-        }
-      } catch (error) {
-        console.error('Error fetching candles:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchAllCandles();
-  }, [coin, chartReady]);
-
-  useEffect(() => {
-    if (!chartReady) return;
-
-    const { service: wsService, trackSubscription } = useWebSocketService('hyperliquid', false);
-    const untrackSubscriptions: (() => void)[] = [];
-    const subscriptionIds: string[] = [];
     const intervals: TimeInterval[] = ['1m', '5m', '15m'];
+    const { fetchCandles, subscribeToCandles } = useCandleStore.getState();
 
-    intervals.forEach((interval) => {
-      const untrack = trackSubscription();
-      untrackSubscriptions.push(untrack);
-
-      const subscriptionId = wsService.subscribeToCandles(
-        { coin, interval },
-        (candle) => {
-          candlesBufferRef.current[interval] = [...candlesBufferRef.current[interval].slice(-200), candle];
-
-          const stochData = calculateStochastic(candlesBufferRef.current[interval]);
-          if (stochData.length > 0) {
-            const latestStoch = stochData[stochData.length - 1];
-            const time = (candle.time / 1000) as any;
-
-            if (interval === '1m' && stoch1mKSeriesRef.current) {
-              stoch1mKSeriesRef.current.update({ time, value: latestStoch.k });
-              stoch1mDSeriesRef.current.update({ time, value: latestStoch.d });
-            } else if (interval === '5m' && stoch5mKSeriesRef.current) {
-              stoch5mKSeriesRef.current.update({ time, value: latestStoch.k });
-              stoch5mDSeriesRef.current.update({ time, value: latestStoch.d });
-            } else if (interval === '15m' && stoch15mKSeriesRef.current) {
-              stoch15mKSeriesRef.current.update({ time, value: latestStoch.k });
-              stoch15mDSeriesRef.current.update({ time, value: latestStoch.d });
-            }
-          }
-        }
-      );
-
-      subscriptionIds.push(subscriptionId);
+    intervals.forEach(interval => {
+      fetchCandles(coin, interval, startTime, endTime);
+      subscribeToCandles(coin, interval);
     });
 
     return () => {
-      subscriptionIds.forEach(id => wsService.unsubscribe(id));
-      untrackSubscriptions.forEach(untrack => untrack());
+      const { unsubscribeFromCandles } = useCandleStore.getState();
+      intervals.forEach(interval => {
+        unsubscribeFromCandles(coin, interval);
+      });
     };
   }, [coin, chartReady]);
+
+  useEffect(() => {
+    if (!chartReady || !stoch1mKSeriesRef.current || candles1m.length === 0) return;
+
+    const stoch1m = calculateStochastic(candles1m);
+    const stoch5m = calculateStochastic(candles5m);
+    const stoch15m = calculateStochastic(candles15m);
+
+    if (stoch1m.length > 0) {
+      const offset1m = candles1m.length - stoch1m.length;
+      stoch1mKSeriesRef.current.setData(stoch1m.map((s, i) => ({
+        time: (candles1m[i + offset1m].time / 1000) as any,
+        value: s.k,
+      })));
+      stoch1mDSeriesRef.current.setData(stoch1m.map((s, i) => ({
+        time: (candles1m[i + offset1m].time / 1000) as any,
+        value: s.d,
+      })));
+    }
+
+    if (stoch5m.length > 0) {
+      const offset5m = candles5m.length - stoch5m.length;
+      stoch5mKSeriesRef.current.setData(stoch5m.map((s, i) => ({
+        time: (candles5m[i + offset5m].time / 1000) as any,
+        value: s.k,
+      })));
+      stoch5mDSeriesRef.current.setData(stoch5m.map((s, i) => ({
+        time: (candles5m[i + offset5m].time / 1000) as any,
+        value: s.d,
+      })));
+    }
+
+    if (stoch15m.length > 0) {
+      const offset15m = candles15m.length - stoch15m.length;
+      stoch15mKSeriesRef.current.setData(stoch15m.map((s, i) => ({
+        time: (candles15m[i + offset15m].time / 1000) as any,
+        value: s.k,
+      })));
+      stoch15mDSeriesRef.current.setData(stoch15m.map((s, i) => ({
+        time: (candles15m[i + offset15m].time / 1000) as any,
+        value: s.d,
+      })));
+    }
+  }, [candles1m, candles5m, candles15m, chartReady]);
 
   return (
     <div className="relative">
@@ -332,30 +282,30 @@ export default function CombinedStochasticChart({ coin, onChartReady }: Combined
       <div ref={chartContainerRef} />
       <div className="mt-1 flex gap-3 text-xs flex-wrap">
         <div className="flex items-center gap-1">
-          <div className="w-6 h-0.5 bg-[#3274aa]"></div>
-          <span className="text-[#537270]">1m %K</span>
+          <div className="w-6 h-0.5" style={{ backgroundColor: 'var(--accent-blue)' }}></div>
+          <span className="text-primary-muted">1m %K</span>
         </div>
         <div className="flex items-center gap-1">
-          <div className="w-6 h-0.5 bg-[#29486b]" style={{ borderTop: '2px dashed #29486b', background: 'none' }}></div>
-          <span className="text-[#537270]">1m %D</span>
+          <div className="w-6 h-0.5" style={{ borderTop: '2px dashed var(--accent-blue-dark)', background: 'none' }}></div>
+          <span className="text-primary-muted">1m %D</span>
         </div>
         <div className="flex items-center gap-1">
-          <div className="w-6 h-0.5 bg-[#c2968d]"></div>
-          <span className="text-[#537270]">5m %K</span>
+          <div className="w-6 h-0.5" style={{ backgroundColor: 'var(--accent-rose)' }}></div>
+          <span className="text-primary-muted">5m %K</span>
         </div>
         <div className="flex items-center gap-1">
-          <div className="w-6 h-0.5 bg-[#ef5350]" style={{ borderTop: '2px dashed #ef5350', background: 'none' }}></div>
-          <span className="text-[#537270]">5m %D</span>
+          <div className="w-6 h-0.5" style={{ borderTop: '2px dashed var(--status-bearish)', background: 'none' }}></div>
+          <span className="text-primary-muted">5m %D</span>
         </div>
         <div className="flex items-center gap-1">
-          <div className="w-6 h-0.5 bg-[#44baba]"></div>
-          <span className="text-[#537270]">15m %K</span>
+          <div className="w-6 h-0.5" style={{ backgroundColor: 'var(--primary)' }}></div>
+          <span className="text-primary-muted">15m %K</span>
         </div>
         <div className="flex items-center gap-1">
-          <div className="w-6 h-0.5 bg-[#244140]" style={{ borderTop: '2px dashed #244140', background: 'none' }}></div>
-          <span className="text-[#537270]">15m %D</span>
+          <div className="w-6 h-0.5" style={{ borderTop: '2px dashed var(--primary-dark)', background: 'none' }}></div>
+          <span className="text-primary-muted">15m %D</span>
         </div>
-        <div className="text-[#537270] ml-auto text-xs">
+        <div className="text-primary-muted ml-auto text-xs">
           OB: &gt;80 | OS: &lt;20
         </div>
       </div>

@@ -107,7 +107,7 @@ export default function OrderBook({ coin }: OrderBookProps) {
   if (isLoading || !orderBook || !orderBook.bids || !orderBook.asks) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="text-[#537270] text-[10px]">Loading order book...</div>
+        <div className="text-primary-muted text-[10px]">Loading order book...</div>
       </div>
     );
   }
@@ -122,11 +122,11 @@ export default function OrderBook({ coin }: OrderBookProps) {
       <style jsx>{`
         @keyframes flash-green {
           0%, 100% { background-color: transparent; }
-          50% { background-color: rgba(38, 166, 154, 0.3); }
+          50% { background-color: color-mix(in srgb, var(--status-bullish) 30%, transparent); }
         }
         @keyframes flash-red {
           0%, 100% { background-color: transparent; }
-          50% { background-color: rgba(239, 83, 80, 0.3); }
+          50% { background-color: color-mix(in srgb, var(--status-bearish) 30%, transparent); }
         }
         .animate-flash-green {
           animation: flash-green 0.5s ease-in-out;
@@ -137,22 +137,22 @@ export default function OrderBook({ coin }: OrderBookProps) {
       `}</style>
 
       <div className="text-[10px] space-y-0.5 font-mono overflow-hidden flex-1 flex flex-col">
-        <div className="grid grid-cols-3 text-[#537270] mb-1 font-bold">
+        <div className="grid grid-cols-3 text-primary-muted mb-1 font-bold">
           <div>PRICE</div>
           <div className="text-right">SIZE</div>
           <div className="text-right">TOTAL</div>
         </div>
 
-        <div className="flex-1 flex flex-col-reverse overflow-y-auto scrollbar-thin scrollbar-thumb-[#244140] scrollbar-track-transparent">
+        <div className="flex-1 flex flex-col-reverse overflow-y-auto scrollbar-thin scrollbar-thumb-primary-dark scrollbar-track-transparent">
           {orderBook.asks && orderBook.asks.slice(0, 12).map((ask, idx) => {
             const percentage = maxTotal > 0 ? (ask.total / maxTotal) * 100 : 0;
             return (
               <div
                 key={`ask-${idx}-${ask.price}`}
-                className={`grid grid-cols-3 text-[#ef5350] relative ${getFlashClass(ask.price)}`}
+                className={`grid grid-cols-3 text-bearish relative ${getFlashClass(ask.price)}`}
               >
                 <div
-                  className="absolute inset-0 bg-[#ef5350] opacity-5"
+                  className="absolute inset-0 bg-bearish opacity-5"
                   style={{ width: `${percentage}%` }}
                 ></div>
                 <div className="relative z-10">{ask.price.toFixed(2)}</div>
@@ -163,24 +163,24 @@ export default function OrderBook({ coin }: OrderBookProps) {
           })}
         </div>
 
-        <div className="border-t border-[#244140] my-1 flex items-center justify-center py-0.5">
-          <div className="text-[#44baba] font-bold">
+        <div className="border-t border-primary-dark my-1 flex items-center justify-center py-0.5">
+          <div className="text-primary font-bold">
             {orderBook.bids[0] && orderBook.asks[0]
               ? ((parseFloat(orderBook.bids[0].price.toString()) + parseFloat(orderBook.asks[0].price.toString())) / 2).toFixed(2)
               : '---'}
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-[#244140] scrollbar-track-transparent">
+        <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-primary-dark scrollbar-track-transparent">
           {orderBook.bids && orderBook.bids.slice(0, 12).map((bid, idx) => {
             const percentage = maxTotal > 0 ? (bid.total / maxTotal) * 100 : 0;
             return (
               <div
                 key={`bid-${idx}-${bid.price}`}
-                className={`grid grid-cols-3 text-[#26a69a] relative ${getFlashClass(bid.price)}`}
+                className={`grid grid-cols-3 text-bullish relative ${getFlashClass(bid.price)}`}
               >
                 <div
-                  className="absolute inset-0 bg-[#26a69a] opacity-5"
+                  className="absolute inset-0 bg-bullish opacity-5"
                   style={{ width: `${percentage}%` }}
                 ></div>
                 <div className="relative z-10">{bid.price.toFixed(2)}</div>
