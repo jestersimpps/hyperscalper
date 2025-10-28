@@ -218,7 +218,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
           rightPriceScale: {
             width: 60,
             scaleMargins: {
-              top: 0.1,
+              top: 0.15,
               bottom: 0.4,
             },
           },
