@@ -65,29 +65,31 @@ export default function OrderBook({ coin }: OrderBookProps) {
           return;
         }
 
-        if (orderBook) {
-          const newPrices = new Map<number, 'up' | 'down'>();
+        setOrderBook((prevOrderBook) => {
+          if (prevOrderBook) {
+            const newPrices = new Map<number, 'up' | 'down'>();
 
-          data.asks?.forEach((ask, idx) => {
-            const oldAsk = orderBook.asks?.[idx];
-            if (oldAsk && ask.price === oldAsk.price) {
-              if (ask.size > oldAsk.size) newPrices.set(ask.price, 'up');
-              else if (ask.size < oldAsk.size) newPrices.set(ask.price, 'down');
-            }
-          });
+            data.asks?.forEach((ask, idx) => {
+              const oldAsk = prevOrderBook.asks?.[idx];
+              if (oldAsk && ask.price === oldAsk.price) {
+                if (ask.size > oldAsk.size) newPrices.set(ask.price, 'up');
+                else if (ask.size < oldAsk.size) newPrices.set(ask.price, 'down');
+              }
+            });
 
-          data.bids?.forEach((bid, idx) => {
-            const oldBid = orderBook.bids?.[idx];
-            if (oldBid && bid.price === oldBid.price) {
-              if (bid.size > oldBid.size) newPrices.set(bid.price, 'up');
-              else if (bid.size < oldBid.size) newPrices.set(bid.price, 'down');
-            }
-          });
+            data.bids?.forEach((bid, idx) => {
+              const oldBid = prevOrderBook.bids?.[idx];
+              if (oldBid && bid.price === oldBid.price) {
+                if (bid.size > oldBid.size) newPrices.set(bid.price, 'up');
+                else if (bid.size < oldBid.size) newPrices.set(bid.price, 'down');
+              }
+            });
 
-          prevPricesRef.current = newPrices;
-        }
+            prevPricesRef.current = newPrices;
+          }
 
-        setOrderBook(data);
+          return data;
+        });
       }
     );
 
@@ -95,7 +97,7 @@ export default function OrderBook({ coin }: OrderBookProps) {
       wsService.unsubscribe(subscriptionId);
       untrackSubscription();
     };
-  }, [coin, isLoading, orderBook]);
+  }, [coin, isLoading]);
 
   const getFlashClass = (price: number): string => {
     const flash = prevPricesRef.current.get(price);

@@ -65,8 +65,11 @@ export const useCandleStore = create<CandleStore>((set, get) => ({
     const { subscriptions } = get();
 
     if (subscriptions[key]) {
+      console.log(`[Store] Already subscribed to ${key}`);
       return;
     }
+
+    console.log(`[Store] Subscribing to ${key}`);
 
     const initWebSocket = async () => {
       const { useWebSocketService } = await import('@/lib/websocket/websocket-singleton');
@@ -108,6 +111,8 @@ export const useCandleStore = create<CandleStore>((set, get) => ({
           [key]: { subscriptionId, cleanup }
         },
       }));
+
+      console.log(`[Store] Subscribed to ${key} with ID: ${subscriptionId}`);
     };
 
     initWebSocket();
@@ -118,15 +123,24 @@ export const useCandleStore = create<CandleStore>((set, get) => ({
     const { subscriptions, wsService } = get();
 
     const subscription = subscriptions[key];
-    if (subscription && wsService) {
-      wsService.unsubscribe(subscription.subscriptionId);
-      subscription.cleanup();
-
-      const newSubscriptions = { ...subscriptions };
-      delete newSubscriptions[key];
-
-      set({ subscriptions: newSubscriptions });
+    if (!subscription) {
+      console.warn(`[Store] No subscription found for ${key}`);
+      return;
     }
+
+    console.log(`[Store] Unsubscribing from ${key}`);
+
+    if (wsService) {
+      wsService.unsubscribe(subscription.subscriptionId);
+    }
+    subscription.cleanup();
+
+    const newSubscriptions = { ...subscriptions };
+    delete newSubscriptions[key];
+
+    set({ subscriptions: newSubscriptions });
+
+    console.log(`[Store] Unsubscribed from ${key}`);
   },
 
   cleanup: () => {

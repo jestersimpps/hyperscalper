@@ -6,7 +6,7 @@ interface SidepanelProps {
 }
 
 export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelProps) {
-  const symbols = ['BTC'];
+  const symbols = ['BTC', 'PUMP'];
 
   return (
     <div className="p-2 h-full flex flex-col">

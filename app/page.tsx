@@ -32,7 +32,7 @@ export default function Home() {
           />
         }
       >
-        <SymbolView coin={selectedSymbol} />
+        <SymbolView key={selectedSymbol} coin={selectedSymbol} />
       </AppShell>
     </>
   );

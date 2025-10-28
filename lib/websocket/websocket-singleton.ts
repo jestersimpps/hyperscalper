@@ -4,8 +4,14 @@ import { HyperliquidWebSocketService } from './hyperliquid-websocket.service';
 class WebSocketServiceManager {
   private static instance: ExchangeWebSocketService | null = null;
   private static activeSubscriptions = 0;
+  private static disconnectTimeout: NodeJS.Timeout | null = null;
 
   static getService(type: 'hyperliquid' | 'binance' | 'bybit' = 'hyperliquid', isTestnet: boolean = false): ExchangeWebSocketService {
+    if (this.disconnectTimeout) {
+      clearTimeout(this.disconnectTimeout);
+      this.disconnectTimeout = null;
+    }
+
     if (!this.instance) {
       switch (type) {
         case 'hyperliquid':
@@ -24,20 +30,37 @@ class WebSocketServiceManager {
 
   static incrementSubscriptions(): void {
     this.activeSubscriptions++;
+    if (this.disconnectTimeout) {
+      clearTimeout(this.disconnectTimeout);
+      this.disconnectTimeout = null;
+    }
   }
 
   static decrementSubscriptions(): void {
     this.activeSubscriptions--;
+
     if (this.activeSubscriptions <= 0) {
       this.activeSubscriptions = 0;
-      if (this.instance) {
-        this.instance.disconnect();
-        this.instance = null;
+
+      if (this.disconnectTimeout) {
+        clearTimeout(this.disconnectTimeout);
       }
+
+      this.disconnectTimeout = setTimeout(() => {
+        if (this.activeSubscriptions === 0 && this.instance) {
+          console.log('[WebSocket Manager] Disconnecting after 1s idle');
+          this.instance.disconnect();
+          this.instance = null;
+        }
+      }, 1000);
     }
   }
 
   static reset(): void {
+    if (this.disconnectTimeout) {
+      clearTimeout(this.disconnectTimeout);
+      this.disconnectTimeout = null;
+    }
     if (this.instance) {
       this.instance.disconnect();
       this.instance = null;
