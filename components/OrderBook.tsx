@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useWebSocketService } from '@/lib/websocket';
+import { formatPrice, formatSize, formatTotal } from '@/lib/formatting-utils';
 
 interface OrderBookLevel {
   price: number;
@@ -154,12 +155,12 @@ export default function OrderBook({ coin }: OrderBookProps) {
                 className={`grid grid-cols-3 text-bearish relative ${getFlashClass(ask.price)}`}
               >
                 <div
-                  className="absolute inset-0 bg-bearish opacity-5"
+                  className="absolute inset-0 bg-bearish opacity-20"
                   style={{ width: `${percentage}%` }}
                 ></div>
-                <div className="relative z-10">{ask.price.toFixed(2)}</div>
-                <div className="relative z-10 text-right">{ask.size.toFixed(4)}</div>
-                <div className="relative z-10 text-right">{ask.total.toFixed(4)}</div>
+                <div className="relative z-10">{formatPrice(ask.price, coin)}</div>
+                <div className="relative z-10 text-right">{formatSize(ask.size, coin)}</div>
+                <div className="relative z-10 text-right">{formatTotal(ask.total, coin)}</div>
               </div>
             );
           })}
@@ -168,7 +169,7 @@ export default function OrderBook({ coin }: OrderBookProps) {
         <div className="border-t border-primary-dark my-1 flex items-center justify-center py-0.5">
           <div className="text-primary font-bold">
             {orderBook.bids[0] && orderBook.asks[0]
-              ? ((parseFloat(orderBook.bids[0].price.toString()) + parseFloat(orderBook.asks[0].price.toString())) / 2).toFixed(2)
+              ? formatPrice((parseFloat(orderBook.bids[0].price.toString()) + parseFloat(orderBook.asks[0].price.toString())) / 2, coin)
               : '---'}
           </div>
         </div>
@@ -182,12 +183,12 @@ export default function OrderBook({ coin }: OrderBookProps) {
                 className={`grid grid-cols-3 text-bullish relative ${getFlashClass(bid.price)}`}
               >
                 <div
-                  className="absolute inset-0 bg-bullish opacity-5"
+                  className="absolute inset-0 bg-bullish opacity-20"
                   style={{ width: `${percentage}%` }}
                 ></div>
-                <div className="relative z-10">{bid.price.toFixed(2)}</div>
-                <div className="relative z-10 text-right">{bid.size.toFixed(4)}</div>
-                <div className="relative z-10 text-right">{bid.total.toFixed(4)}</div>
+                <div className="relative z-10">{formatPrice(bid.price, coin)}</div>
+                <div className="relative z-10 text-right">{formatSize(bid.size, coin)}</div>
+                <div className="relative z-10 text-right">{formatTotal(bid.total, coin)}</div>
               </div>
             );
           })}

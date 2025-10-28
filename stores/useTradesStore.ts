@@ -14,7 +14,7 @@ interface TradesStore {
   cleanup: () => void;
 }
 
-const MAX_TRADES = 200;
+const MAX_TRADES = 1000;
 
 export const useTradesStore = create<TradesStore>((set, get) => ({
   trades: {},

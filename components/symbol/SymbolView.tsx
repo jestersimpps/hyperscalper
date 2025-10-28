@@ -9,6 +9,7 @@ import TerminalHeader from '@/components/layout/TerminalHeader';
 import TerminalFooter from '@/components/layout/TerminalFooter';
 import TradeVolumeTimeline from '@/components/TradeVolumeTimeline';
 import { useTradesStore } from '@/stores/useTradesStore';
+import { formatPrice, formatSize } from '@/lib/formatting-utils';
 
 interface SymbolViewProps {
   coin: string;
@@ -109,9 +110,9 @@ export default function SymbolView({ coin }: SymbolViewProps) {
         </div>
 
         {/* Main Content - Side by Side */}
-        <div className="flex gap-2">
+        <div className="flex gap-2 overflow-x-auto">
           {/* Left Side - Charts */}
-          <div className="w-1/2 flex flex-col gap-2">
+          <div className="flex-1 min-w-[500px] flex flex-col gap-2">
             <div className="terminal-border p-1.5">
               <div className="text-[10px] text-primary-muted mb-1 uppercase tracking-wider">█ 1MIN CHART</div>
               <CandlestickChart
@@ -129,9 +130,9 @@ export default function SymbolView({ coin }: SymbolViewProps) {
           </div>
 
           {/* Right Side - Trading Info */}
-          <div className="w-1/2 flex gap-2 h-[600px]">
+          <div className="flex-1 min-w-[500px] flex gap-2 h-[708px]">
             {/* Left Column - Position and Order Book */}
-            <div className="w-80 flex flex-col gap-2">
+            <div className="flex-shrink-0 w-80 flex flex-col gap-2">
               {/* Position Info */}
               <div className="terminal-border p-1.5">
                 <div className="text-[10px] text-primary-muted mb-1.5 uppercase tracking-wider">█ POSITION</div>
@@ -212,7 +213,7 @@ export default function SymbolView({ coin }: SymbolViewProps) {
             </div>
 
             {/* Right Column - Recent Trades */}
-            <div className="flex-1 flex flex-col gap-2">
+            <div className="flex-1 min-w-[200px] flex flex-col gap-2">
               {/* Volume Flow Timeline */}
               <div className="terminal-border p-1.5">
                 <div className="text-[10px] text-primary-muted mb-1.5 uppercase tracking-wider">█ VOLUME FLOW</div>
@@ -268,11 +269,11 @@ export default function SymbolView({ coin }: SymbolViewProps) {
                           return (
                             <div key={tradeKey} className={`grid grid-cols-3 relative ${trade.side === 'buy' ? 'text-bullish' : 'text-bearish'} ${flashClass}`}>
                               <div
-                                className={`absolute inset-0 ${trade.side === 'buy' ? 'bg-bullish' : 'bg-bearish'} opacity-5`}
+                                className={`absolute inset-0 ${trade.side === 'buy' ? 'bg-bullish' : 'bg-bearish'} opacity-20`}
                                 style={{ width: `${percentage}%` }}
                               ></div>
-                              <div className="relative z-10">{trade.price.toFixed(2)}</div>
-                              <div className="relative z-10 text-right">{trade.size.toFixed(4)}</div>
+                              <div className="relative z-10">{formatPrice(trade.price, coin)}</div>
+                              <div className="relative z-10 text-right">{formatSize(trade.size, coin)}</div>
                               <div className="relative z-10 text-right">
                                 {new Date(trade.time).toLocaleTimeString('en-US', {
                                   hour12: false,

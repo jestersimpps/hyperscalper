@@ -20,22 +20,38 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
 
       <div className="space-y-1">
         {symbols.map((symbol) => (
-          <button
+          <div
             key={symbol}
-            onClick={() => onSymbolSelect?.(symbol)}
-            className={`w-full text-left terminal-border p-2 transition-colors ${
+            className={`terminal-border transition-colors ${
               selectedSymbol === symbol
                 ? 'bg-primary/10 border-primary'
                 : 'hover:bg-primary/5'
             }`}
           >
-            <div className="flex justify-between items-center">
-              <span className="text-primary font-bold">{symbol}/USD</span>
-              {selectedSymbol === symbol && (
-                <span className="text-primary text-xs">█</span>
-              )}
+            <div className="flex items-center">
+              <button
+                onClick={() => onSymbolSelect?.(symbol)}
+                className="flex-1 text-left p-2"
+              >
+                <div className="flex justify-between items-center">
+                  <span className="text-primary font-bold">{symbol}/USD</span>
+                  {selectedSymbol === symbol && (
+                    <span className="text-primary text-xs">█</span>
+                  )}
+                </div>
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  window.open(`/chart-popup/${symbol}`, '_blank', 'width=1200,height=800');
+                }}
+                className="p-2 text-primary-muted hover:text-primary transition-colors"
+                title="Open in new window"
+              >
+                <span className="text-sm">⧉</span>
+              </button>
             </div>
-          </button>
+          </div>
         ))}
       </div>
     </div>

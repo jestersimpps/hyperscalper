@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import GlobalBTCProvider from "@/components/providers/GlobalBTCProvider";
+import SymbolMetaHydrator from "@/components/providers/SymbolMetaHydrator";
 import SettingsPanel from "@/components/layout/SettingsPanel";
 
 const geistSans = Geist({
@@ -19,11 +20,34 @@ export const metadata: Metadata = {
   description: "Real-time Bitcoin perpetual futures candlestick chart powered by Hyperliquid API",
 };
 
-export default function RootLayout({
+async function fetchSymbolMetadata() {
+  try {
+    const response = await fetch('https://api.hyperliquid.xyz/info', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'meta' }),
+      cache: 'force-cache',
+      next: { revalidate: 3600 }
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch symbol metadata');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching symbol metadata:', error);
+    return null;
+  }
+}
+
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const symbolMetadata = await fetchSymbolMetadata();
+
   return (
     <html lang="en">
       <body
@@ -31,6 +55,7 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         <GlobalBTCProvider />
+        <SymbolMetaHydrator initialData={symbolMetadata} />
         <SettingsPanel />
         {children}
       </body>

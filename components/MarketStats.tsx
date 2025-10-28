@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useCandleStore } from '@/stores/useCandleStore';
+import { formatPrice } from '@/lib/formatting-utils';
 
 interface MarketStatsProps {
   coin: string;
@@ -63,7 +64,7 @@ export default function MarketStats({ coin, currentPrice }: MarketStatsProps) {
       <div className="grid grid-cols-5 gap-3 text-[10px]">
         <div>
           <div className="text-primary-muted uppercase tracking-wider font-bold mb-0.5">PRICE</div>
-          <div className="text-primary text-base font-bold font-mono">${formatNumber(currentPrice)}</div>
+          <div className="text-primary text-base font-bold font-mono">${formatPrice(currentPrice, coin)}</div>
         </div>
 
         {stats && (
@@ -82,12 +83,12 @@ export default function MarketStats({ coin, currentPrice }: MarketStatsProps) {
 
             <div>
               <div className="text-primary-muted uppercase tracking-wider font-bold mb-0.5">24H HIGH</div>
-              <div className="text-primary text-base font-bold font-mono">${formatNumber(stats.high24h)}</div>
+              <div className="text-primary text-base font-bold font-mono">${formatPrice(stats.high24h, coin)}</div>
             </div>
 
             <div>
               <div className="text-primary-muted uppercase tracking-wider font-bold mb-0.5">24H LOW</div>
-              <div className="text-primary text-base font-bold font-mono">${formatNumber(stats.low24h)}</div>
+              <div className="text-primary text-base font-bold font-mono">${formatPrice(stats.low24h, coin)}</div>
             </div>
 
             <div>
