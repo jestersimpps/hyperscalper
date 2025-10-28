@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useCandleStore } from '@/stores/useCandleStore';
-import { formatPrice } from '@/lib/formatting-utils';
+import { useSymbolMetaStore } from '@/stores/useSymbolMetaStore';
 
 interface MarketStatsProps {
   coin: string;
@@ -19,6 +19,10 @@ export default function MarketStats({ coin, currentPrice }: MarketStatsProps) {
 
   const candleKey = `${coin}-1h`;
   const candles = useCandleStore((state) => state.candles[candleKey]) || [];
+
+  const decimals = useMemo(() => {
+    return useSymbolMetaStore.getState().getDecimals(coin);
+  }, [coin]);
 
   useEffect(() => {
     const endTime = Date.now();
@@ -64,7 +68,7 @@ export default function MarketStats({ coin, currentPrice }: MarketStatsProps) {
       <div className="grid grid-cols-5 gap-3 text-[10px]">
         <div>
           <div className="text-primary-muted uppercase tracking-wider font-bold mb-0.5">PRICE</div>
-          <div className="text-primary text-base font-bold font-mono">${formatPrice(currentPrice, coin)}</div>
+          <div className="text-primary text-base font-bold font-mono">${parseFloat(currentPrice.toFixed(decimals.price))}</div>
         </div>
 
         {stats && (
@@ -83,12 +87,12 @@ export default function MarketStats({ coin, currentPrice }: MarketStatsProps) {
 
             <div>
               <div className="text-primary-muted uppercase tracking-wider font-bold mb-0.5">24H HIGH</div>
-              <div className="text-primary text-base font-bold font-mono">${formatPrice(stats.high24h, coin)}</div>
+              <div className="text-primary text-base font-bold font-mono">${parseFloat(stats.high24h.toFixed(decimals.price))}</div>
             </div>
 
             <div>
               <div className="text-primary-muted uppercase tracking-wider font-bold mb-0.5">24H LOW</div>
-              <div className="text-primary text-base font-bold font-mono">${formatPrice(stats.low24h, coin)}</div>
+              <div className="text-primary text-base font-bold font-mono">${parseFloat(stats.low24h.toFixed(decimals.price))}</div>
             </div>
 
             <div>

@@ -1,39 +1,14 @@
 'use client';
 
-import { useState } from 'react';
-import AppShell from '@/components/layout/AppShell';
-import Sidepanel from '@/components/layout/Sidepanel';
-import SymbolView from '@/components/symbol/SymbolView';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
 export default function Home() {
-  const [selectedSymbol, setSelectedSymbol] = useState('BTC');
+  const router = useRouter();
 
-  return (
-    <>
-      <style jsx global>{`
-        body {
-          background: var(--background-primary);
-          font-family: 'Courier New', monospace;
-        }
-        .terminal-border {
-          border: 2px solid var(--border-frame);
-          box-shadow: 0 0 10px color-mix(in srgb, var(--border-frame) 50%, transparent);
-        }
-        .terminal-text {
-          text-shadow: 0 0 5px color-mix(in srgb, var(--primary) 50%, transparent);
-        }
-      `}</style>
+  useEffect(() => {
+    router.replace('/BTC');
+  }, [router]);
 
-      <AppShell
-        sidepanel={
-          <Sidepanel
-            selectedSymbol={selectedSymbol}
-            onSymbolSelect={setSelectedSymbol}
-          />
-        }
-      >
-        <SymbolView key={selectedSymbol} coin={selectedSymbol} />
-      </AppShell>
-    </>
-  );
+  return null;
 }

@@ -8,11 +8,13 @@ import type {
   TradeCallback,
   CandleData,
   OrderBookData,
-  TradeData
+  TradeData,
+  OrderBookLevel
 } from './exchange-websocket.interface';
 
 import { EventClient, WebSocketTransport } from '@nktkas/hyperliquid';
 import type { Candle, Book, Trade } from '@nktkas/hyperliquid';
+import { useSymbolMetaStore } from '@/stores/useSymbolMetaStore';
 
 interface Subscription {
   id: string;
@@ -21,6 +23,20 @@ interface Subscription {
   callback: any;
   unsubscribeFn: () => void;
 }
+
+const formatPrice = (value: number, decimals: number): string => {
+  return parseFloat(value.toFixed(decimals)).toString();
+};
+
+const formatOrderBookLevel = (level: Omit<OrderBookLevel, 'priceFormatted' | 'sizeFormatted' | 'totalFormatted'>, coin: string): OrderBookLevel => {
+  const decimals = useSymbolMetaStore.getState().getDecimals(coin);
+  return {
+    ...level,
+    priceFormatted: formatPrice(level.price, decimals.price),
+    sizeFormatted: level.size.toFixed(decimals.size),
+    totalFormatted: level.total.toFixed(decimals.size),
+  };
+};
 
 export class HyperliquidWebSocketService implements ExchangeWebSocketService {
   private wsTransport: WebSocketTransport | null = null;
@@ -106,32 +122,36 @@ export class HyperliquidWebSocketService implements ExchangeWebSocketService {
         { coin: params.coin },
         (book: Book) => {
           try {
-            const formattedBook: OrderBookData = {
-              coin: params.coin,
-              timestamp: Date.now(),
-              bids: book.levels[0].map(level => ({
-                price: parseFloat(level.px),
-                size: parseFloat(level.sz),
-                total: 0
-              })),
-              asks: book.levels[1].map(level => ({
-                price: parseFloat(level.px),
-                size: parseFloat(level.sz),
-                total: 0
-              }))
-            };
+            const bids = book.levels[0].map(level => ({
+              price: parseFloat(level.px),
+              size: parseFloat(level.sz),
+              total: 0
+            }));
+
+            const asks = book.levels[1].map(level => ({
+              price: parseFloat(level.px),
+              size: parseFloat(level.sz),
+              total: 0
+            }));
 
             let bidTotal = 0;
-            formattedBook.bids.forEach(bid => {
+            bids.forEach(bid => {
               bidTotal += bid.size;
               bid.total = bidTotal;
             });
 
             let askTotal = 0;
-            formattedBook.asks.forEach(ask => {
+            asks.forEach(ask => {
               askTotal += ask.size;
               ask.total = askTotal;
             });
+
+            const formattedBook: OrderBookData = {
+              coin: params.coin,
+              timestamp: Date.now(),
+              bids: bids.map(level => formatOrderBookLevel(level, params.coin)),
+              asks: asks.map(level => formatOrderBookLevel(level, params.coin))
+            };
 
             callback(formattedBook);
           } catch (error) {

@@ -1,21 +1,9 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { useWebSocketService } from '@/lib/websocket';
-import { formatPrice, formatSize, formatTotal } from '@/lib/formatting-utils';
-
-interface OrderBookLevel {
-  price: number;
-  size: number;
-  total: number;
-}
-
-interface OrderBookData {
-  coin: string;
-  timestamp: number;
-  bids: OrderBookLevel[];
-  asks: OrderBookLevel[];
-}
+import type { OrderBookData, OrderBookLevel } from '@/lib/websocket/exchange-websocket.interface';
+import { useSymbolMetaStore } from '@/stores/useSymbolMetaStore';
 
 interface OrderBookProps {
   coin: string;
@@ -25,6 +13,10 @@ export default function OrderBook({ coin }: OrderBookProps) {
   const [orderBook, setOrderBook] = useState<OrderBookData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const prevPricesRef = useRef<Map<number, 'up' | 'down'>>(new Map());
+
+  const decimals = useMemo(() => {
+    return useSymbolMetaStore.getState().getDecimals(coin);
+  }, [coin]);
 
   useEffect(() => {
     let mounted = true;
@@ -158,9 +150,9 @@ export default function OrderBook({ coin }: OrderBookProps) {
                   className="absolute inset-0 bg-bearish opacity-20"
                   style={{ width: `${percentage}%` }}
                 ></div>
-                <div className="relative z-10">{formatPrice(ask.price, coin)}</div>
-                <div className="relative z-10 text-right">{formatSize(ask.size, coin)}</div>
-                <div className="relative z-10 text-right">{formatTotal(ask.total, coin)}</div>
+                <div className="relative z-10">{ask.priceFormatted}</div>
+                <div className="relative z-10 text-right">{ask.sizeFormatted}</div>
+                <div className="relative z-10 text-right">{ask.totalFormatted}</div>
               </div>
             );
           })}
@@ -169,7 +161,7 @@ export default function OrderBook({ coin }: OrderBookProps) {
         <div className="border-t border-primary-dark my-1 flex items-center justify-center py-0.5">
           <div className="text-primary font-bold">
             {orderBook.bids[0] && orderBook.asks[0]
-              ? formatPrice((parseFloat(orderBook.bids[0].price.toString()) + parseFloat(orderBook.asks[0].price.toString())) / 2, coin)
+              ? parseFloat(((orderBook.bids[0].price + orderBook.asks[0].price) / 2).toFixed(decimals.price))
               : '---'}
           </div>
         </div>
@@ -186,9 +178,9 @@ export default function OrderBook({ coin }: OrderBookProps) {
                   className="absolute inset-0 bg-bullish opacity-20"
                   style={{ width: `${percentage}%` }}
                 ></div>
-                <div className="relative z-10">{formatPrice(bid.price, coin)}</div>
-                <div className="relative z-10 text-right">{formatSize(bid.size, coin)}</div>
-                <div className="relative z-10 text-right">{formatTotal(bid.total, coin)}</div>
+                <div className="relative z-10">{bid.priceFormatted}</div>
+                <div className="relative z-10 text-right">{bid.sizeFormatted}</div>
+                <div className="relative z-10 text-right">{bid.totalFormatted}</div>
               </div>
             );
           })}

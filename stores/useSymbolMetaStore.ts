@@ -56,11 +56,13 @@ export const useSymbolMetaStore = create<SymbolMetaStore>((set, get) => ({
   getDecimals: (symbol: string) => {
     const { metadata } = get();
     const symbolMeta = metadata[symbol];
-    const decimals = symbolMeta?.szDecimals ?? DEFAULT_SIZE_DECIMALS;
+    const sizeDecimals = symbolMeta?.szDecimals ?? DEFAULT_SIZE_DECIMALS;
+
+    const priceDecimals = sizeDecimals === 0 ? 6 : Math.max(sizeDecimals, 2);
 
     return {
-      price: decimals,
-      size: decimals,
+      price: priceDecimals,
+      size: sizeDecimals,
     };
   },
 }));

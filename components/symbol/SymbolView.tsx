@@ -9,7 +9,6 @@ import TerminalHeader from '@/components/layout/TerminalHeader';
 import TerminalFooter from '@/components/layout/TerminalFooter';
 import TradeVolumeTimeline from '@/components/TradeVolumeTimeline';
 import { useTradesStore } from '@/stores/useTradesStore';
-import { formatPrice, formatSize } from '@/lib/formatting-utils';
 
 interface SymbolViewProps {
   coin: string;
@@ -272,8 +271,8 @@ export default function SymbolView({ coin }: SymbolViewProps) {
                                 className={`absolute inset-0 ${trade.side === 'buy' ? 'bg-bullish' : 'bg-bearish'} opacity-20`}
                                 style={{ width: `${percentage}%` }}
                               ></div>
-                              <div className="relative z-10">{formatPrice(trade.price, coin)}</div>
-                              <div className="relative z-10 text-right">{formatSize(trade.size, coin)}</div>
+                              <div className="relative z-10">{trade.priceFormatted}</div>
+                              <div className="relative z-10 text-right">{trade.sizeFormatted}</div>
                               <div className="relative z-10 text-right">
                                 {new Date(trade.time).toLocaleTimeString('en-US', {
                                   hour12: false,

@@ -1,11 +1,14 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
+
 interface SidepanelProps {
   selectedSymbol: string;
   onSymbolSelect?: (symbol: string) => void;
 }
 
 export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelProps) {
+  const router = useRouter();
   const symbols = ['BTC', 'PUMP'];
 
   return (
@@ -30,7 +33,13 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
           >
             <div className="flex items-center">
               <button
-                onClick={() => onSymbolSelect?.(symbol)}
+                onClick={() => {
+                  if (onSymbolSelect) {
+                    onSymbolSelect(symbol);
+                  } else {
+                    router.push(`/${symbol}`);
+                  }
+                }}
                 className="flex-1 text-left p-2"
               >
                 <div className="flex justify-between items-center">

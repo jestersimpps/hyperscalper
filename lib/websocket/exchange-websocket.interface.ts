@@ -5,12 +5,20 @@ export interface CandleData {
   low: number;
   close: number;
   volume: number;
+  openFormatted: string;
+  highFormatted: string;
+  lowFormatted: string;
+  closeFormatted: string;
+  volumeFormatted: string;
 }
 
 export interface OrderBookLevel {
   price: number;
   size: number;
   total: number;
+  priceFormatted: string;
+  sizeFormatted: string;
+  totalFormatted: string;
 }
 
 export interface OrderBookData {
@@ -25,6 +33,8 @@ export interface TradeData {
   price: number;
   size: number;
   side: 'buy' | 'sell';
+  priceFormatted: string;
+  sizeFormatted: string;
 }
 
 export interface CandleSubscriptionParams {

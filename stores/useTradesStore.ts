@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { Trade } from '@/types';
 import type { ExchangeWebSocketService } from '@/lib/websocket/exchange-websocket.interface';
+import { useSymbolMetaStore } from './useSymbolMetaStore';
 
 interface TradesStore {
   trades: Record<string, Trade[]>;
@@ -15,6 +16,19 @@ interface TradesStore {
 }
 
 const MAX_TRADES = 1000;
+
+const formatPrice = (value: number, decimals: number): string => {
+  return parseFloat(value.toFixed(decimals)).toString();
+};
+
+const formatTrade = (trade: Omit<Trade, 'priceFormatted' | 'sizeFormatted'>, coin: string): Trade => {
+  const decimals = useSymbolMetaStore.getState().getDecimals(coin);
+  return {
+    ...trade,
+    priceFormatted: formatPrice(trade.price, decimals.price),
+    sizeFormatted: trade.size.toFixed(decimals.size),
+  };
+};
 
 export const useTradesStore = create<TradesStore>((set, get) => ({
   trades: {},
@@ -50,9 +64,9 @@ export const useTradesStore = create<TradesStore>((set, get) => ({
               existingTrades.map(t => `${t.time}-${t.price}-${t.size}`)
             );
 
-            const newTrades = trades.filter(
-              trade => !existingTradeKeys.has(`${trade.time}-${trade.price}-${trade.size}`)
-            );
+            const newTrades = trades
+              .filter(trade => !existingTradeKeys.has(`${trade.time}-${trade.price}-${trade.size}`))
+              .map(trade => formatTrade(trade, coin));
 
             const updatedTrades = [...newTrades, ...existingTrades].slice(0, MAX_TRADES);
 

@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { useSymbolMetaStore } from '@/stores/useSymbolMetaStore';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+
+const formatPrice = (value: number, decimals: number): string => {
+  return parseFloat(value.toFixed(decimals)).toString();
+};
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -29,33 +34,48 @@ export async function GET(request: NextRequest) {
     }
 
     const book = await response.json();
+    const decimals = useSymbolMetaStore.getState().getDecimals(coin);
 
-    const formattedBook = {
-      coin,
-      timestamp: Date.now(),
-      bids: book.levels[0].map((level: any) => ({
-        price: parseFloat(level.px),
-        size: parseFloat(level.sz),
-        total: 0
-      })),
-      asks: book.levels[1].map((level: any) => ({
-        price: parseFloat(level.px),
-        size: parseFloat(level.sz),
-        total: 0
-      }))
-    };
+    const bids = book.levels[0].map((level: any) => ({
+      price: parseFloat(level.px),
+      size: parseFloat(level.sz),
+      total: 0
+    }));
+
+    const asks = book.levels[1].map((level: any) => ({
+      price: parseFloat(level.px),
+      size: parseFloat(level.sz),
+      total: 0
+    }));
 
     let bidTotal = 0;
-    formattedBook.bids.forEach(bid => {
+    bids.forEach(bid => {
       bidTotal += bid.size;
       bid.total = bidTotal;
     });
 
     let askTotal = 0;
-    formattedBook.asks.forEach(ask => {
+    asks.forEach(ask => {
       askTotal += ask.size;
       ask.total = askTotal;
     });
+
+    const formattedBook = {
+      coin,
+      timestamp: Date.now(),
+      bids: bids.map(bid => ({
+        ...bid,
+        priceFormatted: formatPrice(bid.price, decimals.price),
+        sizeFormatted: bid.size.toFixed(decimals.size),
+        totalFormatted: bid.total.toFixed(decimals.size),
+      })),
+      asks: asks.map(ask => ({
+        ...ask,
+        priceFormatted: formatPrice(ask.price, decimals.price),
+        sizeFormatted: ask.size.toFixed(decimals.size),
+        totalFormatted: ask.total.toFixed(decimals.size),
+      }))
+    };
 
     return NextResponse.json(formattedBook);
   } catch (error) {
