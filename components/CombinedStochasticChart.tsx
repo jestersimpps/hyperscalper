@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { CandleData, TimeInterval } from '@/types';
 import { useCandleStore } from '@/stores/useCandleStore';
+import { useSettingsStore } from '@/stores/useSettingsStore';
 import { getThemeColors } from '@/lib/theme-utils';
 
 interface CombinedStochasticChartProps {
@@ -67,21 +68,19 @@ function calculateStochastic(candles: CandleData[], period: number = 14, smoothK
 export default function CombinedStochasticChart({ coin, onChartReady }: CombinedStochasticChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<any>(null);
-  const stoch1mKSeriesRef = useRef<any>(null);
-  const stoch1mDSeriesRef = useRef<any>(null);
-  const stoch5mKSeriesRef = useRef<any>(null);
-  const stoch5mDSeriesRef = useRef<any>(null);
-  const stoch15mKSeriesRef = useRef<any>(null);
-  const stoch15mDSeriesRef = useRef<any>(null);
+  const seriesRefsRef = useRef<Record<string, { k: any; d: any }>>({});
   const [chartReady, setChartReady] = useState(false);
 
-  const candles1m = useCandleStore((state) => state.candles[`${coin}-1m`]) || [];
-  const candles5m = useCandleStore((state) => state.candles[`${coin}-5m`]) || [];
-  const candles15m = useCandleStore((state) => state.candles[`${coin}-15m`]) || [];
-  const loading1m = useCandleStore((state) => state.loading[`${coin}-1m`]) || false;
-  const loading5m = useCandleStore((state) => state.loading[`${coin}-5m`]) || false;
-  const loading15m = useCandleStore((state) => state.loading[`${coin}-15m`]) || false;
-  const isLoading = loading1m || loading5m || loading15m;
+  const stochasticSettings = useSettingsStore((state) => state.settings.indicators.stochastic);
+
+  const enabledTimeframes = Object.entries(stochasticSettings.timeframes)
+    .filter(([_, config]) => config.enabled && stochasticSettings.showMultiTimeframe)
+    .map(([tf]) => tf as TimeInterval);
+
+  const allCandles = useCandleStore((state) => state.candles);
+  const allLoading = useCandleStore((state) => state.loading);
+
+  const isLoading = enabledTimeframes.some(tf => allLoading[`${coin}-${tf}`]);
 
   useEffect(() => {
     let mounted = true;
@@ -124,52 +123,35 @@ export default function CombinedStochasticChart({ coin, onChartReady }: Combined
           },
         });
 
-        const stoch1mKSeries = chart.addLineSeries({
-          color: colors.accentBlue,
-          lineWidth: 2,
-          title: '1m %K',
-        });
+        const timeframeColors: Record<string, { k: string; d: string }> = {
+          '1m': { k: colors.accentBlue, d: colors.accentBlueDark },
+          '5m': { k: colors.accentRose, d: colors.statusBearish },
+          '15m': { k: colors.primary, d: colors.primaryDark },
+          '30m': { k: colors.statusBullish, d: colors.primaryMuted },
+          '1h': { k: colors.accentBlue, d: colors.accentBlueDark },
+          '4h': { k: colors.accentRose, d: colors.statusBearish },
+        };
 
-        const stoch1mDSeries = chart.addLineSeries({
-          color: colors.accentBlueDark,
-          lineWidth: 1,
-          lineStyle: 2,
-          title: '1m %D',
-        });
+        seriesRefsRef.current = {};
 
-        const stoch5mKSeries = chart.addLineSeries({
-          color: colors.accentRose,
-          lineWidth: 2,
-          title: '5m %K',
-        });
+        enabledTimeframes.forEach((timeframe) => {
+          const kSeries = chart.addLineSeries({
+            color: timeframeColors[timeframe].k,
+            lineWidth: 2,
+            title: `${timeframe} %K`,
+          });
 
-        const stoch5mDSeries = chart.addLineSeries({
-          color: colors.statusBearish,
-          lineWidth: 1,
-          lineStyle: 2,
-          title: '5m %D',
-        });
+          const dSeries = chart.addLineSeries({
+            color: timeframeColors[timeframe].d,
+            lineWidth: 1,
+            lineStyle: 2,
+            title: `${timeframe} %D`,
+          });
 
-        const stoch15mKSeries = chart.addLineSeries({
-          color: colors.primary,
-          lineWidth: 2,
-          title: '15m %K',
-        });
-
-        const stoch15mDSeries = chart.addLineSeries({
-          color: colors.primaryDark,
-          lineWidth: 1,
-          lineStyle: 2,
-          title: '15m %D',
+          seriesRefsRef.current[timeframe] = { k: kSeries, d: dSeries };
         });
 
         chartRef.current = chart;
-        stoch1mKSeriesRef.current = stoch1mKSeries;
-        stoch1mDSeriesRef.current = stoch1mDSeries;
-        stoch5mKSeriesRef.current = stoch5mKSeries;
-        stoch5mDSeriesRef.current = stoch5mDSeries;
-        stoch15mKSeriesRef.current = stoch15mKSeries;
-        stoch15mDSeriesRef.current = stoch15mDSeries;
 
         resizeHandler = () => {
           if (chartContainerRef.current && chartRef.current) {
@@ -204,73 +186,71 @@ export default function CombinedStochasticChart({ coin, onChartReady }: Combined
         chartRef.current = null;
       }
     };
-  }, []);
+  }, [enabledTimeframes.join(','), stochasticSettings.showMultiTimeframe]);
 
   useEffect(() => {
-    if (!chartReady) return;
+    if (!chartReady || enabledTimeframes.length === 0) return;
 
     const endTime = Date.now();
     const startTime = endTime - (24 * 60 * 60 * 1000);
 
-    const intervals: TimeInterval[] = ['1m', '5m', '15m'];
     const { fetchCandles, subscribeToCandles } = useCandleStore.getState();
 
-    intervals.forEach(interval => {
+    enabledTimeframes.forEach(interval => {
       fetchCandles(coin, interval, startTime, endTime);
       subscribeToCandles(coin, interval);
     });
 
     return () => {
       const { unsubscribeFromCandles } = useCandleStore.getState();
-      intervals.forEach(interval => {
+      enabledTimeframes.forEach(interval => {
         unsubscribeFromCandles(coin, interval);
       });
     };
-  }, [coin, chartReady]);
+  }, [coin, chartReady, enabledTimeframes.join(',')]);
 
   useEffect(() => {
-    if (!chartReady || !stoch1mKSeriesRef.current || candles1m.length === 0) return;
+    if (!chartReady || Object.keys(seriesRefsRef.current).length === 0) return;
 
-    const stoch1m = calculateStochastic(candles1m);
-    const stoch5m = calculateStochastic(candles5m);
-    const stoch15m = calculateStochastic(candles15m);
+    enabledTimeframes.forEach((timeframe) => {
+      const candles = allCandles[`${coin}-${timeframe}`];
+      if (!candles || candles.length === 0) return;
 
-    if (stoch1m.length > 0) {
-      const offset1m = candles1m.length - stoch1m.length;
-      stoch1mKSeriesRef.current.setData(stoch1m.map((s, i) => ({
-        time: (candles1m[i + offset1m].time / 1000) as any,
-        value: s.k,
-      })));
-      stoch1mDSeriesRef.current.setData(stoch1m.map((s, i) => ({
-        time: (candles1m[i + offset1m].time / 1000) as any,
-        value: s.d,
-      })));
-    }
+      const config = stochasticSettings.timeframes[timeframe];
+      const stochData = calculateStochastic(candles, config.period, config.smoothK, config.smoothD);
 
-    if (stoch5m.length > 0) {
-      const offset5m = candles5m.length - stoch5m.length;
-      stoch5mKSeriesRef.current.setData(stoch5m.map((s, i) => ({
-        time: (candles5m[i + offset5m].time / 1000) as any,
-        value: s.k,
-      })));
-      stoch5mDSeriesRef.current.setData(stoch5m.map((s, i) => ({
-        time: (candles5m[i + offset5m].time / 1000) as any,
-        value: s.d,
-      })));
-    }
+      if (stochData.length > 0 && seriesRefsRef.current[timeframe]) {
+        const offset = candles.length - stochData.length;
 
-    if (stoch15m.length > 0) {
-      const offset15m = candles15m.length - stoch15m.length;
-      stoch15mKSeriesRef.current.setData(stoch15m.map((s, i) => ({
-        time: (candles15m[i + offset15m].time / 1000) as any,
-        value: s.k,
-      })));
-      stoch15mDSeriesRef.current.setData(stoch15m.map((s, i) => ({
-        time: (candles15m[i + offset15m].time / 1000) as any,
-        value: s.d,
-      })));
-    }
-  }, [candles1m, candles5m, candles15m, chartReady]);
+        seriesRefsRef.current[timeframe].k.setData(stochData.map((s, i) => ({
+          time: (candles[i + offset].time / 1000) as any,
+          value: s.k,
+        })));
+
+        seriesRefsRef.current[timeframe].d.setData(stochData.map((s, i) => ({
+          time: (candles[i + offset].time / 1000) as any,
+          value: s.d,
+        })));
+      }
+    });
+  }, [chartReady, enabledTimeframes.join(','), allCandles, stochasticSettings]);
+
+  const timeframeColorVars: Record<string, { k: string; d: string }> = {
+    '1m': { k: 'var(--accent-blue)', d: 'var(--accent-blue-dark)' },
+    '5m': { k: 'var(--accent-rose)', d: 'var(--status-bearish)' },
+    '15m': { k: 'var(--primary)', d: 'var(--primary-dark)' },
+    '30m': { k: 'var(--status-bullish)', d: 'var(--primary-muted)' },
+    '1h': { k: 'var(--accent-blue)', d: 'var(--accent-blue-dark)' },
+    '4h': { k: 'var(--accent-rose)', d: 'var(--status-bearish)' },
+  };
+
+  if (!stochasticSettings.showMultiTimeframe) {
+    return (
+      <div className="relative h-[250px] flex items-center justify-center">
+        <div className="text-primary-muted text-xs">Multi-timeframe stochastics disabled</div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative">
@@ -281,32 +261,20 @@ export default function CombinedStochasticChart({ coin, onChartReady }: Combined
       )}
       <div ref={chartContainerRef} />
       <div className="mt-1 flex gap-3 text-xs flex-wrap">
-        <div className="flex items-center gap-1">
-          <div className="w-6 h-0.5" style={{ backgroundColor: 'var(--accent-blue)' }}></div>
-          <span className="text-primary-muted">1m %K</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <div className="w-6 h-0.5" style={{ borderTop: '2px dashed var(--accent-blue-dark)', background: 'none' }}></div>
-          <span className="text-primary-muted">1m %D</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <div className="w-6 h-0.5" style={{ backgroundColor: 'var(--accent-rose)' }}></div>
-          <span className="text-primary-muted">5m %K</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <div className="w-6 h-0.5" style={{ borderTop: '2px dashed var(--status-bearish)', background: 'none' }}></div>
-          <span className="text-primary-muted">5m %D</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <div className="w-6 h-0.5" style={{ backgroundColor: 'var(--primary)' }}></div>
-          <span className="text-primary-muted">15m %K</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <div className="w-6 h-0.5" style={{ borderTop: '2px dashed var(--primary-dark)', background: 'none' }}></div>
-          <span className="text-primary-muted">15m %D</span>
-        </div>
+        {enabledTimeframes.map((timeframe) => (
+          <div key={timeframe} className="flex items-center gap-3">
+            <div className="flex items-center gap-1">
+              <div className="w-6 h-0.5" style={{ backgroundColor: timeframeColorVars[timeframe].k }}></div>
+              <span className="text-primary-muted">{timeframe} %K</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="w-6 h-0.5" style={{ borderTop: `2px dashed ${timeframeColorVars[timeframe].d}`, background: 'none' }}></div>
+              <span className="text-primary-muted">{timeframe} %D</span>
+            </div>
+          </div>
+        ))}
         <div className="text-primary-muted ml-auto text-xs">
-          OB: &gt;80 | OS: &lt;20
+          OB: &gt;{stochasticSettings.overboughtLevel} | OS: &lt;{stochasticSettings.oversoldLevel}
         </div>
       </div>
     </div>

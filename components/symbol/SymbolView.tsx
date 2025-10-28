@@ -7,6 +7,7 @@ import MarketStats from '@/components/MarketStats';
 import OrderBook from '@/components/OrderBook';
 import TerminalHeader from '@/components/layout/TerminalHeader';
 import TerminalFooter from '@/components/layout/TerminalFooter';
+import TradeVolumeTimeline from '@/components/TradeVolumeTimeline';
 import { useTradesStore } from '@/stores/useTradesStore';
 
 interface SymbolViewProps {
@@ -128,17 +129,98 @@ export default function SymbolView({ coin }: SymbolViewProps) {
           </div>
 
           {/* Right Side - Trading Info */}
-          <div className="w-1/2 flex flex-col gap-2">
-            {/* Order Book and Recent Trades - Side by Side */}
-            <div className="flex gap-2 h-[600px]">
+          <div className="w-1/2 flex gap-2 h-[600px]">
+            {/* Left Column - Position and Order Book */}
+            <div className="w-80 flex flex-col gap-2">
+              {/* Position Info */}
+              <div className="terminal-border p-1.5">
+                <div className="text-[10px] text-primary-muted mb-1.5 uppercase tracking-wider">█ POSITION</div>
+                <div className="text-[10px] space-y-1 font-mono">
+                  <div className="flex justify-between">
+                    <span className="text-primary-muted">SIZE:</span>
+                    <span className="text-primary">-- BTC</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-primary-muted">ENTRY:</span>
+                    <span className="text-primary">---.--</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-primary-muted">PNL:</span>
+                    <span className="text-primary">+-.-- USD</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-primary-muted">LEVERAGE:</span>
+                    <span className="text-primary">--x</span>
+                  </div>
+                </div>
+
+                {/* Trading Actions */}
+                <div className="mt-3 pt-3 border-t border-frame">
+                  <div className="text-[10px] text-primary-muted mb-2 uppercase tracking-wider">█ ACTIONS</div>
+                  <div className="grid grid-cols-2 gap-1.5 text-[10px] font-mono">
+                    <button
+                      className="px-2 py-1.5 bg-accent-blue/20 border border-accent-blue/40 text-accent-blue hover:bg-accent-blue/30 hover:border-accent-blue/60 transition-all rounded-sm hover:shadow-[0_0_8px_rgba(50,116,170,0.3)]"
+                      onClick={() => console.log('Open Buy Cloud')}
+                    >
+                      █ BUY CLOUD
+                    </button>
+                    <button
+                      className="px-2 py-1.5 bg-accent-rose/20 border border-accent-rose/40 text-accent-rose hover:bg-accent-rose/30 hover:border-accent-rose/60 transition-all rounded-sm hover:shadow-[0_0_8px_rgba(194,150,141,0.3)]"
+                      onClick={() => console.log('Open Sell Cloud')}
+                    >
+                      █ SELL CLOUD
+                    </button>
+                    <button
+                      className="px-2 py-1.5 bg-bullish/20 border border-bullish/40 text-bullish hover:bg-bullish/30 hover:border-bullish/60 transition-all rounded-sm hover:shadow-[0_0_8px_rgba(38,166,154,0.3)]"
+                      onClick={() => console.log('Open Small Long')}
+                    >
+                      █ SM LONG
+                    </button>
+                    <button
+                      className="px-2 py-1.5 bg-bearish/20 border border-bearish/40 text-bearish hover:bg-bearish/30 hover:border-bearish/60 transition-all rounded-sm hover:shadow-[0_0_8px_rgba(239,83,80,0.3)]"
+                      onClick={() => console.log('Open Small Short')}
+                    >
+                      █ SM SHORT
+                    </button>
+                    <button
+                      className="px-2 py-1.5 bg-bullish/30 border-2 border-bullish/60 text-bullish font-bold hover:bg-bullish/40 hover:border-bullish/80 transition-all rounded-sm hover:shadow-[0_0_10px_rgba(38,166,154,0.5)]"
+                      onClick={() => console.log('Open Big Long')}
+                    >
+                      ██ BIG LONG
+                    </button>
+                    <button
+                      className="px-2 py-1.5 bg-bearish/30 border-2 border-bearish/60 text-bearish font-bold hover:bg-bearish/40 hover:border-bearish/80 transition-all rounded-sm hover:shadow-[0_0_10px_rgba(239,83,80,0.5)]"
+                      onClick={() => console.log('Open Big Short')}
+                    >
+                      ██ BIG SHORT
+                    </button>
+                    <button
+                      className="col-span-2 px-2 py-1.5 bg-primary-muted/10 border border-primary-muted/30 text-primary-muted hover:bg-primary-muted/20 hover:border-primary-muted/50 hover:text-primary transition-all rounded-sm hover:shadow-[0_0_8px_rgba(68,186,186,0.2)]"
+                      onClick={() => console.log('Close Position')}
+                    >
+                      █ CLOSE POSITION
+                    </button>
+                  </div>
+                </div>
+              </div>
+
               {/* Order Book */}
-              <div className="terminal-border p-1.5 flex-1">
+              <div className="terminal-border p-1.5 flex-1 overflow-hidden">
                 <div className="text-[10px] text-primary-muted mb-1.5 uppercase tracking-wider">█ ORDER BOOK</div>
                 <OrderBook coin={coin} />
               </div>
+            </div>
+
+            {/* Right Column - Recent Trades */}
+            <div className="flex-1 flex flex-col gap-2">
+              {/* Volume Flow Timeline */}
+              <div className="terminal-border p-1.5">
+                <div className="text-[10px] text-primary-muted mb-1.5 uppercase tracking-wider">█ VOLUME FLOW</div>
+                <TradeVolumeTimeline coin={coin} trades={trades} />
+              </div>
 
               {/* Recent Trades */}
-              <div className="terminal-border p-1.5 flex-1 flex flex-col overflow-hidden h-full">
+              <div className="terminal-border p-1.5 flex-1 flex flex-col overflow-hidden">
                 <style jsx>{`
                   @keyframes flash-green {
                     0%, 100% { background-color: transparent; }
@@ -205,29 +287,6 @@ export default function SymbolView({ coin }: SymbolViewProps) {
                       })()
                     )}
                   </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Position Info */}
-            <div className="terminal-border p-1.5">
-              <div className="text-[10px] text-primary-muted mb-1.5 uppercase tracking-wider">█ POSITION</div>
-              <div className="text-[10px] space-y-1 font-mono">
-                <div className="flex justify-between">
-                  <span className="text-primary-muted">SIZE:</span>
-                  <span className="text-primary">-- BTC</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-primary-muted">ENTRY:</span>
-                  <span className="text-primary">---.--</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-primary-muted">PNL:</span>
-                  <span className="text-primary">+-.-- USD</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-primary-muted">LEVERAGE:</span>
-                  <span className="text-primary">--x</span>
                 </div>
               </div>
             </div>
