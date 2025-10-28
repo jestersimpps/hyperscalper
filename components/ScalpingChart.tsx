@@ -60,8 +60,7 @@ function detectCrossovers(ema1: number[], ema2: number[], ema3: number[] | null,
           position: 'belowBar',
           color: bullishColor,
           shape: 'arrowUp',
-          text: 'EMA BUY',
-          size: 1.5
+          text: 'EMA BUY'
         });
       } else if (!wasBearish && isBearish) {
         const priceOffset = candles[i].high * offsetPercent;
@@ -70,8 +69,7 @@ function detectCrossovers(ema1: number[], ema2: number[], ema3: number[] | null,
           position: 'aboveBar',
           color: bearishColor,
           shape: 'arrowDown',
-          text: 'EMA SELL',
-          size: 1.5
+          text: 'EMA SELL'
         });
       }
     }
@@ -90,8 +88,7 @@ function detectCrossovers(ema1: number[], ema2: number[], ema3: number[] | null,
           position: 'belowBar',
           color: bullishColor,
           shape: 'arrowUp',
-          text: 'EMA BUY',
-          size: 1.5
+          text: 'EMA BUY'
         });
       } else if (prevEma1 >= prevEma2 && currEma1 < currEma2) {
         const priceOffset = candles[i].high * offsetPercent;
@@ -100,8 +97,7 @@ function detectCrossovers(ema1: number[], ema2: number[], ema3: number[] | null,
           position: 'aboveBar',
           color: bearishColor,
           shape: 'arrowDown',
-          text: 'EMA SELL',
-          size: 1.5
+          text: 'EMA SELL'
         });
       }
     }
@@ -218,7 +214,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
           rightPriceScale: {
             width: 60,
             scaleMargins: {
-              top: 0.15,
+              top: 0.25,
               bottom: 0.4,
             },
           },
