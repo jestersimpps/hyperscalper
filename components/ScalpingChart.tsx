@@ -44,9 +44,9 @@ function detectCrossovers(ema5: number[], ema13: number[], candles: CandleData[]
       markers.push({
         time: candles[i].time / 1000,
         position: 'belowBar',
-        color: 'var(--primary)',
+        color: 'var(--status-bullish)',
         shape: 'arrowUp',
-        text: 'Buy'
+        text: 'EMA BUY'
       });
     } else if (prevEma5 >= prevEma13 && currEma5 < currEma13) {
       markers.push({
@@ -54,7 +54,7 @@ function detectCrossovers(ema5: number[], ema13: number[], candles: CandleData[]
         position: 'aboveBar',
         color: 'var(--status-bearish)',
         shape: 'arrowDown',
-        text: 'Sell'
+        text: 'EMA SELL'
       });
     }
   }
@@ -605,12 +605,12 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
         {emaSettings.ema1.enabled && emaSettings.ema2.enabled && (
           <>
             <div className="flex items-center gap-1">
-              <span className="text-primary">↑</span>
-              <span className="text-primary-muted">Buy</span>
+              <span className="text-bullish">↑</span>
+              <span className="text-primary-muted">EMA BUY</span>
             </div>
             <div className="flex items-center gap-1">
               <span className="text-bearish">↓</span>
-              <span className="text-primary-muted">Sell</span>
+              <span className="text-primary-muted">EMA SELL</span>
             </div>
           </>
         )}
