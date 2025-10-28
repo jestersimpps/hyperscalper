@@ -31,31 +31,70 @@ interface StochasticData {
   d: number;
 }
 
-function detectCrossovers(ema5: number[], ema13: number[], candles: CandleData[]): CrossoverMarker[] {
+function detectCrossovers(ema1: number[], ema2: number[], ema3: number[] | null, candles: CandleData[]): CrossoverMarker[] {
   const markers: CrossoverMarker[] = [];
 
-  for (let i = 1; i < ema5.length && i < ema13.length; i++) {
-    const prevEma5 = ema5[i - 1];
-    const prevEma13 = ema13[i - 1];
-    const currEma5 = ema5[i];
-    const currEma13 = ema13[i];
+  if (ema3) {
+    // When 3 EMAs are enabled, detect when all 3 align
+    for (let i = 1; i < ema1.length && i < ema2.length && i < ema3.length; i++) {
+      const prevEma1 = ema1[i - 1];
+      const prevEma2 = ema2[i - 1];
+      const prevEma3 = ema3[i - 1];
+      const currEma1 = ema1[i];
+      const currEma2 = ema2[i];
+      const currEma3 = ema3[i];
 
-    if (prevEma5 <= prevEma13 && currEma5 > currEma13) {
-      markers.push({
-        time: candles[i].time / 1000,
-        position: 'belowBar',
-        color: 'var(--status-bullish)',
-        shape: 'arrowUp',
-        text: 'EMA BUY'
-      });
-    } else if (prevEma5 >= prevEma13 && currEma5 < currEma13) {
-      markers.push({
-        time: candles[i].time / 1000,
-        position: 'aboveBar',
-        color: 'var(--status-bearish)',
-        shape: 'arrowDown',
-        text: 'EMA SELL'
-      });
+      // Check for bullish alignment: EMA1 > EMA2 > EMA3
+      const wasBullish = prevEma1 > prevEma2 && prevEma2 > prevEma3;
+      const isBullish = currEma1 > currEma2 && currEma2 > currEma3;
+
+      // Check for bearish alignment: EMA1 < EMA2 < EMA3
+      const wasBearish = prevEma1 < prevEma2 && prevEma2 < prevEma3;
+      const isBearish = currEma1 < currEma2 && currEma2 < currEma3;
+
+      if (!wasBullish && isBullish) {
+        markers.push({
+          time: candles[i].time / 1000,
+          position: 'belowBar',
+          color: 'var(--status-bullish)',
+          shape: 'arrowUp',
+          text: 'EMA BUY'
+        });
+      } else if (!wasBearish && isBearish) {
+        markers.push({
+          time: candles[i].time / 1000,
+          position: 'aboveBar',
+          color: 'var(--status-bearish)',
+          shape: 'arrowDown',
+          text: 'EMA SELL'
+        });
+      }
+    }
+  } else {
+    // When 2 EMAs are enabled, detect crossovers between them
+    for (let i = 1; i < ema1.length && i < ema2.length; i++) {
+      const prevEma1 = ema1[i - 1];
+      const prevEma2 = ema2[i - 1];
+      const currEma1 = ema1[i];
+      const currEma2 = ema2[i];
+
+      if (prevEma1 <= prevEma2 && currEma1 > currEma2) {
+        markers.push({
+          time: candles[i].time / 1000,
+          position: 'belowBar',
+          color: 'var(--status-bullish)',
+          shape: 'arrowUp',
+          text: 'EMA BUY'
+        });
+      } else if (prevEma1 >= prevEma2 && currEma1 < currEma2) {
+        markers.push({
+          time: candles[i].time / 1000,
+          position: 'aboveBar',
+          color: 'var(--status-bearish)',
+          shape: 'arrowDown',
+          text: 'EMA SELL'
+        });
+      }
     }
   }
 
@@ -479,7 +518,8 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
       }
 
       if (emaSettings.ema1.enabled && emaSettings.ema2.enabled && ema1.length > 0 && ema2.length > 0) {
-        const markers = detectCrossovers(ema1, ema2, candles);
+        const ema3ForDetection = emaSettings.ema3.enabled && ema3.length > 0 ? ema3 : null;
+        const markers = detectCrossovers(ema1, ema2, ema3ForDetection, candles);
         candleSeriesRef.current.setMarkers(markers);
       } else {
         candleSeriesRef.current.setMarkers([]);
