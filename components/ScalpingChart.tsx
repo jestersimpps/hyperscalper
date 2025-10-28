@@ -31,8 +31,9 @@ interface StochasticData {
   d: number;
 }
 
-function detectCrossovers(ema1: number[], ema2: number[], ema3: number[] | null, candles: CandleData[], bullishColor: string, bearishColor: string): CrossoverMarker[] {
-  const markers: CrossoverMarker[] = [];
+function detectCrossovers(ema1: number[], ema2: number[], ema3: number[] | null, candles: CandleData[], bullishColor: string, bearishColor: string): any[] {
+  const markers: any[] = [];
+  const offsetPercent = 0.015; // 1.5% distance from candle
 
   if (ema3) {
     // When 3 EMAs are enabled, detect when all 3 align
@@ -53,20 +54,24 @@ function detectCrossovers(ema1: number[], ema2: number[], ema3: number[] | null,
       const isBearish = currEma1 < currEma2 && currEma2 < currEma3;
 
       if (!wasBullish && isBullish) {
+        const priceOffset = candles[i].low * offsetPercent;
         markers.push({
           time: candles[i].time / 1000,
           position: 'belowBar',
           color: bullishColor,
           shape: 'arrowUp',
-          text: 'EMA BUY'
+          text: 'EMA BUY',
+          size: 1.5
         });
       } else if (!wasBearish && isBearish) {
+        const priceOffset = candles[i].high * offsetPercent;
         markers.push({
           time: candles[i].time / 1000,
           position: 'aboveBar',
           color: bearishColor,
           shape: 'arrowDown',
-          text: 'EMA SELL'
+          text: 'EMA SELL',
+          size: 1.5
         });
       }
     }
@@ -79,20 +84,24 @@ function detectCrossovers(ema1: number[], ema2: number[], ema3: number[] | null,
       const currEma2 = ema2[i];
 
       if (prevEma1 <= prevEma2 && currEma1 > currEma2) {
+        const priceOffset = candles[i].low * offsetPercent;
         markers.push({
           time: candles[i].time / 1000,
           position: 'belowBar',
           color: bullishColor,
           shape: 'arrowUp',
-          text: 'EMA BUY'
+          text: 'EMA BUY',
+          size: 1.5
         });
       } else if (prevEma1 >= prevEma2 && currEma1 < currEma2) {
+        const priceOffset = candles[i].high * offsetPercent;
         markers.push({
           time: candles[i].time / 1000,
           position: 'aboveBar',
           color: bearishColor,
           shape: 'arrowDown',
-          text: 'EMA SELL'
+          text: 'EMA SELL',
+          size: 1.5
         });
       }
     }
