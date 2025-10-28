@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import GlobalBTCProvider from "@/components/providers/GlobalBTCProvider";
 import SymbolMetaHydrator from "@/components/providers/SymbolMetaHydrator";
 import SettingsPanel from "@/components/layout/SettingsPanel";
 
@@ -54,7 +53,6 @@ export default async function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         suppressHydrationWarning
       >
-        <GlobalBTCProvider />
         <SymbolMetaHydrator initialData={symbolMetadata} />
         <SettingsPanel />
         {children}
