@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useCandleStore } from '@/stores/useCandleStore';
 import { useSymbolMetaStore } from '@/stores/useSymbolMetaStore';
+import { getStandardTimeWindow } from '@/lib/time-utils';
 
 interface MarketStatsProps {
   coin: string;
@@ -25,9 +26,7 @@ export default function MarketStats({ coin, currentPrice }: MarketStatsProps) {
   }, [coin]);
 
   useEffect(() => {
-    const endTime = Date.now();
-    const startTime = endTime - 24 * 60 * 60 * 1000;
-
+    const { startTime, endTime } = getStandardTimeWindow();
     const { fetchCandles, subscribeToCandles } = useCandleStore.getState();
     fetchCandles(coin, '1h', startTime, endTime);
     subscribeToCandles(coin, '1h');

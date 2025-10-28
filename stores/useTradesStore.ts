@@ -15,7 +15,7 @@ interface TradesStore {
   cleanup: () => void;
 }
 
-const MAX_TRADES = 1000;
+const MAX_TRADES = 300;
 
 const formatPrice = (value: number, decimals: number): string => {
   return parseFloat(value.toFixed(decimals)).toString();

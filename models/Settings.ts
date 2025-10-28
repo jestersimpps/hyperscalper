@@ -17,8 +17,20 @@ export interface StochasticSettings {
   };
 }
 
+export interface EmaConfig {
+  enabled: boolean;
+  period: number;
+}
+
+export interface EmaSettings {
+  ema1: EmaConfig;
+  ema2: EmaConfig;
+  ema3: EmaConfig;
+}
+
 export interface IndicatorSettings {
   stochastic: StochasticSettings;
+  ema: EmaSettings;
 }
 
 export interface ScannerSettings {
@@ -54,6 +66,11 @@ export const DEFAULT_SETTINGS: AppSettings = {
         '15m': { ...DEFAULT_STOCHASTIC_CONFIG, enabled: true },
         '1h': { ...DEFAULT_STOCHASTIC_CONFIG, enabled: false },
       },
+    },
+    ema: {
+      ema1: { enabled: true, period: 5 },
+      ema2: { enabled: true, period: 13 },
+      ema3: { enabled: true, period: 21 },
     },
   },
   scanner: {},

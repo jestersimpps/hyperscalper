@@ -7,7 +7,7 @@ interface CandleStore {
   candles: Record<string, CandleData[]>;
   loading: Record<string, boolean>;
   errors: Record<string, string | null>;
-  subscriptions: Record<string, { subscriptionId: string; cleanup: () => void }>;
+  subscriptions: Record<string, { subscriptionId: string; cleanup: () => void; refCount: number }>;
   wsService: ExchangeWebSocketService | null;
 
   fetchCandles: (coin: string, interval: TimeInterval, startTime: number, endTime: number) => Promise<void>;
@@ -83,11 +83,20 @@ export const useCandleStore = create<CandleStore>((set, get) => ({
     const { subscriptions } = get();
 
     if (subscriptions[key]) {
-      console.log(`[Store] Already subscribed to ${key}`);
+      console.log(`[Store] Already subscribed to ${key}, incrementing refCount (${subscriptions[key].refCount} -> ${subscriptions[key].refCount + 1})`);
+      set((state) => ({
+        subscriptions: {
+          ...state.subscriptions,
+          [key]: {
+            ...state.subscriptions[key],
+            refCount: state.subscriptions[key].refCount + 1
+          }
+        }
+      }));
       return;
     }
 
-    console.log(`[Store] Subscribing to ${key}`);
+    console.log(`[Store] Subscribing to ${key} (refCount: 1)`);
 
     const initWebSocket = async () => {
       const { useWebSocketService } = await import('@/lib/websocket/websocket-singleton');
@@ -127,7 +136,7 @@ export const useCandleStore = create<CandleStore>((set, get) => ({
         wsService: service,
         subscriptions: {
           ...state.subscriptions,
-          [key]: { subscriptionId, cleanup }
+          [key]: { subscriptionId, cleanup, refCount: 1 }
         },
       }));
 
@@ -147,7 +156,24 @@ export const useCandleStore = create<CandleStore>((set, get) => ({
       return;
     }
 
-    console.log(`[Store] Unsubscribing from ${key}`);
+    const newRefCount = subscription.refCount - 1;
+    console.log(`[Store] Unsubscribing from ${key}, decrementing refCount (${subscription.refCount} -> ${newRefCount})`);
+
+    if (newRefCount > 0) {
+      set((state) => ({
+        subscriptions: {
+          ...state.subscriptions,
+          [key]: {
+            ...state.subscriptions[key],
+            refCount: newRefCount
+          }
+        }
+      }));
+      console.log(`[Store] Keeping subscription to ${key} alive (refCount: ${newRefCount})`);
+      return;
+    }
+
+    console.log(`[Store] Fully unsubscribing from ${key} (refCount reached 0)`);
 
     if (wsService) {
       wsService.unsubscribe(subscription.subscriptionId);
@@ -159,7 +185,7 @@ export const useCandleStore = create<CandleStore>((set, get) => ({
 
     set({ subscriptions: newSubscriptions });
 
-    console.log(`[Store] Unsubscribed from ${key}`);
+    console.log(`[Store] Fully unsubscribed from ${key}`);
   },
 
   cleanup: () => {

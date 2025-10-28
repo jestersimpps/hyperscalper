@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { AppSettings, DEFAULT_SETTINGS, StochasticSettings } from '@/models/Settings';
+import { AppSettings, DEFAULT_SETTINGS, StochasticSettings, EmaSettings } from '@/models/Settings';
 
 type TabType = 'scanner' | 'indicators' | 'orders';
 
@@ -13,6 +13,7 @@ interface SettingsStore {
   togglePanel: () => void;
   setActiveTab: (tab: TabType) => void;
   updateStochasticSettings: (settings: Partial<StochasticSettings>) => void;
+  updateEmaSettings: (settings: Partial<EmaSettings>) => void;
   resetSettings: () => void;
 }
 
@@ -55,6 +56,20 @@ const mergeSettings = (storedSettings: any): AppSettings => {
             },
           },
         },
+        ema: {
+          ema1: {
+            enabled: storedSettings.indicators?.ema?.ema1?.enabled ?? DEFAULT_SETTINGS.indicators.ema.ema1.enabled,
+            period: storedSettings.indicators?.ema?.ema1?.period ?? DEFAULT_SETTINGS.indicators.ema.ema1.period,
+          },
+          ema2: {
+            enabled: storedSettings.indicators?.ema?.ema2?.enabled ?? DEFAULT_SETTINGS.indicators.ema.ema2.enabled,
+            period: storedSettings.indicators?.ema?.ema2?.period ?? DEFAULT_SETTINGS.indicators.ema.ema2.period,
+          },
+          ema3: {
+            enabled: storedSettings.indicators?.ema?.ema3?.enabled ?? DEFAULT_SETTINGS.indicators.ema.ema3.enabled,
+            period: storedSettings.indicators?.ema?.ema3?.period ?? DEFAULT_SETTINGS.indicators.ema.ema3.period,
+          },
+        },
       },
       scanner: storedSettings.scanner ?? DEFAULT_SETTINGS.scanner,
       orders: storedSettings.orders ?? DEFAULT_SETTINGS.orders,
@@ -83,6 +98,19 @@ export const useSettingsStore = create<SettingsStore>()(
               ...state.settings.indicators,
               stochastic: {
                 ...state.settings.indicators.stochastic,
+                ...updates,
+              },
+            },
+          },
+        })),
+      updateEmaSettings: (updates) =>
+        set((state) => ({
+          settings: {
+            ...state.settings,
+            indicators: {
+              ...state.settings.indicators,
+              ema: {
+                ...state.settings.indicators.ema,
                 ...updates,
               },
             },

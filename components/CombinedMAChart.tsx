@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { CandleData, TimeInterval } from '@/types';
+import { useSettingsStore } from '@/stores/useSettingsStore';
+import { calculateEMA } from '@/lib/indicators';
 
 interface CombinedMAChartProps {
   coin: string;
@@ -13,23 +15,6 @@ interface CrossoverMarker {
   color: string;
   shape: 'arrowUp' | 'arrowDown';
   text: string;
-}
-
-function calculateEMA(data: number[], period: number): number[] {
-  const k = 2 / (period + 1);
-  const emaArray: number[] = [];
-
-  if (data.length === 0) return emaArray;
-
-  let ema = data[0];
-  emaArray.push(ema);
-
-  for (let i = 1; i < data.length; i++) {
-    ema = data[i] * k + ema * (1 - k);
-    emaArray.push(ema);
-  }
-
-  return emaArray;
 }
 
 function detectCrossovers(ema5: number[], ema13: number[], candles: CandleData[], color: string, label: string): CrossoverMarker[] {
@@ -71,6 +56,7 @@ export default function CombinedMAChart({ coin }: CombinedMAChartProps) {
   const price15mSeriesRef = useRef<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [chartReady, setChartReady] = useState(false);
+  const emaSettings = useSettingsStore((state) => state.settings.indicators.ema);
   const candlesBufferRef = useRef<{
     '1m': CandleData[];
     '5m': CandleData[];
@@ -189,17 +175,6 @@ export default function CombinedMAChart({ coin }: CombinedMAChartProps) {
         };
 
         if (price1mSeriesRef.current && price5mSeriesRef.current && price15mSeriesRef.current) {
-          const closePrices1m = responses[0].map((c: CandleData) => c.close);
-          const closePrices5m = responses[1].map((c: CandleData) => c.close);
-          const closePrices15m = responses[2].map((c: CandleData) => c.close);
-
-          const ema1m5 = calculateEMA(closePrices1m, 5);
-          const ema1m13 = calculateEMA(closePrices1m, 13);
-          const ema5m5 = calculateEMA(closePrices5m, 5);
-          const ema5m13 = calculateEMA(closePrices5m, 13);
-          const ema15m5 = calculateEMA(closePrices15m, 5);
-          const ema15m13 = calculateEMA(closePrices15m, 13);
-
           price1mSeriesRef.current.setData(responses[0].map((c: CandleData) => ({
             time: (c.time / 1000) as any,
             value: c.close,
@@ -215,13 +190,30 @@ export default function CombinedMAChart({ coin }: CombinedMAChartProps) {
             value: c.close,
           })));
 
-          const markers1m = detectCrossovers(ema1m5, ema1m13, responses[0], '#2962FF', '1m');
-          const markers5m = detectCrossovers(ema5m5, ema5m13, responses[1], '#FF6D00', '5m');
-          const markers15m = detectCrossovers(ema15m5, ema15m13, responses[2], '#00E676', '15m');
+          if (emaSettings.ema1.enabled && emaSettings.ema2.enabled) {
+            const closePrices1m = responses[0].map((c: CandleData) => c.close);
+            const closePrices5m = responses[1].map((c: CandleData) => c.close);
+            const closePrices15m = responses[2].map((c: CandleData) => c.close);
 
-          price1mSeriesRef.current.setMarkers(markers1m);
-          price5mSeriesRef.current.setMarkers(markers5m);
-          price15mSeriesRef.current.setMarkers(markers15m);
+            const ema1m1 = calculateEMA(closePrices1m, emaSettings.ema1.period);
+            const ema1m2 = calculateEMA(closePrices1m, emaSettings.ema2.period);
+            const ema5m1 = calculateEMA(closePrices5m, emaSettings.ema1.period);
+            const ema5m2 = calculateEMA(closePrices5m, emaSettings.ema2.period);
+            const ema15m1 = calculateEMA(closePrices15m, emaSettings.ema1.period);
+            const ema15m2 = calculateEMA(closePrices15m, emaSettings.ema2.period);
+
+            const markers1m = detectCrossovers(ema1m1, ema1m2, responses[0], '#2962FF', '1m');
+            const markers5m = detectCrossovers(ema5m1, ema5m2, responses[1], '#FF6D00', '5m');
+            const markers15m = detectCrossovers(ema15m1, ema15m2, responses[2], '#00E676', '15m');
+
+            price1mSeriesRef.current.setMarkers(markers1m);
+            price5mSeriesRef.current.setMarkers(markers5m);
+            price15mSeriesRef.current.setMarkers(markers15m);
+          } else {
+            price1mSeriesRef.current.setMarkers([]);
+            price5mSeriesRef.current.setMarkers([]);
+            price15mSeriesRef.current.setMarkers([]);
+          }
         }
       } catch (error) {
         console.error('Error fetching candles:', error);
@@ -231,7 +223,7 @@ export default function CombinedMAChart({ coin }: CombinedMAChartProps) {
     };
 
     fetchAllCandles();
-  }, [coin, chartReady]);
+  }, [coin, chartReady, emaSettings]);
 
   useEffect(() => {
     if (!chartReady) return;
@@ -247,27 +239,44 @@ export default function CombinedMAChart({ coin }: CombinedMAChartProps) {
 
         candlesBufferRef.current[interval] = [...candlesBufferRef.current[interval].slice(-200), candle];
 
-        const closePrices = candlesBufferRef.current[interval].map(c => c.close);
-        const ema5 = calculateEMA(closePrices, 5);
-        const ema13 = calculateEMA(closePrices, 13);
-
         const time = (candle.time / 1000) as any;
 
         if (interval === '1m' && price1mSeriesRef.current) {
           price1mSeriesRef.current.update({ time, value: candle.close });
 
-          const markers = detectCrossovers(ema5, ema13, candlesBufferRef.current[interval], '#2962FF', '1m');
-          price1mSeriesRef.current.setMarkers(markers);
+          if (emaSettings.ema1.enabled && emaSettings.ema2.enabled) {
+            const closePrices = candlesBufferRef.current[interval].map(c => c.close);
+            const ema1 = calculateEMA(closePrices, emaSettings.ema1.period);
+            const ema2 = calculateEMA(closePrices, emaSettings.ema2.period);
+            const markers = detectCrossovers(ema1, ema2, candlesBufferRef.current[interval], '#2962FF', '1m');
+            price1mSeriesRef.current.setMarkers(markers);
+          } else {
+            price1mSeriesRef.current.setMarkers([]);
+          }
         } else if (interval === '5m' && price5mSeriesRef.current) {
           price5mSeriesRef.current.update({ time, value: candle.close });
 
-          const markers = detectCrossovers(ema5, ema13, candlesBufferRef.current[interval], '#FF6D00', '5m');
-          price5mSeriesRef.current.setMarkers(markers);
+          if (emaSettings.ema1.enabled && emaSettings.ema2.enabled) {
+            const closePrices = candlesBufferRef.current[interval].map(c => c.close);
+            const ema1 = calculateEMA(closePrices, emaSettings.ema1.period);
+            const ema2 = calculateEMA(closePrices, emaSettings.ema2.period);
+            const markers = detectCrossovers(ema1, ema2, candlesBufferRef.current[interval], '#FF6D00', '5m');
+            price5mSeriesRef.current.setMarkers(markers);
+          } else {
+            price5mSeriesRef.current.setMarkers([]);
+          }
         } else if (interval === '15m' && price15mSeriesRef.current) {
           price15mSeriesRef.current.update({ time, value: candle.close });
 
-          const markers = detectCrossovers(ema5, ema13, candlesBufferRef.current[interval], '#00E676', '15m');
-          price15mSeriesRef.current.setMarkers(markers);
+          if (emaSettings.ema1.enabled && emaSettings.ema2.enabled) {
+            const closePrices = candlesBufferRef.current[interval].map(c => c.close);
+            const ema1 = calculateEMA(closePrices, emaSettings.ema1.period);
+            const ema2 = calculateEMA(closePrices, emaSettings.ema2.period);
+            const markers = detectCrossovers(ema1, ema2, candlesBufferRef.current[interval], '#00E676', '15m');
+            price15mSeriesRef.current.setMarkers(markers);
+          } else {
+            price15mSeriesRef.current.setMarkers([]);
+          }
         }
       };
 
@@ -282,7 +291,7 @@ export default function CombinedMAChart({ coin }: CombinedMAChartProps) {
     return () => {
       eventSources.forEach(es => es.close());
     };
-  }, [coin, chartReady]);
+  }, [coin, chartReady, emaSettings]);
 
   return (
     <div className="relative">

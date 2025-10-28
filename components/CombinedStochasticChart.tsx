@@ -5,10 +5,13 @@ import type { CandleData, TimeInterval } from '@/types';
 import { useCandleStore } from '@/stores/useCandleStore';
 import { useSettingsStore } from '@/stores/useSettingsStore';
 import { getThemeColors } from '@/lib/theme-utils';
+import { getStandardTimeWindow } from '@/lib/time-utils';
 
 interface CombinedStochasticChartProps {
   coin: string;
   onChartReady?: (chart: any) => void;
+  candleData?: Record<TimeInterval, CandleData[]>;
+  isExternalData?: boolean;
 }
 
 interface StochasticData {
@@ -70,7 +73,7 @@ function calculateStochastic(candles: CandleData[], period: number = 14, smoothK
   return result;
 }
 
-export default function CombinedStochasticChart({ coin, onChartReady }: CombinedStochasticChartProps) {
+export default function CombinedStochasticChart({ coin, onChartReady, candleData, isExternalData = false }: CombinedStochasticChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<any>(null);
   const seriesRefsRef = useRef<Record<string, { k: any; d: any }>>({});
@@ -82,10 +85,11 @@ export default function CombinedStochasticChart({ coin, onChartReady }: Combined
     .filter(([_, config]) => config.enabled && stochasticSettings.showMultiTimeframe)
     .map(([tf]) => tf as TimeInterval);
 
-  const allCandles = useCandleStore((state) => state.candles);
-  const allLoading = useCandleStore((state) => state.loading);
+  const storeCandles = useCandleStore((state) => state.candles);
+  const storeLoading = useCandleStore((state) => state.loading);
 
-  const isLoading = enabledTimeframes.some(tf => allLoading[`${coin}-${tf}`]);
+  const allCandles = isExternalData && candleData ? candleData : storeCandles;
+  const isLoading = isExternalData ? false : enabledTimeframes.some(tf => storeLoading[`${coin}-${tf}`]);
 
   useEffect(() => {
     let mounted = true;
@@ -121,6 +125,7 @@ export default function CombinedStochasticChart({ coin, onChartReady }: Combined
             fixRightEdge: false,
           },
           rightPriceScale: {
+            width: 60,
             scaleMargins: {
               top: 0.1,
               bottom: 0.1,
@@ -194,11 +199,9 @@ export default function CombinedStochasticChart({ coin, onChartReady }: Combined
   }, [enabledTimeframes.join(','), stochasticSettings.showMultiTimeframe]);
 
   useEffect(() => {
-    if (!chartReady || enabledTimeframes.length === 0) return;
+    if (!chartReady || enabledTimeframes.length === 0 || isExternalData) return;
 
-    const endTime = Date.now();
-    const startTime = endTime - (24 * 60 * 60 * 1000);
-
+    const { startTime, endTime } = getStandardTimeWindow();
     const { fetchCandles, subscribeToCandles } = useCandleStore.getState();
 
     enabledTimeframes.forEach(interval => {
@@ -212,13 +215,13 @@ export default function CombinedStochasticChart({ coin, onChartReady }: Combined
         unsubscribeFromCandles(coin, interval);
       });
     };
-  }, [coin, chartReady, enabledTimeframes.join(',')]);
+  }, [coin, chartReady, enabledTimeframes.join(','), isExternalData]);
 
   useEffect(() => {
     if (!chartReady || Object.keys(seriesRefsRef.current).length === 0) return;
 
     enabledTimeframes.forEach((timeframe) => {
-      const candles = allCandles[`${coin}-${timeframe}`];
+      const candles = isExternalData ? allCandles[timeframe] : allCandles[`${coin}-${timeframe}`];
       if (!candles || candles.length === 0) return;
 
       const config = stochasticSettings.timeframes[timeframe];

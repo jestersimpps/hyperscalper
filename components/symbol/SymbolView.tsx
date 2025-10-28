@@ -1,8 +1,7 @@
 'use client';
 
-import { useState, useCallback, useEffect, useRef } from 'react';
-import CandlestickChart from '@/components/CandlestickChart';
-import CombinedStochasticChart from '@/components/CombinedStochasticChart';
+import { useState, useEffect, useRef } from 'react';
+import ScalpingChart from '@/components/ScalpingChart';
 import MarketStats from '@/components/MarketStats';
 import OrderBook from '@/components/OrderBook';
 import TerminalHeader from '@/components/layout/TerminalHeader';
@@ -16,46 +15,12 @@ interface SymbolViewProps {
 
 export default function SymbolView({ coin }: SymbolViewProps) {
   const [currentPrice, setCurrentPrice] = useState(0);
-  const [mainChart, setMainChart] = useState<any>(null);
-  const [stochChart, setStochChart] = useState<any>(null);
   const [newTradeKeys, setNewTradeKeys] = useState<Set<string>>(new Set());
 
   const trades = useTradesStore((state) => state.trades[coin]) || [];
   const subscribeToTrades = useTradesStore((state) => state.subscribeToTrades);
   const unsubscribeFromTrades = useTradesStore((state) => state.unsubscribeFromTrades);
   const seenTimestampsRef = useRef<Set<number>>(new Set());
-
-  const handleMainChartReady = useCallback((chart: any) => {
-    setMainChart(chart);
-  }, []);
-
-  const handleStochChartReady = useCallback((chart: any) => {
-    setStochChart(chart);
-  }, []);
-
-  useEffect(() => {
-    if (!mainChart || !stochChart) return;
-
-    const mainToStochHandler = (range: any) => {
-      if (range) {
-        stochChart.timeScale().setVisibleLogicalRange(range);
-      }
-    };
-
-    const stochToMainHandler = (range: any) => {
-      if (range) {
-        mainChart.timeScale().setVisibleLogicalRange(range);
-      }
-    };
-
-    mainChart.timeScale().subscribeVisibleLogicalRangeChange(mainToStochHandler);
-    stochChart.timeScale().subscribeVisibleLogicalRangeChange(stochToMainHandler);
-
-    return () => {
-      mainChart.timeScale().unsubscribeVisibleLogicalRangeChange(mainToStochHandler);
-      stochChart.timeScale().unsubscribeVisibleLogicalRangeChange(stochToMainHandler);
-    };
-  }, [mainChart, stochChart]);
 
   useEffect(() => {
     seenTimestampsRef.current.clear();
@@ -113,18 +78,12 @@ export default function SymbolView({ coin }: SymbolViewProps) {
           {/* Left Side - Charts */}
           <div className="flex-1 min-w-[500px] flex flex-col gap-2">
             <div className="terminal-border p-1.5">
-              <div className="text-[10px] text-primary-muted mb-1 uppercase tracking-wider">█ 1MIN CHART</div>
-              <CandlestickChart
+              <div className="text-[10px] text-primary-muted mb-1 uppercase tracking-wider">█ SCALPING CHART</div>
+              <ScalpingChart
                 coin={coin}
                 interval="1m"
                 onPriceUpdate={setCurrentPrice}
-                onChartReady={handleMainChartReady}
               />
-            </div>
-
-            <div className="terminal-border p-1.5">
-              <div className="text-[10px] text-primary-muted mb-1 uppercase tracking-wider">█ STOCHASTIC (1m/5m/15m)</div>
-              <CombinedStochasticChart coin={coin} onChartReady={handleStochChartReady} />
             </div>
           </div>
 

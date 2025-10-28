@@ -2,11 +2,12 @@
 
 import { useEffect, useCallback, useState } from 'react';
 import { useSettingsStore } from '@/stores/useSettingsStore';
-import { StochasticTimeframeConfig } from '@/models/Settings';
+import { StochasticTimeframeConfig, EmaConfig } from '@/models/Settings';
 
 export default function SettingsPanel() {
-  const { isPanelOpen, activeTab, closePanel, setActiveTab, settings, updateStochasticSettings } = useSettingsStore();
+  const { isPanelOpen, activeTab, closePanel, setActiveTab, settings, updateStochasticSettings, updateEmaSettings } = useSettingsStore();
   const [isStochasticExpanded, setIsStochasticExpanded] = useState(true);
+  const [isEmaExpanded, setIsEmaExpanded] = useState(true);
 
   const handleBackdropClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget) {
@@ -231,6 +232,131 @@ export default function SettingsPanel() {
                           </div>
                         );
                       })}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* EMA Settings - Expandable */}
+              <div className="border border-frame rounded overflow-hidden">
+                <button
+                  onClick={() => setIsEmaExpanded(!isEmaExpanded)}
+                  className="w-full p-3 bg-bg-secondary flex items-center justify-between hover:bg-primary/5 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-primary font-mono text-xs font-bold">█ EXPONENTIAL MOVING AVERAGES</span>
+                  </div>
+                  <span className="text-primary text-sm">{isEmaExpanded ? '▼' : '▶'}</span>
+                </button>
+
+                {isEmaExpanded && (
+                  <div className="p-4 space-y-3 bg-bg-primary">
+                    {/* EMA 1 */}
+                    <div className="p-3 bg-bg-secondary border border-frame rounded">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-primary font-mono text-xs font-bold">EMA 1</span>
+                        <label className="flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={settings.indicators.ema.ema1.enabled}
+                            onChange={(e) => {
+                              updateEmaSettings({
+                                ema1: { ...settings.indicators.ema.ema1, enabled: e.target.checked },
+                              });
+                            }}
+                            className="w-4 h-4 accent-primary cursor-pointer"
+                          />
+                        </label>
+                      </div>
+                      {settings.indicators.ema.ema1.enabled && (
+                        <div>
+                          <label className="text-primary-muted font-mono block mb-1 text-xs">PERIOD</label>
+                          <input
+                            type="number"
+                            min="2"
+                            max="200"
+                            value={settings.indicators.ema.ema1.period}
+                            onChange={(e) => {
+                              updateEmaSettings({
+                                ema1: { ...settings.indicators.ema.ema1, period: Number(e.target.value) },
+                              });
+                            }}
+                            className="w-full bg-bg-primary border border-frame text-primary px-2 py-1 rounded font-mono text-xs"
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* EMA 2 */}
+                    <div className="p-3 bg-bg-secondary border border-frame rounded">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-primary font-mono text-xs font-bold">EMA 2</span>
+                        <label className="flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={settings.indicators.ema.ema2.enabled}
+                            onChange={(e) => {
+                              updateEmaSettings({
+                                ema2: { ...settings.indicators.ema.ema2, enabled: e.target.checked },
+                              });
+                            }}
+                            className="w-4 h-4 accent-primary cursor-pointer"
+                          />
+                        </label>
+                      </div>
+                      {settings.indicators.ema.ema2.enabled && (
+                        <div>
+                          <label className="text-primary-muted font-mono block mb-1 text-xs">PERIOD</label>
+                          <input
+                            type="number"
+                            min="2"
+                            max="200"
+                            value={settings.indicators.ema.ema2.period}
+                            onChange={(e) => {
+                              updateEmaSettings({
+                                ema2: { ...settings.indicators.ema.ema2, period: Number(e.target.value) },
+                              });
+                            }}
+                            className="w-full bg-bg-primary border border-frame text-primary px-2 py-1 rounded font-mono text-xs"
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* EMA 3 */}
+                    <div className="p-3 bg-bg-secondary border border-frame rounded">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-primary font-mono text-xs font-bold">EMA 3</span>
+                        <label className="flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={settings.indicators.ema.ema3.enabled}
+                            onChange={(e) => {
+                              updateEmaSettings({
+                                ema3: { ...settings.indicators.ema.ema3, enabled: e.target.checked },
+                              });
+                            }}
+                            className="w-4 h-4 accent-primary cursor-pointer"
+                          />
+                        </label>
+                      </div>
+                      {settings.indicators.ema.ema3.enabled && (
+                        <div>
+                          <label className="text-primary-muted font-mono block mb-1 text-xs">PERIOD</label>
+                          <input
+                            type="number"
+                            min="2"
+                            max="200"
+                            value={settings.indicators.ema.ema3.period}
+                            onChange={(e) => {
+                              updateEmaSettings({
+                                ema3: { ...settings.indicators.ema.ema3, period: Number(e.target.value) },
+                              });
+                            }}
+                            className="w-full bg-bg-primary border border-frame text-primary px-2 py-1 rounded font-mono text-xs"
+                          />
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}

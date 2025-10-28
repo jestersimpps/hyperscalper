@@ -8,13 +8,14 @@ import { getThemeColors } from '@/lib/theme-utils';
 import { calculateEMA } from '@/lib/indicators';
 import { getStandardTimeWindow } from '@/lib/time-utils';
 
-interface CandlestickChartProps {
+interface ScalpingChartProps {
   coin: string;
   interval: TimeInterval;
   onPriceUpdate?: (price: number) => void;
   onChartReady?: (chart: any) => void;
   candleData?: CandleData[];
   isExternalData?: boolean;
+  stochasticCandleData?: Record<TimeInterval, CandleData[]>;
 }
 
 interface CrossoverMarker {
@@ -23,6 +24,11 @@ interface CrossoverMarker {
   color: string;
   shape: 'arrowUp' | 'arrowDown';
   text: string;
+}
+
+interface StochasticData {
+  k: number;
+  d: number;
 }
 
 function detectCrossovers(ema5: number[], ema13: number[], candles: CandleData[]): CrossoverMarker[] {
@@ -56,8 +62,46 @@ function detectCrossovers(ema5: number[], ema13: number[], candles: CandleData[]
   return markers;
 }
 
+function calculateStochastic(candles: CandleData[], period: number = 14, smoothK: number = 3, smoothD: number = 3): StochasticData[] {
+  if (!candles || candles.length < period) return [];
 
-export default function CandlestickChart({ coin, interval, onPriceUpdate, onChartReady, candleData, isExternalData = false }: CandlestickChartProps) {
+  const validCandles = candles.filter(c => c && typeof c.high === 'number' && typeof c.low === 'number' && typeof c.close === 'number');
+  if (validCandles.length < period) return [];
+
+  const result: StochasticData[] = [];
+  const kValues: number[] = [];
+
+  for (let i = period - 1; i < validCandles.length; i++) {
+    const slice = validCandles.slice(i - period + 1, i + 1);
+    if (slice.length !== period) continue;
+
+    const high = Math.max(...slice.map(c => c.high));
+    const low = Math.min(...slice.map(c => c.low));
+    const close = validCandles[i].close;
+
+    const k = high === low ? 50 : ((close - low) / (high - low)) * 100;
+    kValues.push(k);
+  }
+
+  const smoothedK: number[] = [];
+  for (let i = smoothK - 1; i < kValues.length; i++) {
+    const sum = kValues.slice(i - smoothK + 1, i + 1).reduce((a, b) => a + b, 0);
+    smoothedK.push(sum / smoothK);
+  }
+
+  for (let i = smoothD - 1; i < smoothedK.length; i++) {
+    const sum = smoothedK.slice(i - smoothD + 1, i + 1).reduce((a, b) => a + b, 0);
+    const d = sum / smoothD;
+    result.push({
+      k: smoothedK[i],
+      d: d
+    });
+  }
+
+  return result;
+}
+
+export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartReady, candleData, isExternalData = false, stochasticCandleData }: ScalpingChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<any>(null);
   const candleSeriesRef = useRef<any>(null);
@@ -65,10 +109,9 @@ export default function CandlestickChart({ coin, interval, onPriceUpdate, onChar
   const ema1SeriesRef = useRef<any>(null);
   const ema2SeriesRef = useRef<any>(null);
   const ema3SeriesRef = useRef<any>(null);
+  const stochSeriesRefsRef = useRef<Record<string, { k: any; d: any }>>({});
   const [chartReady, setChartReady] = useState(false);
   const candlesBufferRef = useRef<CandleData[]>([]);
-  const markersRef = useRef<CrossoverMarker[]>([]);
-  const lastEmaRef = useRef<{ ema1: number; ema2: number; ema3: number } | null>(null);
   const lastCandleTimeRef = useRef<number | null>(null);
 
   const candleKey = `${coin}-${interval}`;
@@ -78,6 +121,14 @@ export default function CandlestickChart({ coin, interval, onPriceUpdate, onChar
   const candles = isExternalData && candleData ? candleData : storeCandles;
   const isLoading = isExternalData ? false : storeLoading;
   const emaSettings = useSettingsStore((state) => state.settings.indicators.ema);
+  const stochasticSettings = useSettingsStore((state) => state.settings.indicators.stochastic);
+
+  const enabledTimeframes = Object.entries(stochasticSettings.timeframes)
+    .filter(([_, config]) => config.enabled && stochasticSettings.showMultiTimeframe)
+    .map(([tf]) => tf as TimeInterval);
+
+  const storeStochCandles = useCandleStore((state) => state.candles);
+  const allStochCandles = isExternalData && stochasticCandleData ? stochasticCandleData : storeStochCandles;
 
   useEffect(() => {
     let mounted = true;
@@ -95,7 +146,7 @@ export default function CandlestickChart({ coin, interval, onPriceUpdate, onChar
 
         const chart = createChart(chartContainerRef.current, {
           width: chartContainerRef.current.clientWidth,
-          height: 350,
+          height: 600,
           layout: {
             background: { color: colors.backgroundPrimary },
             textColor: colors.primaryMuted,
@@ -116,7 +167,7 @@ export default function CandlestickChart({ coin, interval, onPriceUpdate, onChar
             width: 60,
             scaleMargins: {
               top: 0.1,
-              bottom: 0.2,
+              bottom: 0.4,
             },
           },
         });
@@ -139,7 +190,7 @@ export default function CandlestickChart({ coin, interval, onPriceUpdate, onChar
 
         volumeSeries.priceScale().applyOptions({
           scaleMargins: {
-            top: 0.7,
+            top: 0.85,
             bottom: 0,
           },
         });
@@ -160,6 +211,51 @@ export default function CandlestickChart({ coin, interval, onPriceUpdate, onChar
           color: colors.accentGreen,
           lineWidth: 2,
           title: 'EMA 3',
+        });
+
+        // Stochastic series
+        const timeframeColors: Record<string, { k: string; d: string }> = {
+          '1m': { k: colors.accentBlue, d: colors.accentBlueDark },
+          '5m': { k: colors.accentRose, d: colors.statusBearish },
+          '15m': { k: colors.primary, d: colors.primaryDark },
+          '30m': { k: colors.statusBullish, d: colors.primaryMuted },
+          '1h': { k: colors.accentBlue, d: colors.accentBlueDark },
+          '4h': { k: colors.accentRose, d: colors.statusBearish },
+        };
+
+        stochSeriesRefsRef.current = {};
+
+        enabledTimeframes.forEach((timeframe) => {
+          const kSeries = chart.addLineSeries({
+            color: timeframeColors[timeframe].k,
+            lineWidth: 2,
+            title: `${timeframe} %K`,
+            priceScaleId: 'stoch',
+          });
+
+          const dSeries = chart.addLineSeries({
+            color: timeframeColors[timeframe].d,
+            lineWidth: 1,
+            lineStyle: 2,
+            title: `${timeframe} %D`,
+            priceScaleId: 'stoch',
+          });
+
+          kSeries.priceScale().applyOptions({
+            scaleMargins: {
+              top: 0.6,
+              bottom: 0,
+            },
+          });
+
+          dSeries.priceScale().applyOptions({
+            scaleMargins: {
+              top: 0.6,
+              bottom: 0,
+            },
+          });
+
+          stochSeriesRefsRef.current[timeframe] = { k: kSeries, d: dSeries };
         });
 
         chartRef.current = chart;
@@ -207,7 +303,7 @@ export default function CandlestickChart({ coin, interval, onPriceUpdate, onChar
         ema3SeriesRef.current = null;
       }
     };
-  }, []);
+  }, [enabledTimeframes.join(','), stochasticSettings.showMultiTimeframe]);
 
   useEffect(() => {
     if (!chartReady || isExternalData) return;
@@ -217,11 +313,25 @@ export default function CandlestickChart({ coin, interval, onPriceUpdate, onChar
     fetchCandles(coin, interval, startTime, endTime);
     subscribeToCandles(coin, interval);
 
+    // Fetch stochastic data
+    if (stochasticSettings.showMultiTimeframe) {
+      enabledTimeframes.forEach(tf => {
+        fetchCandles(coin, tf, startTime, endTime);
+        subscribeToCandles(coin, tf);
+      });
+    }
+
     return () => {
       const { unsubscribeFromCandles } = useCandleStore.getState();
       unsubscribeFromCandles(coin, interval);
+
+      if (stochasticSettings.showMultiTimeframe) {
+        enabledTimeframes.forEach(tf => {
+          unsubscribeFromCandles(coin, tf);
+        });
+      }
     };
-  }, [coin, interval, chartReady, isExternalData]);
+  }, [coin, interval, chartReady, isExternalData, enabledTimeframes.join(','), stochasticSettings.showMultiTimeframe]);
 
   useEffect(() => {
     lastCandleTimeRef.current = null;
@@ -321,18 +431,54 @@ export default function CandlestickChart({ coin, interval, onPriceUpdate, onChar
       }
     }
 
-    lastEmaRef.current = {
-      ema1: ema1.length > 0 ? ema1[ema1.length - 1] : 0,
-      ema2: ema2.length > 0 ? ema2[ema2.length - 1] : 0,
-      ema3: ema3.length > 0 ? ema3[ema3.length - 1] : 0,
-    };
-
     lastCandleTimeRef.current = lastCandle.time;
 
     if (onPriceUpdate) {
       onPriceUpdate(lastCandle.close);
     }
   }, [candles, chartReady, onPriceUpdate, emaSettings]);
+
+  // Stochastic data update
+  useEffect(() => {
+    if (!chartReady || Object.keys(stochSeriesRefsRef.current).length === 0) return;
+    if (!stochasticSettings.showMultiTimeframe) return;
+
+    enabledTimeframes.forEach((timeframe) => {
+      const stochCandles = isExternalData ? allStochCandles[timeframe] : allStochCandles[`${coin}-${timeframe}`];
+      if (!stochCandles || stochCandles.length === 0) return;
+
+      const config = stochasticSettings.timeframes[timeframe];
+      if (!config) return;
+
+      const validCandles = stochCandles.filter(c => c && typeof c.high === 'number' && typeof c.low === 'number' && typeof c.close === 'number');
+      if (validCandles.length === 0) return;
+
+      const stochData = calculateStochastic(validCandles, config.period, config.smoothK, config.smoothD);
+
+      if (stochData.length > 0 && stochSeriesRefsRef.current[timeframe]) {
+        const offset = validCandles.length - stochData.length;
+
+        stochSeriesRefsRef.current[timeframe].k.setData(stochData.map((s, i) => ({
+          time: (validCandles[i + offset].time / 1000) as any,
+          value: s.k,
+        })));
+
+        stochSeriesRefsRef.current[timeframe].d.setData(stochData.map((s, i) => ({
+          time: (validCandles[i + offset].time / 1000) as any,
+          value: s.d,
+        })));
+      }
+    });
+  }, [chartReady, enabledTimeframes.join(','), allStochCandles, stochasticSettings, coin, isExternalData]);
+
+  const timeframeColorVars: Record<string, { k: string; d: string }> = {
+    '1m': { k: 'var(--accent-blue)', d: 'var(--accent-blue-dark)' },
+    '5m': { k: 'var(--accent-rose)', d: 'var(--status-bearish)' },
+    '15m': { k: 'var(--primary)', d: 'var(--primary-dark)' },
+    '30m': { k: 'var(--status-bullish)', d: 'var(--primary-muted)' },
+    '1h': { k: 'var(--accent-blue)', d: 'var(--accent-blue-dark)' },
+    '4h': { k: 'var(--accent-rose)', d: 'var(--status-bearish)' },
+  };
 
   return (
     <div className="relative">
@@ -370,6 +516,26 @@ export default function CandlestickChart({ coin, interval, onPriceUpdate, onChar
             <div className="flex items-center gap-1">
               <span className="text-bearish">↓</span>
               <span className="text-primary-muted">Sell</span>
+            </div>
+          </>
+        )}
+        {stochasticSettings.showMultiTimeframe && enabledTimeframes.length > 0 && (
+          <>
+            <div className="w-px h-4 bg-frame mx-1"></div>
+            {enabledTimeframes.map((timeframe) => (
+              <div key={timeframe} className="flex items-center gap-3">
+                <div className="flex items-center gap-1">
+                  <div className="w-6 h-0.5" style={{ backgroundColor: timeframeColorVars[timeframe].k }}></div>
+                  <span className="text-primary-muted">{timeframe} %K</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="w-6 h-0.5" style={{ borderTop: `2px dashed ${timeframeColorVars[timeframe].d}`, background: 'none' }}></div>
+                  <span className="text-primary-muted">{timeframe} %D</span>
+                </div>
+              </div>
+            ))}
+            <div className="text-primary-muted ml-auto text-xs">
+              OB: &gt;{stochasticSettings.overboughtLevel} | OS: &lt;{stochasticSettings.oversoldLevel}
             </div>
           </>
         )}
