@@ -32,16 +32,21 @@ function calculateEMA(data: number[], period: number): number[] {
 }
 
 function calculateStochastic(candles: CandleData[], period: number = 14, smoothK: number = 3, smoothD: number = 3): StochasticData[] {
-  if (candles.length < period) return [];
+  if (!candles || candles.length < period) return [];
+
+  const validCandles = candles.filter(c => c && typeof c.high === 'number' && typeof c.low === 'number' && typeof c.close === 'number');
+  if (validCandles.length < period) return [];
 
   const result: StochasticData[] = [];
   const kValues: number[] = [];
 
-  for (let i = period - 1; i < candles.length; i++) {
-    const slice = candles.slice(i - period + 1, i + 1);
+  for (let i = period - 1; i < validCandles.length; i++) {
+    const slice = validCandles.slice(i - period + 1, i + 1);
+    if (slice.length !== period) continue;
+
     const high = Math.max(...slice.map(c => c.high));
     const low = Math.min(...slice.map(c => c.low));
-    const close = candles[i].close;
+    const close = validCandles[i].close;
 
     const k = high === low ? 50 : ((close - low) / (high - low)) * 100;
     kValues.push(k);
@@ -217,23 +222,28 @@ export default function CombinedStochasticChart({ coin, onChartReady }: Combined
       if (!candles || candles.length === 0) return;
 
       const config = stochasticSettings.timeframes[timeframe];
-      const stochData = calculateStochastic(candles, config.period, config.smoothK, config.smoothD);
+      if (!config) return;
+
+      const validCandles = candles.filter(c => c && typeof c.high === 'number' && typeof c.low === 'number' && typeof c.close === 'number');
+      if (validCandles.length === 0) return;
+
+      const stochData = calculateStochastic(validCandles, config.period, config.smoothK, config.smoothD);
 
       if (stochData.length > 0 && seriesRefsRef.current[timeframe]) {
-        const offset = candles.length - stochData.length;
+        const offset = validCandles.length - stochData.length;
 
         seriesRefsRef.current[timeframe].k.setData(stochData.map((s, i) => ({
-          time: (candles[i + offset].time / 1000) as any,
+          time: (validCandles[i + offset].time / 1000) as any,
           value: s.k,
         })));
 
         seriesRefsRef.current[timeframe].d.setData(stochData.map((s, i) => ({
-          time: (candles[i + offset].time / 1000) as any,
+          time: (validCandles[i + offset].time / 1000) as any,
           value: s.d,
         })));
       }
     });
-  }, [chartReady, enabledTimeframes.join(','), allCandles, stochasticSettings]);
+  }, [chartReady, enabledTimeframes.join(','), allCandles, stochasticSettings, coin]);
 
   const timeframeColorVars: Record<string, { k: string; d: string }> = {
     '1m': { k: 'var(--accent-blue)', d: 'var(--accent-blue-dark)' },
