@@ -46,7 +46,15 @@ export const useTradesStore = create<TradesStore>((set, get) => ({
             const existingTrades = state.trades[coin] || [];
             const trades = Array.isArray(tradeBatch) ? tradeBatch : [tradeBatch];
 
-            const updatedTrades = [...trades, ...existingTrades].slice(0, MAX_TRADES);
+            const existingTradeKeys = new Set(
+              existingTrades.map(t => `${t.time}-${t.price}-${t.size}`)
+            );
+
+            const newTrades = trades.filter(
+              trade => !existingTradeKeys.has(`${trade.time}-${trade.price}-${trade.size}`)
+            );
+
+            const updatedTrades = [...newTrades, ...existingTrades].slice(0, MAX_TRADES);
 
             return {
               trades: { ...state.trades, [coin]: updatedTrades },

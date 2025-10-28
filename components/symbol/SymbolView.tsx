@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import CandlestickChart from '@/components/CandlestickChart';
 import CombinedStochasticChart from '@/components/CombinedStochasticChart';
 import MarketStats from '@/components/MarketStats';
@@ -17,10 +17,12 @@ export default function SymbolView({ coin }: SymbolViewProps) {
   const [currentPrice, setCurrentPrice] = useState(0);
   const [mainChart, setMainChart] = useState<any>(null);
   const [stochChart, setStochChart] = useState<any>(null);
+  const [newTradeKeys, setNewTradeKeys] = useState<Set<string>>(new Set());
 
   const trades = useTradesStore((state) => state.trades[coin]) || [];
   const subscribeToTrades = useTradesStore((state) => state.subscribeToTrades);
   const unsubscribeFromTrades = useTradesStore((state) => state.unsubscribeFromTrades);
+  const seenTimestampsRef = useRef<Set<number>>(new Set());
 
   const handleMainChartReady = useCallback((chart: any) => {
     setMainChart(chart);
@@ -55,12 +57,44 @@ export default function SymbolView({ coin }: SymbolViewProps) {
   }, [mainChart, stochChart]);
 
   useEffect(() => {
+    seenTimestampsRef.current.clear();
     subscribeToTrades(coin);
 
     return () => {
       unsubscribeFromTrades(coin);
     };
   }, [coin, subscribeToTrades, unsubscribeFromTrades]);
+
+  useEffect(() => {
+    if (trades.length === 0) return;
+
+    const newKeys = new Set<string>();
+    const seenTimestamps = seenTimestampsRef.current;
+    const newTimestamps = new Set<number>();
+
+    trades.forEach((trade, index) => {
+      if (!seenTimestamps.has(trade.time)) {
+        newTimestamps.add(trade.time);
+      }
+    });
+
+    if (newTimestamps.size > 0) {
+      trades.forEach((trade, index) => {
+        if (newTimestamps.has(trade.time)) {
+          newKeys.add(`${trade.time}-${index}`);
+          seenTimestamps.add(trade.time);
+        }
+      });
+
+      setNewTradeKeys(newKeys);
+
+      const timer = setTimeout(() => {
+        setNewTradeKeys(new Set());
+      }, 500);
+
+      return () => clearTimeout(timer);
+    }
+  }, [trades]);
 
   return (
     <div className="min-h-screen bg-bg-primary">
@@ -105,6 +139,22 @@ export default function SymbolView({ coin }: SymbolViewProps) {
 
               {/* Recent Trades */}
               <div className="terminal-border p-1.5 flex-1 flex flex-col overflow-hidden h-full">
+                <style jsx>{`
+                  @keyframes flash-green {
+                    0%, 100% { background-color: transparent; }
+                    50% { background-color: color-mix(in srgb, var(--status-bullish) 30%, transparent); }
+                  }
+                  @keyframes flash-red {
+                    0%, 100% { background-color: transparent; }
+                    50% { background-color: color-mix(in srgb, var(--status-bearish) 30%, transparent); }
+                  }
+                  .animate-flash-green {
+                    animation: flash-green 0.5s ease-in-out;
+                  }
+                  .animate-flash-red {
+                    animation: flash-red 0.5s ease-in-out;
+                  }
+                `}</style>
                 <div className="text-[10px] text-primary-muted mb-1.5 uppercase tracking-wider">█ RECENT TRADES</div>
 
                 <div className="grid grid-cols-3 text-[10px] text-primary-muted mb-1 font-bold font-mono">
@@ -129,9 +179,12 @@ export default function SymbolView({ coin }: SymbolViewProps) {
 
                         return trades.map((trade, index) => {
                           const percentage = maxSize > 0 ? (trade.size / maxSize) * 100 : 0;
+                          const tradeKey = `${trade.time}-${index}`;
+                          const isNew = newTradeKeys.has(tradeKey);
+                          const flashClass = isNew ? (trade.side === 'buy' ? 'animate-flash-green' : 'animate-flash-red') : '';
 
                           return (
-                            <div key={`${trade.time}-${index}`} className={`grid grid-cols-3 relative ${trade.side === 'buy' ? 'text-bullish' : 'text-bearish'}`}>
+                            <div key={tradeKey} className={`grid grid-cols-3 relative ${trade.side === 'buy' ? 'text-bullish' : 'text-bearish'} ${flashClass}`}>
                               <div
                                 className={`absolute inset-0 ${trade.side === 'buy' ? 'bg-bullish' : 'bg-bearish'} opacity-5`}
                                 style={{ width: `${percentage}%` }}
