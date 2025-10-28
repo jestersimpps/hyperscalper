@@ -62,37 +62,6 @@ function detectCrossovers(ema5: number[], ema13: number[], candles: CandleData[]
   return markers;
 }
 
-function detectStochasticCrossovers(stochData: StochasticData[], candles: CandleData[], offset: number): CrossoverMarker[] {
-  const markers: CrossoverMarker[] = [];
-
-  for (let i = 1; i < stochData.length; i++) {
-    const prevK = stochData[i - 1].k;
-    const prevD = stochData[i - 1].d;
-    const currK = stochData[i].k;
-    const currD = stochData[i].d;
-
-    if (prevK <= prevD && currK > currD) {
-      markers.push({
-        time: candles[i + offset].time / 1000,
-        position: 'belowBar',
-        color: 'var(--status-bullish)',
-        shape: 'circle',
-        text: ''
-      });
-    } else if (prevK >= prevD && currK < currD) {
-      markers.push({
-        time: candles[i + offset].time / 1000,
-        position: 'aboveBar',
-        color: 'var(--status-bearish)',
-        shape: 'circle',
-        text: ''
-      });
-    }
-  }
-
-  return markers;
-}
-
 function calculateStochastic(candles: CandleData[], period: number = 14, smoothK: number = 3, smoothD: number = 3): StochasticData[] {
   if (!candles || candles.length < period) return [];
 
@@ -593,9 +562,6 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
           time: (validCandles[i + offset].time / 1000) as any,
           value: s.d,
         })));
-
-        const markers = detectStochasticCrossovers(stochData, validCandles, offset);
-        stochSeriesRefsRef.current[timeframe].k.setMarkers(markers);
       }
     });
   }, [chartReady, enabledTimeframes.join(','), allStochCandles, stochasticSettings, coin, isExternalData]);
