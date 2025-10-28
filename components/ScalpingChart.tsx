@@ -62,6 +62,37 @@ function detectCrossovers(ema5: number[], ema13: number[], candles: CandleData[]
   return markers;
 }
 
+function detectStochasticCrossovers(stochData: StochasticData[], candles: CandleData[], offset: number): CrossoverMarker[] {
+  const markers: CrossoverMarker[] = [];
+
+  for (let i = 1; i < stochData.length; i++) {
+    const prevK = stochData[i - 1].k;
+    const prevD = stochData[i - 1].d;
+    const currK = stochData[i].k;
+    const currD = stochData[i].d;
+
+    if (prevK <= prevD && currK > currD) {
+      markers.push({
+        time: candles[i + offset].time / 1000,
+        position: 'belowBar',
+        color: 'var(--status-bullish)',
+        shape: 'circle',
+        text: ''
+      });
+    } else if (prevK >= prevD && currK < currD) {
+      markers.push({
+        time: candles[i + offset].time / 1000,
+        position: 'aboveBar',
+        color: 'var(--status-bearish)',
+        shape: 'circle',
+        text: ''
+      });
+    }
+  }
+
+  return markers;
+}
+
 function calculateStochastic(candles: CandleData[], period: number = 14, smoothK: number = 3, smoothD: number = 3): StochasticData[] {
   if (!candles || candles.length < period) return [];
 
@@ -260,12 +291,12 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
 
         // Stochastic series
         const timeframeColors: Record<string, { k: string; d: string }> = {
-          '1m': { k: colors.accentBlue, d: colors.accentBlueDark },
-          '5m': { k: colors.accentRose, d: colors.statusBearish },
-          '15m': { k: colors.primary, d: colors.primaryDark },
-          '30m': { k: colors.statusBullish, d: colors.primaryMuted },
-          '1h': { k: colors.accentBlue, d: colors.accentBlueDark },
-          '4h': { k: colors.accentRose, d: colors.statusBearish },
+          '1m': { k: colors.accentBlue, d: colors.accentBlue },
+          '5m': { k: colors.accentRose, d: colors.accentRose },
+          '15m': { k: colors.primary, d: colors.primary },
+          '30m': { k: colors.statusBullish, d: colors.statusBullish },
+          '1h': { k: colors.accentBlue, d: colors.accentBlue },
+          '4h': { k: colors.accentRose, d: colors.accentRose },
         };
 
         stochSeriesRefsRef.current = {};
@@ -562,17 +593,20 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
           time: (validCandles[i + offset].time / 1000) as any,
           value: s.d,
         })));
+
+        const markers = detectStochasticCrossovers(stochData, validCandles, offset);
+        stochSeriesRefsRef.current[timeframe].k.setMarkers(markers);
       }
     });
   }, [chartReady, enabledTimeframes.join(','), allStochCandles, stochasticSettings, coin, isExternalData]);
 
   const timeframeColorVars: Record<string, { k: string; d: string }> = {
-    '1m': { k: 'var(--accent-blue)', d: 'var(--accent-blue-dark)' },
-    '5m': { k: 'var(--accent-rose)', d: 'var(--status-bearish)' },
-    '15m': { k: 'var(--primary)', d: 'var(--primary-dark)' },
-    '30m': { k: 'var(--status-bullish)', d: 'var(--primary-muted)' },
-    '1h': { k: 'var(--accent-blue)', d: 'var(--accent-blue-dark)' },
-    '4h': { k: 'var(--accent-rose)', d: 'var(--status-bearish)' },
+    '1m': { k: 'var(--accent-blue)', d: 'var(--accent-blue)' },
+    '5m': { k: 'var(--accent-rose)', d: 'var(--accent-rose)' },
+    '15m': { k: 'var(--primary)', d: 'var(--primary)' },
+    '30m': { k: 'var(--status-bullish)', d: 'var(--status-bullish)' },
+    '1h': { k: 'var(--accent-blue)', d: 'var(--accent-blue)' },
+    '4h': { k: 'var(--accent-rose)', d: 'var(--accent-rose)' },
   };
 
   return (
