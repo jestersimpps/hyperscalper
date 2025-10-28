@@ -5,7 +5,6 @@ import ScalpingChart from '@/components/ScalpingChart';
 import MarketStats from '@/components/MarketStats';
 import OrderBook from '@/components/OrderBook';
 import TerminalHeader from '@/components/layout/TerminalHeader';
-import TerminalFooter from '@/components/layout/TerminalFooter';
 import TradeVolumeTimeline from '@/components/TradeVolumeTimeline';
 import { useTradesStore } from '@/stores/useTradesStore';
 
@@ -63,8 +62,8 @@ export default function SymbolView({ coin }: SymbolViewProps) {
   }, [trades]);
 
   return (
-    <div className="min-h-screen bg-bg-primary">
-      <div className="max-w-full mx-auto p-2">
+    <div className="h-full flex flex-col bg-bg-primary">
+      <div className="flex flex-col h-full max-w-full mx-auto p-2">
         {/* Header */}
         <TerminalHeader coin={coin} />
 
@@ -74,10 +73,10 @@ export default function SymbolView({ coin }: SymbolViewProps) {
         </div>
 
         {/* Main Content - Side by Side */}
-        <div className="flex gap-2 overflow-x-auto">
+        <div className="flex gap-2 overflow-x-auto flex-1 min-h-0">
           {/* Left Side - Charts */}
           <div className="flex-1 min-w-[500px] flex flex-col gap-2">
-            <div className="terminal-border p-1.5">
+            <div className="terminal-border p-1.5 flex-1 flex flex-col min-h-0">
               <div className="text-[10px] text-primary-muted mb-1 uppercase tracking-wider">█ SCALPING CHART</div>
               <ScalpingChart
                 coin={coin}
@@ -88,7 +87,7 @@ export default function SymbolView({ coin }: SymbolViewProps) {
           </div>
 
           {/* Right Side - Trading Info */}
-          <div className="flex-1 min-w-[500px] flex gap-2 h-[708px]">
+          <div className="flex-1 min-w-[500px] flex gap-2">
             {/* Left Column - Position and Order Book */}
             <div className="flex-shrink-0 w-80 flex flex-col gap-2">
               {/* Position Info */}
@@ -251,9 +250,6 @@ export default function SymbolView({ coin }: SymbolViewProps) {
             </div>
           </div>
         </div>
-
-        {/* Footer */}
-        <TerminalFooter coin={coin} />
       </div>
     </div>
   );

@@ -16,7 +16,7 @@ export default function AppShell({ sidepanel, children }: AppShellProps) {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-y-auto">
+      <main className="flex-1 h-full overflow-hidden">
         {children}
       </main>
     </div>
