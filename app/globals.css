@@ -1,0 +1,41 @@
+@import "tailwindcss";
+
+:root {
+  --background-primary: #0f1a1f;
+  --background-secondary: #0f1e1e;
+  --border-frame: #273035;
+  --primary: #44baba;
+  --primary-muted: #537270;
+  --primary-dark: #244140;
+  --accent-blue: #3274aa;
+  --accent-blue-dark: #29486b;
+  --accent-rose: #c2968d;
+  --accent-dark-blue: #22303d;
+  --status-bullish: #26a69a;
+  --status-bearish: #ef5350;
+  --status-bearish-bg: #633737;
+}
+
+@theme inline {
+  --color-bg-primary: var(--background-primary);
+  --color-bg-secondary: var(--background-secondary);
+  --color-border-frame: var(--border-frame);
+  --color-primary: var(--primary);
+  --color-primary-muted: var(--primary-muted);
+  --color-primary-dark: var(--primary-dark);
+  --color-accent-blue: var(--accent-blue);
+  --color-accent-blue-dark: var(--accent-blue-dark);
+  --color-accent-rose: var(--accent-rose);
+  --color-accent-dark-blue: var(--accent-dark-blue);
+  --color-bullish: var(--status-bullish);
+  --color-bearish: var(--status-bearish);
+  --color-bearish-bg: var(--status-bearish-bg);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background-primary);
+  color: var(--primary);
+  font-family: Arial, Helvetica, sans-serif;
+}

@@ -1,0 +1,196 @@
+'use client';
+
+import { useEffect, useState, useRef } from 'react';
+import { useWebSocketService } from '@/lib/websocket';
+
+interface OrderBookLevel {
+  price: number;
+  size: number;
+  total: number;
+}
+
+interface OrderBookData {
+  coin: string;
+  timestamp: number;
+  bids: OrderBookLevel[];
+  asks: OrderBookLevel[];
+}
+
+interface OrderBookProps {
+  coin: string;
+}
+
+export default function OrderBook({ coin }: OrderBookProps) {
+  const [orderBook, setOrderBook] = useState<OrderBookData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const prevPricesRef = useRef<Map<number, 'up' | 'down'>>(new Map());
+
+  useEffect(() => {
+    let mounted = true;
+
+    const fetchInitialBook = async () => {
+      try {
+        const response = await fetch(`/api/orderbook?coin=${coin}`);
+        const data: OrderBookData = await response.json();
+        if (mounted && data && data.bids && data.asks) {
+          setOrderBook(data);
+          setIsLoading(false);
+        }
+      } catch (error) {
+        console.error('Error fetching initial order book:', error);
+        if (mounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    fetchInitialBook();
+
+    return () => {
+      mounted = false;
+    };
+  }, [coin]);
+
+  useEffect(() => {
+    if (isLoading) return;
+
+    const { service: wsService, trackSubscription } = useWebSocketService('hyperliquid', false);
+    const untrackSubscription = trackSubscription();
+
+    const subscriptionId = wsService.subscribeToOrderBook(
+      { coin },
+      (data) => {
+        if (!data || !data.bids || !data.asks) {
+          console.warn('Invalid order book data received');
+          return;
+        }
+
+        if (orderBook) {
+          const newPrices = new Map<number, 'up' | 'down'>();
+
+          data.asks?.forEach((ask, idx) => {
+            const oldAsk = orderBook.asks?.[idx];
+            if (oldAsk && ask.price === oldAsk.price) {
+              if (ask.size > oldAsk.size) newPrices.set(ask.price, 'up');
+              else if (ask.size < oldAsk.size) newPrices.set(ask.price, 'down');
+            }
+          });
+
+          data.bids?.forEach((bid, idx) => {
+            const oldBid = orderBook.bids?.[idx];
+            if (oldBid && bid.price === oldBid.price) {
+              if (bid.size > oldBid.size) newPrices.set(bid.price, 'up');
+              else if (bid.size < oldBid.size) newPrices.set(bid.price, 'down');
+            }
+          });
+
+          prevPricesRef.current = newPrices;
+        }
+
+        setOrderBook(data);
+      }
+    );
+
+    return () => {
+      wsService.unsubscribe(subscriptionId);
+      untrackSubscription();
+    };
+  }, [coin, isLoading, orderBook]);
+
+  const getFlashClass = (price: number): string => {
+    const flash = prevPricesRef.current.get(price);
+    if (flash === 'up') return 'animate-flash-green';
+    if (flash === 'down') return 'animate-flash-red';
+    return '';
+  };
+
+  if (isLoading || !orderBook || !orderBook.bids || !orderBook.asks) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-[#537270] text-[10px]">Loading order book...</div>
+      </div>
+    );
+  }
+
+  const maxTotal = Math.max(
+    orderBook.bids.length > 0 ? orderBook.bids[orderBook.bids.length - 1]?.total || 0 : 0,
+    orderBook.asks.length > 0 ? orderBook.asks[orderBook.asks.length - 1]?.total || 0 : 0
+  );
+
+  return (
+    <div className="h-full flex flex-col">
+      <style jsx>{`
+        @keyframes flash-green {
+          0%, 100% { background-color: transparent; }
+          50% { background-color: rgba(38, 166, 154, 0.3); }
+        }
+        @keyframes flash-red {
+          0%, 100% { background-color: transparent; }
+          50% { background-color: rgba(239, 83, 80, 0.3); }
+        }
+        .animate-flash-green {
+          animation: flash-green 0.5s ease-in-out;
+        }
+        .animate-flash-red {
+          animation: flash-red 0.5s ease-in-out;
+        }
+      `}</style>
+
+      <div className="text-[10px] space-y-0.5 font-mono overflow-hidden flex-1 flex flex-col">
+        <div className="grid grid-cols-3 text-[#537270] mb-1 font-bold">
+          <div>PRICE</div>
+          <div className="text-right">SIZE</div>
+          <div className="text-right">TOTAL</div>
+        </div>
+
+        <div className="flex-1 flex flex-col-reverse overflow-y-auto scrollbar-thin scrollbar-thumb-[#244140] scrollbar-track-transparent">
+          {orderBook.asks && orderBook.asks.slice(0, 12).map((ask, idx) => {
+            const percentage = maxTotal > 0 ? (ask.total / maxTotal) * 100 : 0;
+            return (
+              <div
+                key={`ask-${idx}-${ask.price}`}
+                className={`grid grid-cols-3 text-[#ef5350] relative ${getFlashClass(ask.price)}`}
+              >
+                <div
+                  className="absolute inset-0 bg-[#ef5350] opacity-5"
+                  style={{ width: `${percentage}%` }}
+                ></div>
+                <div className="relative z-10">{ask.price.toFixed(2)}</div>
+                <div className="relative z-10 text-right">{ask.size.toFixed(4)}</div>
+                <div className="relative z-10 text-right">{ask.total.toFixed(4)}</div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="border-t border-[#244140] my-1 flex items-center justify-center py-0.5">
+          <div className="text-[#44baba] font-bold">
+            {orderBook.bids[0] && orderBook.asks[0]
+              ? ((parseFloat(orderBook.bids[0].price.toString()) + parseFloat(orderBook.asks[0].price.toString())) / 2).toFixed(2)
+              : '---'}
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-[#244140] scrollbar-track-transparent">
+          {orderBook.bids && orderBook.bids.slice(0, 12).map((bid, idx) => {
+            const percentage = maxTotal > 0 ? (bid.total / maxTotal) * 100 : 0;
+            return (
+              <div
+                key={`bid-${idx}-${bid.price}`}
+                className={`grid grid-cols-3 text-[#26a69a] relative ${getFlashClass(bid.price)}`}
+              >
+                <div
+                  className="absolute inset-0 bg-[#26a69a] opacity-5"
+                  style={{ width: `${percentage}%` }}
+                ></div>
+                <div className="relative z-10">{bid.price.toFixed(2)}</div>
+                <div className="relative z-10 text-right">{bid.size.toFixed(4)}</div>
+                <div className="relative z-10 text-right">{bid.total.toFixed(4)}</div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
