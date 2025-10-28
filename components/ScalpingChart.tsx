@@ -31,7 +31,7 @@ interface StochasticData {
   d: number;
 }
 
-function detectCrossovers(ema1: number[], ema2: number[], ema3: number[] | null, candles: CandleData[]): CrossoverMarker[] {
+function detectCrossovers(ema1: number[], ema2: number[], ema3: number[] | null, candles: CandleData[], bullishColor: string, bearishColor: string): CrossoverMarker[] {
   const markers: CrossoverMarker[] = [];
 
   if (ema3) {
@@ -56,7 +56,7 @@ function detectCrossovers(ema1: number[], ema2: number[], ema3: number[] | null,
         markers.push({
           time: candles[i].time / 1000,
           position: 'belowBar',
-          color: 'var(--status-bullish)',
+          color: bullishColor,
           shape: 'arrowUp',
           text: 'EMA BUY'
         });
@@ -64,7 +64,7 @@ function detectCrossovers(ema1: number[], ema2: number[], ema3: number[] | null,
         markers.push({
           time: candles[i].time / 1000,
           position: 'aboveBar',
-          color: 'var(--status-bearish)',
+          color: bearishColor,
           shape: 'arrowDown',
           text: 'EMA SELL'
         });
@@ -82,7 +82,7 @@ function detectCrossovers(ema1: number[], ema2: number[], ema3: number[] | null,
         markers.push({
           time: candles[i].time / 1000,
           position: 'belowBar',
-          color: 'var(--status-bullish)',
+          color: bullishColor,
           shape: 'arrowUp',
           text: 'EMA BUY'
         });
@@ -90,7 +90,7 @@ function detectCrossovers(ema1: number[], ema2: number[], ema3: number[] | null,
         markers.push({
           time: candles[i].time / 1000,
           position: 'aboveBar',
-          color: 'var(--status-bearish)',
+          color: bearishColor,
           shape: 'arrowDown',
           text: 'EMA SELL'
         });
@@ -519,7 +519,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
 
       if (emaSettings.ema1.enabled && emaSettings.ema2.enabled && ema1.length > 0 && ema2.length > 0) {
         const ema3ForDetection = emaSettings.ema3.enabled && ema3.length > 0 ? ema3 : null;
-        const markers = detectCrossovers(ema1, ema2, ema3ForDetection, candles);
+        const markers = detectCrossovers(ema1, ema2, ema3ForDetection, candles, colors.statusBullish, colors.statusBearish);
         candleSeriesRef.current.setMarkers(markers);
       } else {
         candleSeriesRef.current.setMarkers([]);
