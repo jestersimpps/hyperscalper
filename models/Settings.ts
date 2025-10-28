@@ -28,9 +28,17 @@ export interface EmaSettings {
   ema3: EmaConfig;
 }
 
+export interface MacdSettings {
+  enabled: boolean;
+  fastPeriod: number;
+  slowPeriod: number;
+  signalPeriod: number;
+}
+
 export interface IndicatorSettings {
   stochastic: StochasticSettings;
   ema: EmaSettings;
+  macd: MacdSettings;
 }
 
 export interface ScannerSettings {
@@ -71,6 +79,12 @@ export const DEFAULT_SETTINGS: AppSettings = {
       ema1: { enabled: true, period: 5 },
       ema2: { enabled: true, period: 13 },
       ema3: { enabled: true, period: 21 },
+    },
+    macd: {
+      enabled: true,
+      fastPeriod: 5,
+      slowPeriod: 13,
+      signalPeriod: 5,
     },
   },
   scanner: {},

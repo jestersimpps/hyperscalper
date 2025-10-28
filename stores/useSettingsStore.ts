@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { AppSettings, DEFAULT_SETTINGS, StochasticSettings, EmaSettings } from '@/models/Settings';
+import { AppSettings, DEFAULT_SETTINGS, StochasticSettings, EmaSettings, MacdSettings } from '@/models/Settings';
 
 type TabType = 'scanner' | 'indicators' | 'orders';
 
@@ -14,6 +14,7 @@ interface SettingsStore {
   setActiveTab: (tab: TabType) => void;
   updateStochasticSettings: (settings: Partial<StochasticSettings>) => void;
   updateEmaSettings: (settings: Partial<EmaSettings>) => void;
+  updateMacdSettings: (settings: Partial<MacdSettings>) => void;
   resetSettings: () => void;
 }
 
@@ -70,6 +71,12 @@ const mergeSettings = (storedSettings: any): AppSettings => {
             period: storedSettings.indicators?.ema?.ema3?.period ?? DEFAULT_SETTINGS.indicators.ema.ema3.period,
           },
         },
+        macd: {
+          enabled: storedSettings.indicators?.macd?.enabled ?? DEFAULT_SETTINGS.indicators.macd.enabled,
+          fastPeriod: storedSettings.indicators?.macd?.fastPeriod ?? DEFAULT_SETTINGS.indicators.macd.fastPeriod,
+          slowPeriod: storedSettings.indicators?.macd?.slowPeriod ?? DEFAULT_SETTINGS.indicators.macd.slowPeriod,
+          signalPeriod: storedSettings.indicators?.macd?.signalPeriod ?? DEFAULT_SETTINGS.indicators.macd.signalPeriod,
+        },
       },
       scanner: storedSettings.scanner ?? DEFAULT_SETTINGS.scanner,
       orders: storedSettings.orders ?? DEFAULT_SETTINGS.orders,
@@ -111,6 +118,19 @@ export const useSettingsStore = create<SettingsStore>()(
               ...state.settings.indicators,
               ema: {
                 ...state.settings.indicators.ema,
+                ...updates,
+              },
+            },
+          },
+        })),
+      updateMacdSettings: (updates) =>
+        set((state) => ({
+          settings: {
+            ...state.settings,
+            indicators: {
+              ...state.settings.indicators,
+              macd: {
+                ...state.settings.indicators.macd,
                 ...updates,
               },
             },

@@ -5,9 +5,10 @@ import { useSettingsStore } from '@/stores/useSettingsStore';
 import { StochasticTimeframeConfig, EmaConfig } from '@/models/Settings';
 
 export default function SettingsPanel() {
-  const { isPanelOpen, activeTab, closePanel, setActiveTab, settings, updateStochasticSettings, updateEmaSettings } = useSettingsStore();
+  const { isPanelOpen, activeTab, closePanel, setActiveTab, settings, updateStochasticSettings, updateEmaSettings, updateMacdSettings } = useSettingsStore();
   const [isStochasticExpanded, setIsStochasticExpanded] = useState(true);
   const [isEmaExpanded, setIsEmaExpanded] = useState(true);
+  const [isMacdExpanded, setIsMacdExpanded] = useState(true);
 
   const handleBackdropClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget) {
@@ -358,6 +359,77 @@ export default function SettingsPanel() {
                         </div>
                       )}
                     </div>
+                  </div>
+                )}
+              </div>
+
+              {/* MACD Settings - Expandable */}
+              <div className="border border-frame rounded overflow-hidden">
+                <button
+                  onClick={() => setIsMacdExpanded(!isMacdExpanded)}
+                  className="w-full p-3 bg-bg-secondary flex items-center justify-between hover:bg-primary/5 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-primary font-mono text-xs font-bold">█ MACD</span>
+                  </div>
+                  <span className="text-primary text-sm">{isMacdExpanded ? '▼' : '▶'}</span>
+                </button>
+
+                {isMacdExpanded && (
+                  <div className="p-4 space-y-3 bg-bg-primary">
+                    {/* Enable/Disable */}
+                    <div className="p-3 bg-bg-secondary border border-frame rounded">
+                      <label className="flex items-center justify-between cursor-pointer">
+                        <span className="text-primary-muted text-xs font-mono">ENABLE MACD</span>
+                        <input
+                          type="checkbox"
+                          checked={settings.indicators.macd.enabled}
+                          onChange={(e) => updateMacdSettings({ enabled: e.target.checked })}
+                          className="w-4 h-4 accent-primary cursor-pointer"
+                        />
+                      </label>
+                    </div>
+
+                    {settings.indicators.macd.enabled && (
+                      <div className="p-3 bg-bg-secondary border border-frame rounded">
+                        <div className="text-primary font-mono text-xs font-bold mb-3">PARAMETERS</div>
+                        <div className="grid grid-cols-3 gap-3 text-xs">
+                          <div>
+                            <label className="text-primary-muted font-mono block mb-1">FAST PERIOD</label>
+                            <input
+                              type="number"
+                              min="2"
+                              max="50"
+                              value={settings.indicators.macd.fastPeriod}
+                              onChange={(e) => updateMacdSettings({ fastPeriod: Number(e.target.value) })}
+                              className="w-full bg-bg-primary border border-frame text-primary px-2 py-1 rounded font-mono text-xs"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-primary-muted font-mono block mb-1">SLOW PERIOD</label>
+                            <input
+                              type="number"
+                              min="2"
+                              max="100"
+                              value={settings.indicators.macd.slowPeriod}
+                              onChange={(e) => updateMacdSettings({ slowPeriod: Number(e.target.value) })}
+                              className="w-full bg-bg-primary border border-frame text-primary px-2 py-1 rounded font-mono text-xs"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-primary-muted font-mono block mb-1">SIGNAL PERIOD</label>
+                            <input
+                              type="number"
+                              min="2"
+                              max="50"
+                              value={settings.indicators.macd.signalPeriod}
+                              onChange={(e) => updateMacdSettings({ signalPeriod: Number(e.target.value) })}
+                              className="w-full bg-bg-primary border border-frame text-primary px-2 py-1 rounded font-mono text-xs"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
