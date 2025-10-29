@@ -150,6 +150,18 @@ export default function SettingsPanel() {
                         className="w-full bg-bg-primary border border-frame text-primary px-2 py-1 rounded font-mono text-xs"
                       />
                     </div>
+
+                    <div>
+                      <label className="flex items-center justify-between cursor-pointer">
+                        <span className="text-primary-muted text-xs font-mono">PLAY SOUND ON NEW RESULTS</span>
+                        <input
+                          type="checkbox"
+                          checked={settings.scanner.playSound}
+                          onChange={(e) => updateScannerSettings({ playSound: e.target.checked })}
+                          className="w-4 h-4 accent-primary cursor-pointer"
+                        />
+                      </label>
+                    </div>
                   </div>
 
                   <div className="border border-frame rounded overflow-hidden">
@@ -186,48 +198,6 @@ export default function SettingsPanel() {
 
                         {settings.scanner.stochasticScanner.enabled && (
                           <>
-                            <div className="p-3 bg-bg-secondary border border-frame rounded">
-                              <div className="text-primary font-mono text-xs font-bold mb-3">SIGNAL TYPE</div>
-                              <div className="flex gap-2">
-                                <label className="flex-1 cursor-pointer">
-                                  <input
-                                    type="radio"
-                                    name="scanMode"
-                                    value="oversold"
-                                    checked={settings.scanner.stochasticScanner.mode === 'oversold'}
-                                    onChange={(e) =>
-                                      updateScannerSettings({
-                                        stochasticScanner: {
-                                          ...settings.scanner.stochasticScanner,
-                                          mode: 'oversold',
-                                        },
-                                      })
-                                    }
-                                    className="mr-2"
-                                  />
-                                  <span className="text-success font-mono text-xs">BULLISH (Oversold)</span>
-                                </label>
-                                <label className="flex-1 cursor-pointer">
-                                  <input
-                                    type="radio"
-                                    name="scanMode"
-                                    value="overbought"
-                                    checked={settings.scanner.stochasticScanner.mode === 'overbought'}
-                                    onChange={(e) =>
-                                      updateScannerSettings({
-                                        stochasticScanner: {
-                                          ...settings.scanner.stochasticScanner,
-                                          mode: 'overbought',
-                                        },
-                                      })
-                                    }
-                                    className="mr-2"
-                                  />
-                                  <span className="text-error font-mono text-xs">BEARISH (Overbought)</span>
-                                </label>
-                              </div>
-                            </div>
-
                             <div className="p-3 bg-bg-secondary border border-frame rounded space-y-3">
                               <div className="text-primary font-mono text-xs font-bold mb-2">TIMEFRAMES TO SCAN</div>
                               <div className="grid grid-cols-2 gap-2">

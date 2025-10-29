@@ -1,11 +1,13 @@
 import { create } from 'zustand';
 import type { ScanResult, ScannerStatus } from '@/models/Scanner';
 import { useSettingsStore } from './useSettingsStore';
+import { playNotificationSound } from '@/lib/sound-utils';
 
 interface ScannerStore {
   results: ScanResult[];
   status: ScannerStatus;
   intervalId: NodeJS.Timeout | null;
+  previousSymbols: Set<string>;
   runScan: () => Promise<void>;
   startAutoScan: () => void;
   stopAutoScan: () => void;
@@ -21,6 +23,7 @@ export const useScannerStore = create<ScannerStore>((set, get) => ({
     error: null,
   },
   intervalId: null,
+  previousSymbols: new Set(),
 
   runScan: async () => {
     const { status } = get();
@@ -67,8 +70,24 @@ export const useScannerStore = create<ScannerStore>((set, get) => ({
 
       const data = await response.json();
 
+      const newResults = data.results || [];
+      const newSymbols = new Set(newResults.map((r: ScanResult) => r.symbol));
+      const { previousSymbols } = get();
+
+      const hasNewSymbols = newResults.some((r: ScanResult) => !previousSymbols.has(r.symbol));
+
+      if (hasNewSymbols && previousSymbols.size > 0 && settings.playSound) {
+        const firstNewResult = newResults.find((r: ScanResult) => !previousSymbols.has(r.symbol));
+        if (firstNewResult) {
+          playNotificationSound(firstNewResult.signalType).catch(err =>
+            console.error('Error playing sound:', err)
+          );
+        }
+      }
+
       set({
-        results: data.results || [],
+        results: newResults,
+        previousSymbols: newSymbols,
         status: {
           ...get().status,
           isScanning: false,

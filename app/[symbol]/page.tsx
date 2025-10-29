@@ -1,6 +1,6 @@
 'use client';
 
-import { use } from 'react';
+import { use, useEffect } from 'react';
 import AppShell from '@/components/layout/AppShell';
 import Sidepanel from '@/components/layout/Sidepanel';
 import SymbolView from '@/components/symbol/SymbolView';
@@ -12,6 +12,10 @@ interface SymbolPageProps {
 export default function SymbolPage({ params }: SymbolPageProps) {
   const { symbol } = use(params);
   const upperSymbol = symbol.toUpperCase();
+
+  useEffect(() => {
+    document.title = `${upperSymbol} - HyperScalper`;
+  }, [upperSymbol]);
 
   return (
     <>

@@ -56,6 +56,7 @@ export interface ScannerSettings {
   enabled: boolean;
   scanInterval: number;
   topMarkets: number;
+  playSound: boolean;
   stochasticScanner: StochasticScannerConfig;
 }
 
@@ -105,6 +106,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     enabled: false,
     scanInterval: 1,
     topMarkets: 20,
+    playSound: true,
     stochasticScanner: {
       enabled: false,
       mode: 'oversold',

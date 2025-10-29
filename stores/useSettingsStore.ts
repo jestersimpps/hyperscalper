@@ -83,6 +83,7 @@ const mergeSettings = (storedSettings: any): AppSettings => {
         enabled: storedSettings.scanner?.enabled ?? DEFAULT_SETTINGS.scanner.enabled,
         scanInterval: storedSettings.scanner?.scanInterval ?? DEFAULT_SETTINGS.scanner.scanInterval,
         topMarkets: storedSettings.scanner?.topMarkets ?? DEFAULT_SETTINGS.scanner.topMarkets,
+        playSound: storedSettings.scanner?.playSound ?? DEFAULT_SETTINGS.scanner.playSound,
         stochasticScanner: {
           enabled: storedSettings.scanner?.stochasticScanner?.enabled ?? DEFAULT_SETTINGS.scanner.stochasticScanner.enabled,
           mode: storedSettings.scanner?.stochasticScanner?.mode ?? DEFAULT_SETTINGS.scanner.stochasticScanner.mode,

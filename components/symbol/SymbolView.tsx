@@ -7,6 +7,7 @@ import OrderBook from '@/components/OrderBook';
 import TerminalHeader from '@/components/layout/TerminalHeader';
 import TradeVolumeTimeline from '@/components/TradeVolumeTimeline';
 import { useTradesStore } from '@/stores/useTradesStore';
+import { playNotificationSound } from '@/lib/sound-utils';
 
 interface SymbolViewProps {
   coin: string;
@@ -118,37 +119,55 @@ export default function SymbolView({ coin }: SymbolViewProps) {
                   <div className="grid grid-cols-2 gap-1.5 text-[10px] font-mono">
                     <button
                       className="px-2 py-1.5 bg-accent-blue/20 border border-accent-blue/40 text-accent-blue hover:bg-accent-blue/30 hover:border-accent-blue/60 transition-all rounded-sm hover:shadow-[0_0_8px_rgba(50,116,170,0.3)]"
-                      onClick={() => console.log('Open Buy Cloud')}
+                      onClick={() => {
+                        playNotificationSound('bullish', 'cloud');
+                        console.log('Open Buy Cloud');
+                      }}
                     >
                       █ BUY CLOUD
                     </button>
                     <button
                       className="px-2 py-1.5 bg-accent-rose/20 border border-accent-rose/40 text-accent-rose hover:bg-accent-rose/30 hover:border-accent-rose/60 transition-all rounded-sm hover:shadow-[0_0_8px_rgba(194,150,141,0.3)]"
-                      onClick={() => console.log('Open Sell Cloud')}
+                      onClick={() => {
+                        playNotificationSound('bearish', 'cloud');
+                        console.log('Open Sell Cloud');
+                      }}
                     >
                       █ SELL CLOUD
                     </button>
                     <button
                       className="px-2 py-1.5 bg-bullish/20 border border-bullish/40 text-bullish hover:bg-bullish/30 hover:border-bullish/60 transition-all rounded-sm hover:shadow-[0_0_8px_rgba(38,166,154,0.3)]"
-                      onClick={() => console.log('Open Small Long')}
+                      onClick={() => {
+                        playNotificationSound('bullish', 'standard');
+                        console.log('Open Small Long');
+                      }}
                     >
                       █ SM LONG
                     </button>
                     <button
                       className="px-2 py-1.5 bg-bearish/20 border border-bearish/40 text-bearish hover:bg-bearish/30 hover:border-bearish/60 transition-all rounded-sm hover:shadow-[0_0_8px_rgba(239,83,80,0.3)]"
-                      onClick={() => console.log('Open Small Short')}
+                      onClick={() => {
+                        playNotificationSound('bearish', 'standard');
+                        console.log('Open Small Short');
+                      }}
                     >
                       █ SM SHORT
                     </button>
                     <button
                       className="px-2 py-1.5 bg-bullish/30 border-2 border-bullish/60 text-bullish font-bold hover:bg-bullish/40 hover:border-bullish/80 transition-all rounded-sm hover:shadow-[0_0_10px_rgba(38,166,154,0.5)]"
-                      onClick={() => console.log('Open Big Long')}
+                      onClick={() => {
+                        playNotificationSound('bullish', 'big');
+                        console.log('Open Big Long');
+                      }}
                     >
                       ██ BIG LONG
                     </button>
                     <button
                       className="px-2 py-1.5 bg-bearish/30 border-2 border-bearish/60 text-bearish font-bold hover:bg-bearish/40 hover:border-bearish/80 transition-all rounded-sm hover:shadow-[0_0_10px_rgba(239,83,80,0.5)]"
-                      onClick={() => console.log('Open Big Short')}
+                      onClick={() => {
+                        playNotificationSound('bearish', 'big');
+                        console.log('Open Big Short');
+                      }}
                     >
                       ██ BIG SHORT
                     </button>
