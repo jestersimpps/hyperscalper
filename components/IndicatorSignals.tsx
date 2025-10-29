@@ -13,9 +13,11 @@ import {
   getStochasticZone,
   getStochasticTrend,
   getMacdTrend,
+  detectMacdTurnPoint,
   calculateVolumeFlow,
   type StochasticZone,
   type TrendDirection,
+  type MacdTurnPoint,
 } from '@/lib/indicators';
 
 interface IndicatorSignalsProps {
@@ -190,6 +192,7 @@ export default function IndicatorSignals({ coin }: IndicatorSignalsProps) {
       signal: number;
       histogram: number;
       trend: TrendDirection;
+      turnPoint: MacdTurnPoint;
     }> = [];
 
     Object.entries(macdSettings.timeframes).forEach(([tf, settings]) => {
@@ -205,6 +208,7 @@ export default function IndicatorSignals({ coin }: IndicatorSignalsProps) {
 
       const idx = macdData.macd.length - 1;
       const trend = getMacdTrend(macdData.macd[idx], macdData.signal[idx]);
+      const turnPoint = detectMacdTurnPoint(macdData.histogram);
 
       stats.push({
         timeframe: tf,
@@ -212,6 +216,7 @@ export default function IndicatorSignals({ coin }: IndicatorSignalsProps) {
         signal: macdData.signal[idx],
         histogram: macdData.histogram[idx],
         trend,
+        turnPoint,
       });
     });
 
@@ -288,13 +293,14 @@ export default function IndicatorSignals({ coin }: IndicatorSignalsProps) {
           </div>
         )}
 
-        {/* MACD Section - Column 4 (aligns with 24H HIGH) */}
+        {/* MACD Section - Columns 4-5 (aligns with 24H HIGH and 24H LOW) */}
         {macdStats.length > 0 && (
-          <div className="col-start-4">
+          <div className="col-start-4 col-span-2">
             <div className="text-primary-muted uppercase tracking-wider font-bold mb-0.5">MACD</div>
             <div className="flex items-center gap-2 flex-wrap">
               {macdStats.map((stat, idx) => {
                 const histColor = stat.histogram >= 0 ? 'text-bullish' : 'text-bearish';
+                const turnPointColor = stat.turnPoint === 'topped' ? 'text-yellow-500' : 'text-cyan-400';
 
                 return (
                   <div key={stat.timeframe} className="flex items-center gap-0.5">
@@ -305,6 +311,11 @@ export default function IndicatorSignals({ coin }: IndicatorSignalsProps) {
                       {stat.histogram >= 0 ? '+' : ''}
                       {formatNumber(stat.histogram, 1)}
                     </span>
+                    {stat.turnPoint && (
+                      <span className={`${turnPointColor} text-[9px] font-bold`}>
+                        [{stat.turnPoint === 'topped' ? 'T' : 'B'}]
+                      </span>
+                    )}
                   </div>
                 );
               })}
@@ -312,8 +323,8 @@ export default function IndicatorSignals({ coin }: IndicatorSignalsProps) {
           </div>
         )}
 
-        {/* Volume Flow Section - Column 5 (aligns with 24H LOW) */}
-        <div className="col-start-5">
+        {/* Volume Flow Section - Column 6 (aligns with 24H VOLUME) */}
+        <div className="col-start-6">
           <div className="text-primary-muted uppercase tracking-wider font-bold mb-0.5">VOLUME FLOW (60s)</div>
           <div className="flex items-center gap-1">
             <TrendArrow direction={volumeFlowData.trend} />

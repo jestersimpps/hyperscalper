@@ -384,6 +384,23 @@ export function getMacdTrend(macdValue: number, signalValue: number): TrendDirec
   return macdValue > signalValue ? 'up' : 'down';
 }
 
+export type MacdTurnPoint = 'topped' | 'bottomed' | null;
+
+export function detectMacdTurnPoint(histogram: number[]): MacdTurnPoint {
+  if (histogram.length < 3) return null;
+
+  const idx = histogram.length - 1;
+  const curr = histogram[idx];
+  const prev = histogram[idx - 1];
+  const prev2 = histogram[idx - 2];
+
+  if (prev2 < prev && prev > curr) return 'topped';
+
+  if (prev2 > prev && prev < curr) return 'bottomed';
+
+  return null;
+}
+
 export interface VolumeFlowResult {
   netVolume: number;
   buyVolume: number;
