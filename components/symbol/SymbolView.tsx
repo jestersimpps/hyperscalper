@@ -8,6 +8,7 @@ import TerminalHeader from '@/components/layout/TerminalHeader';
 import TradeVolumeTimeline from '@/components/TradeVolumeTimeline';
 import { useTradesStore } from '@/stores/useTradesStore';
 import { usePositionStore } from '@/stores/usePositionStore';
+import { useOrderStore } from '@/stores/useOrderStore';
 import { playNotificationSound } from '@/lib/sound-utils';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { KeyBinding } from '@/lib/keyboard-utils';
@@ -31,6 +32,11 @@ export default function SymbolView({ coin }: SymbolViewProps) {
   const position = usePositionStore((state) => state.positions[coin]);
   const subscribeToPosition = usePositionStore((state) => state.subscribeToPosition);
   const unsubscribeFromPosition = usePositionStore((state) => state.unsubscribeFromPosition);
+
+  const orders = useOrderStore((state) => state.orders[coin]) || [];
+  const subscribeToOrders = useOrderStore((state) => state.subscribeToOrders);
+  const unsubscribeFromOrders = useOrderStore((state) => state.unsubscribeFromOrders);
+
   const getDecimals = useSymbolMetaStore((state) => state.getDecimals);
   const decimals = useMemo(() => getDecimals(coin), [getDecimals, coin]);
 
@@ -38,12 +44,14 @@ export default function SymbolView({ coin }: SymbolViewProps) {
     seenTimestampsRef.current.clear();
     subscribeToTrades(coin);
     subscribeToPosition(coin);
+    subscribeToOrders(coin);
 
     return () => {
       unsubscribeFromTrades(coin);
       unsubscribeFromPosition(coin);
+      unsubscribeFromOrders(coin);
     };
-  }, [coin, subscribeToTrades, unsubscribeFromTrades, subscribeToPosition, unsubscribeFromPosition]);
+  }, [coin, subscribeToTrades, unsubscribeFromTrades, subscribeToPosition, unsubscribeFromPosition, subscribeToOrders, unsubscribeFromOrders]);
 
   useEffect(() => {
     if (trades.length === 0) return;
@@ -259,6 +267,7 @@ export default function SymbolView({ coin }: SymbolViewProps) {
                 interval="1m"
                 onPriceUpdate={setCurrentPrice}
                 position={position}
+                orders={orders}
               />
             </div>
           </div>

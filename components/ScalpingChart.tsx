@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { CandleData, TimeInterval } from '@/types';
 import type { Position } from '@/models/Position';
+import type { Order } from '@/models/Order';
 import { useCandleStore } from '@/stores/useCandleStore';
 import { useSettingsStore } from '@/stores/useSettingsStore';
 import { useSymbolMetaStore } from '@/stores/useSymbolMetaStore';
@@ -19,6 +20,7 @@ interface ScalpingChartProps {
   isExternalData?: boolean;
   stochasticCandleData?: Record<TimeInterval, CandleData[]>;
   position?: Position | null;
+  orders?: Order[];
 }
 
 interface CrossoverMarker {
@@ -105,7 +107,7 @@ function detectCrossovers(ema1: number[], ema2: number[], ema3: number[] | null,
 }
 
 
-export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartReady, candleData, isExternalData = false, stochasticCandleData, position }: ScalpingChartProps) {
+export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartReady, candleData, isExternalData = false, stochasticCandleData, position, orders }: ScalpingChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<any>(null);
   const candleSeriesRef = useRef<any>(null);
@@ -118,6 +120,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
   const macdHistogramSeriesRef = useRef<any>(null);
   const stochSeriesRefsRef = useRef<Record<string, { k: any; d: any }>>({});
   const positionLineRef = useRef<any>(null);
+  const orderLinesRef = useRef<any[]>([]);
   const [chartReady, setChartReady] = useState(false);
   const candlesBufferRef = useRef<CandleData[]>([]);
   const lastCandleTimeRef = useRef<number | null>(null);
@@ -214,39 +217,46 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
         const ema1Series = chart.addLineSeries({
           color: colors.accentBlue,
           lineWidth: 2,
-          title: 'EMA 1',
+          lastValueVisible: false,
+          priceLineVisible: false,
         });
 
         const ema2Series = chart.addLineSeries({
           color: colors.accentRose,
           lineWidth: 2,
-          title: 'EMA 2',
+          lastValueVisible: false,
+          priceLineVisible: false,
         });
 
         const ema3Series = chart.addLineSeries({
           color: colors.accentGreen,
           lineWidth: 2,
-          title: 'EMA 3',
+          lastValueVisible: false,
+          priceLineVisible: false,
         });
 
         // MACD series
         const macdLineSeries = chart.addLineSeries({
           color: colors.accentBlue,
           lineWidth: 2,
-          title: 'MACD',
           priceScaleId: 'macd',
+          lastValueVisible: false,
+          priceLineVisible: false,
         });
 
         const macdSignalSeries = chart.addLineSeries({
           color: colors.accentRose,
           lineWidth: 2,
-          title: 'Signal',
           priceScaleId: 'macd',
+          lastValueVisible: false,
+          priceLineVisible: false,
         });
 
         const macdHistogramSeries = chart.addHistogramSeries({
           color: colors.primary,
           priceScaleId: 'macd',
+          lastValueVisible: false,
+          priceLineVisible: false,
         });
 
         macdLineSeries.priceScale().applyOptions({
@@ -286,16 +296,18 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
           const kSeries = chart.addLineSeries({
             color: timeframeColors[timeframe].k,
             lineWidth: 2,
-            title: `${timeframe} %K`,
             priceScaleId: 'stoch',
+            lastValueVisible: false,
+            priceLineVisible: false,
           });
 
           const dSeries = chart.addLineSeries({
             color: timeframeColors[timeframe].d,
             lineWidth: 1,
             lineStyle: 2,
-            title: `${timeframe} %D`,
             priceScaleId: 'stoch',
+            lastValueVisible: false,
+            priceLineVisible: false,
           });
 
           kSeries.priceScale().applyOptions({
@@ -617,6 +629,71 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
       }
     };
   }, [position, chartReady]);
+
+  // Order price lines overlay
+  useEffect(() => {
+    if (!chartReady || !candleSeriesRef.current) return;
+
+    // Remove existing order lines
+    orderLinesRef.current.forEach((line) => {
+      try {
+        candleSeriesRef.current.removePriceLine(line);
+      } catch (e) {
+        // Ignore errors
+      }
+    });
+    orderLinesRef.current = [];
+
+    // Create new order lines if orders exist
+    if (orders && orders.length > 0) {
+      const colors = getThemeColors();
+
+      orders.forEach((order) => {
+        const isBuy = order.side === 'buy';
+        const color = isBuy ? colors.statusBullish : colors.statusBearish;
+
+        // Determine line style based on order type
+        let lineStyle = 0; // solid for regular limit orders
+        let opacity = 1;
+
+        if (order.orderType === 'stop') {
+          lineStyle = 1; // dotted for stop loss
+          opacity = 0.8;
+        } else if (order.orderType === 'tp') {
+          lineStyle = 1; // dotted for take profit
+          opacity = 0.8;
+        } else if (order.orderType === 'trigger') {
+          lineStyle = 3; // large dashed for trigger orders
+          opacity = 0.9;
+        }
+
+        const orderLine = candleSeriesRef.current.createPriceLine({
+          price: order.price,
+          color,
+          lineWidth: 2,
+          lineStyle,
+          axisLabelVisible: true,
+          title: `${order.side.toUpperCase()} ${order.orderType.toUpperCase()}`,
+        });
+
+        orderLinesRef.current.push(orderLine);
+      });
+    }
+
+    // Cleanup on unmount or orders change
+    return () => {
+      orderLinesRef.current.forEach((line) => {
+        if (candleSeriesRef.current) {
+          try {
+            candleSeriesRef.current.removePriceLine(line);
+          } catch (e) {
+            // Ignore errors during cleanup
+          }
+        }
+      });
+      orderLinesRef.current = [];
+    };
+  }, [orders, chartReady]);
 
   const timeframeColorVars: Record<string, { k: string; d: string }> = {
     '1m': { k: 'var(--accent-blue)', d: 'var(--accent-blue)' },
