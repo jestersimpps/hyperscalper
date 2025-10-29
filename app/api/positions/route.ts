@@ -27,6 +27,10 @@ export async function GET(request: NextRequest) {
 
     const assetPosition = positions.find(p => p.position.coin === coin);
 
+    if (assetPosition) {
+      console.log(`Full assetPosition for ${coin}:`, JSON.stringify(assetPosition, null, 2));
+    }
+
     let position: Position | null = null;
 
     if (assetPosition) {

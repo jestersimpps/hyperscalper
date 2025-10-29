@@ -20,32 +20,49 @@ export async function GET(request: NextRequest) {
     const service = getHyperliquidService();
     const allOrders = await service.getOpenOrders();
 
-    console.log(`Raw orders for ${coin}:`, allOrders.filter((o: any) => o.coin === coin));
+    const coinOrders = allOrders.filter((o: any) => o.coin === coin);
+    console.log(`Raw orders for ${coin}:`, JSON.stringify(coinOrders, null, 2));
 
     const orders: Order[] = allOrders
       .filter((order: any) => order.coin === coin)
       .map((order: any) => {
-        // Map Hyperliquid side: 'A' = Ask (Sell), 'B' = Bid (Buy)
         const side = order.side?.toUpperCase() === 'A' ? 'sell' : 'buy';
 
-        // Use origSz (original size at order placement) not sz (remaining size)
         const size = Math.abs(parseFloat(order.origSz || order.sz || '0'));
 
-        // Determine order type from FrontendOrder if available
         let orderType: OrderType = 'limit';
-        if (order.orderType) {
-          const type = order.orderType.toLowerCase();
-          if (type.includes('stop')) orderType = 'stop';
-          else if (type.includes('trigger')) orderType = 'trigger';
-        } else if (order.triggerPx || order.isTrigger) {
-          orderType = 'trigger';
+        let price = 0;
+
+        if (order.isTrigger && order.triggerPx) {
+          price = parseFloat(order.triggerPx);
+
+          if (order.isPositionTpsl) {
+            const ot = order.orderType?.toLowerCase() || '';
+            if (ot.includes('stop market') || (order.reduceOnly && !side)) {
+              orderType = 'stop';
+            } else {
+              orderType = 'tp';
+            }
+          } else if (order.orderType) {
+            const ot = order.orderType.toLowerCase();
+            if (ot.includes('stop')) {
+              orderType = 'stop';
+            } else {
+              orderType = 'trigger';
+            }
+          } else {
+            orderType = 'trigger';
+          }
+        } else {
+          price = parseFloat(order.limitPx || '0');
+          orderType = 'limit';
         }
 
         return {
           oid: order.oid.toString(),
           coin: order.coin,
           side: side as OrderSide,
-          price: parseFloat(order.limitPx || order.triggerPx || '0'),
+          price,
           size,
           orderType,
           timestamp: order.timestamp || Date.now(),

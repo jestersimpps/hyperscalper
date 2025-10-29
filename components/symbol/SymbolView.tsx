@@ -27,7 +27,9 @@ export default function SymbolView({ coin }: SymbolViewProps) {
   const subscribeToTrades = useTradesStore((state) => state.subscribeToTrades);
   const unsubscribeFromTrades = useTradesStore((state) => state.unsubscribeFromTrades);
   const seenTimestampsRef = useRef<Set<number>>(new Set());
+  const tradeSoundTimeoutsRef = useRef<NodeJS.Timeout[]>([]);
   const isPanelOpen = useSettingsStore((state) => state.isPanelOpen);
+  const playTradeSound = useSettingsStore((state) => state.settings.theme.playTradeSound);
 
   const position = usePositionStore((state) => state.positions[coin]);
   const subscribeToPosition = usePositionStore((state) => state.subscribeToPosition);
@@ -76,13 +78,48 @@ export default function SymbolView({ coin }: SymbolViewProps) {
 
       setNewTradeKeys(newKeys);
 
+      // Play sound for new trades if enabled
+      if (playTradeSound) {
+        // Clear any pending trade sound timeouts
+        tradeSoundTimeoutsRef.current.forEach(timeout => clearTimeout(timeout));
+        tradeSoundTimeoutsRef.current = [];
+
+        const newTrades = trades.filter(trade => newTimestamps.has(trade.time));
+        const newTradeCount = newTrades.length;
+
+        if (newTradeCount > 0) {
+          // Duration of one standard sound in milliseconds
+          const SOUND_DURATION = 300;
+
+          // Calculate delay between each sound to spread over SOUND_DURATION
+          const delayBetweenSounds = newTradeCount === 1 ? 0 : SOUND_DURATION / newTradeCount;
+
+          // Play a sound for each individual trade, spread sequentially
+          newTrades.forEach((trade, index) => {
+            const delay = index * delayBetweenSounds;
+            const side = trade.side === 'buy' ? 'bullish' : 'bearish';
+
+            const timeout = setTimeout(() => {
+              playNotificationSound(side, 'standard');
+            }, delay);
+
+            tradeSoundTimeoutsRef.current.push(timeout);
+          });
+        }
+      }
+
       const timer = setTimeout(() => {
         setNewTradeKeys(new Set());
       }, 500);
 
-      return () => clearTimeout(timer);
+      return () => {
+        clearTimeout(timer);
+        // Clean up trade sound timeouts on unmount
+        tradeSoundTimeoutsRef.current.forEach(timeout => clearTimeout(timeout));
+        tradeSoundTimeoutsRef.current = [];
+      };
     }
-  }, [trades]);
+  }, [trades, playTradeSound]);
 
   const handleBuyCloud = useCallback(async () => {
     playNotificationSound('bullish', 'cloud');

@@ -10,6 +10,7 @@ interface ScannerStore {
   previousSymbols: Set<string>;
   runScan: () => Promise<void>;
   startAutoScan: () => void;
+  startAutoScanWithDelay: () => void;
   stopAutoScan: () => void;
   clearResults: () => void;
 }
@@ -120,6 +121,27 @@ export const useScannerStore = create<ScannerStore>((set, get) => ({
     if (status.isRunning) return;
 
     get().runScan();
+
+    const settings = useSettingsStore.getState().settings.scanner;
+    const intervalMs = settings.scanInterval * 60 * 1000;
+
+    const newIntervalId = setInterval(() => {
+      get().runScan();
+    }, intervalMs);
+
+    set({
+      intervalId: newIntervalId,
+      status: {
+        ...status,
+        isRunning: true,
+      },
+    });
+  },
+
+  startAutoScanWithDelay: () => {
+    const { intervalId, status } = get();
+
+    if (status.isRunning) return;
 
     const settings = useSettingsStore.getState().settings.scanner;
     const intervalMs = settings.scanInterval * 60 * 1000;

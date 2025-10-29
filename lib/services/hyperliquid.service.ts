@@ -339,7 +339,9 @@ export class HyperliquidService implements IHyperliquidService {
     if (!address) {
       throw new Error('No wallet address available');
     }
-    return await this.publicClient.openOrders({ user: address });
+    const orders = await this.publicClient.frontendOpenOrders({ user: address });
+    console.log('[getOpenOrders] Raw frontendOpenOrders response:', JSON.stringify(orders, null, 2));
+    return orders;
   }
 
   async openLong(params: LongParams): Promise<any> {
