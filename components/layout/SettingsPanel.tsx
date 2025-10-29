@@ -5,10 +5,11 @@ import { useSettingsStore } from '@/stores/useSettingsStore';
 import { StochasticTimeframeConfig, EmaConfig } from '@/models/Settings';
 
 export default function SettingsPanel() {
-  const { isPanelOpen, activeTab, closePanel, setActiveTab, settings, updateStochasticSettings, updateEmaSettings, updateMacdSettings } = useSettingsStore();
+  const { isPanelOpen, activeTab, closePanel, setActiveTab, settings, updateStochasticSettings, updateEmaSettings, updateMacdSettings, updateScannerSettings } = useSettingsStore();
   const [isStochasticExpanded, setIsStochasticExpanded] = useState(true);
   const [isEmaExpanded, setIsEmaExpanded] = useState(true);
   const [isMacdExpanded, setIsMacdExpanded] = useState(true);
+  const [isScannerStochExpanded, setIsScannerStochExpanded] = useState(true);
 
   const handleBackdropClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget) {
@@ -110,9 +111,258 @@ export default function SettingsPanel() {
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6">
           {activeTab === 'scanner' && (
-            <div className="text-primary-muted text-sm">
-              <div className="text-primary font-mono mb-2">█ SCANNER SETTINGS</div>
-              <p className="text-xs">Scanner configuration coming soon...</p>
+            <div className="space-y-3">
+              <div className="p-3 bg-bg-secondary border border-frame rounded">
+                <label className="flex items-center justify-between cursor-pointer">
+                  <span className="text-primary-muted text-xs font-mono">ENABLE SCANNER</span>
+                  <input
+                    type="checkbox"
+                    checked={settings.scanner.enabled}
+                    onChange={(e) => updateScannerSettings({ enabled: e.target.checked })}
+                    className="w-4 h-4 accent-primary cursor-pointer"
+                  />
+                </label>
+              </div>
+
+              {settings.scanner.enabled && (
+                <>
+                  <div className="p-3 bg-bg-secondary border border-frame rounded space-y-3">
+                    <div>
+                      <label className="text-primary-muted font-mono block mb-1 text-xs">SCAN INTERVAL (MINUTES)</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="60"
+                        value={settings.scanner.scanInterval}
+                        onChange={(e) => updateScannerSettings({ scanInterval: Number(e.target.value) })}
+                        className="w-full bg-bg-primary border border-frame text-primary px-2 py-1 rounded font-mono text-xs"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-primary-muted font-mono block mb-1 text-xs">TOP MARKETS TO SCAN</label>
+                      <input
+                        type="number"
+                        min="5"
+                        max="100"
+                        value={settings.scanner.topMarkets}
+                        onChange={(e) => updateScannerSettings({ topMarkets: Number(e.target.value) })}
+                        className="w-full bg-bg-primary border border-frame text-primary px-2 py-1 rounded font-mono text-xs"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="border border-frame rounded overflow-hidden">
+                    <button
+                      onClick={() => setIsScannerStochExpanded(!isScannerStochExpanded)}
+                      className="w-full p-3 bg-bg-secondary flex items-center justify-between hover:bg-primary/5 transition-colors"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-primary font-mono text-xs font-bold">█ STOCHASTIC SCANNER</span>
+                      </div>
+                      <span className="text-primary text-sm">{isScannerStochExpanded ? '▼' : '▶'}</span>
+                    </button>
+
+                    {isScannerStochExpanded && (
+                      <div className="p-4 space-y-4 bg-bg-primary">
+                        <div className="p-3 bg-bg-secondary border border-frame rounded">
+                          <label className="flex items-center justify-between cursor-pointer">
+                            <span className="text-primary-muted text-xs font-mono">ENABLE STOCHASTIC SCANNER</span>
+                            <input
+                              type="checkbox"
+                              checked={settings.scanner.stochasticScanner.enabled}
+                              onChange={(e) =>
+                                updateScannerSettings({
+                                  stochasticScanner: {
+                                    ...settings.scanner.stochasticScanner,
+                                    enabled: e.target.checked,
+                                  },
+                                })
+                              }
+                              className="w-4 h-4 accent-primary cursor-pointer"
+                            />
+                          </label>
+                        </div>
+
+                        {settings.scanner.stochasticScanner.enabled && (
+                          <>
+                            <div className="p-3 bg-bg-secondary border border-frame rounded">
+                              <div className="text-primary font-mono text-xs font-bold mb-3">SIGNAL TYPE</div>
+                              <div className="flex gap-2">
+                                <label className="flex-1 cursor-pointer">
+                                  <input
+                                    type="radio"
+                                    name="scanMode"
+                                    value="oversold"
+                                    checked={settings.scanner.stochasticScanner.mode === 'oversold'}
+                                    onChange={(e) =>
+                                      updateScannerSettings({
+                                        stochasticScanner: {
+                                          ...settings.scanner.stochasticScanner,
+                                          mode: 'oversold',
+                                        },
+                                      })
+                                    }
+                                    className="mr-2"
+                                  />
+                                  <span className="text-success font-mono text-xs">BULLISH (Oversold)</span>
+                                </label>
+                                <label className="flex-1 cursor-pointer">
+                                  <input
+                                    type="radio"
+                                    name="scanMode"
+                                    value="overbought"
+                                    checked={settings.scanner.stochasticScanner.mode === 'overbought'}
+                                    onChange={(e) =>
+                                      updateScannerSettings({
+                                        stochasticScanner: {
+                                          ...settings.scanner.stochasticScanner,
+                                          mode: 'overbought',
+                                        },
+                                      })
+                                    }
+                                    className="mr-2"
+                                  />
+                                  <span className="text-error font-mono text-xs">BEARISH (Overbought)</span>
+                                </label>
+                              </div>
+                            </div>
+
+                            <div className="p-3 bg-bg-secondary border border-frame rounded space-y-3">
+                              <div className="text-primary font-mono text-xs font-bold mb-2">TIMEFRAMES TO SCAN</div>
+                              <div className="grid grid-cols-2 gap-2">
+                                {(['1m', '5m', '15m', '1h'] as const).map((tf) => (
+                                  <label key={tf} className="flex items-center gap-2 cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={settings.scanner.stochasticScanner.timeframes.includes(tf)}
+                                      onChange={(e) => {
+                                        const newTimeframes = e.target.checked
+                                          ? [...settings.scanner.stochasticScanner.timeframes, tf]
+                                          : settings.scanner.stochasticScanner.timeframes.filter((t) => t !== tf);
+                                        updateScannerSettings({
+                                          stochasticScanner: {
+                                            ...settings.scanner.stochasticScanner,
+                                            timeframes: newTimeframes,
+                                          },
+                                        });
+                                      }}
+                                      className="w-4 h-4 accent-primary cursor-pointer"
+                                    />
+                                    <span className="text-primary-muted font-mono text-xs">{tf.toUpperCase()}</span>
+                                  </label>
+                                ))}
+                              </div>
+                            </div>
+
+                            <div className="p-3 bg-bg-secondary border border-frame rounded">
+                              <div className="text-primary font-mono text-xs font-bold mb-3">THRESHOLDS</div>
+                              <div className="grid grid-cols-2 gap-3 text-xs">
+                                <div>
+                                  <label className="text-primary-muted font-mono block mb-1">OVERSOLD</label>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max="50"
+                                    value={settings.scanner.stochasticScanner.oversoldThreshold}
+                                    onChange={(e) =>
+                                      updateScannerSettings({
+                                        stochasticScanner: {
+                                          ...settings.scanner.stochasticScanner,
+                                          oversoldThreshold: Number(e.target.value),
+                                        },
+                                      })
+                                    }
+                                    className="w-full bg-bg-primary border border-frame text-primary px-2 py-1 rounded font-mono text-xs"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-primary-muted font-mono block mb-1">OVERBOUGHT</label>
+                                  <input
+                                    type="number"
+                                    min="50"
+                                    max="100"
+                                    value={settings.scanner.stochasticScanner.overboughtThreshold}
+                                    onChange={(e) =>
+                                      updateScannerSettings({
+                                        stochasticScanner: {
+                                          ...settings.scanner.stochasticScanner,
+                                          overboughtThreshold: Number(e.target.value),
+                                        },
+                                      })
+                                    }
+                                    className="w-full bg-bg-primary border border-frame text-primary px-2 py-1 rounded font-mono text-xs"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="p-3 bg-bg-secondary border border-frame rounded">
+                              <div className="text-primary font-mono text-xs font-bold mb-3">STOCHASTIC PARAMETERS</div>
+                              <div className="grid grid-cols-3 gap-3 text-xs">
+                                <div>
+                                  <label className="text-primary-muted font-mono block mb-1">PERIOD</label>
+                                  <input
+                                    type="number"
+                                    min="5"
+                                    max="21"
+                                    value={settings.scanner.stochasticScanner.period}
+                                    onChange={(e) =>
+                                      updateScannerSettings({
+                                        stochasticScanner: {
+                                          ...settings.scanner.stochasticScanner,
+                                          period: Number(e.target.value),
+                                        },
+                                      })
+                                    }
+                                    className="w-full bg-bg-primary border border-frame text-primary px-2 py-1 rounded font-mono text-xs"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-primary-muted font-mono block mb-1">SMOOTH K</label>
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    max="5"
+                                    value={settings.scanner.stochasticScanner.smoothK}
+                                    onChange={(e) =>
+                                      updateScannerSettings({
+                                        stochasticScanner: {
+                                          ...settings.scanner.stochasticScanner,
+                                          smoothK: Number(e.target.value),
+                                        },
+                                      })
+                                    }
+                                    className="w-full bg-bg-primary border border-frame text-primary px-2 py-1 rounded font-mono text-xs"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-primary-muted font-mono block mb-1">SMOOTH D</label>
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    max="5"
+                                    value={settings.scanner.stochasticScanner.smoothD}
+                                    onChange={(e) =>
+                                      updateScannerSettings({
+                                        stochasticScanner: {
+                                          ...settings.scanner.stochasticScanner,
+                                          smoothD: Number(e.target.value),
+                                        },
+                                      })
+                                    }
+                                    className="w-full bg-bg-primary border border-frame text-primary px-2 py-1 rounded font-mono text-xs"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
           )}
 

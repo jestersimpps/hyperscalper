@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { AppSettings, DEFAULT_SETTINGS, StochasticSettings, EmaSettings, MacdSettings } from '@/models/Settings';
+import { AppSettings, DEFAULT_SETTINGS, StochasticSettings, EmaSettings, MacdSettings, ScannerSettings } from '@/models/Settings';
 
 type TabType = 'scanner' | 'indicators' | 'orders';
 
@@ -15,6 +15,7 @@ interface SettingsStore {
   updateStochasticSettings: (settings: Partial<StochasticSettings>) => void;
   updateEmaSettings: (settings: Partial<EmaSettings>) => void;
   updateMacdSettings: (settings: Partial<MacdSettings>) => void;
+  updateScannerSettings: (settings: Partial<ScannerSettings>) => void;
   resetSettings: () => void;
 }
 
@@ -78,7 +79,21 @@ const mergeSettings = (storedSettings: any): AppSettings => {
           signalPeriod: storedSettings.indicators?.macd?.signalPeriod ?? DEFAULT_SETTINGS.indicators.macd.signalPeriod,
         },
       },
-      scanner: storedSettings.scanner ?? DEFAULT_SETTINGS.scanner,
+      scanner: {
+        enabled: storedSettings.scanner?.enabled ?? DEFAULT_SETTINGS.scanner.enabled,
+        scanInterval: storedSettings.scanner?.scanInterval ?? DEFAULT_SETTINGS.scanner.scanInterval,
+        topMarkets: storedSettings.scanner?.topMarkets ?? DEFAULT_SETTINGS.scanner.topMarkets,
+        stochasticScanner: {
+          enabled: storedSettings.scanner?.stochasticScanner?.enabled ?? DEFAULT_SETTINGS.scanner.stochasticScanner.enabled,
+          mode: storedSettings.scanner?.stochasticScanner?.mode ?? DEFAULT_SETTINGS.scanner.stochasticScanner.mode,
+          timeframes: storedSettings.scanner?.stochasticScanner?.timeframes ?? DEFAULT_SETTINGS.scanner.stochasticScanner.timeframes,
+          oversoldThreshold: storedSettings.scanner?.stochasticScanner?.oversoldThreshold ?? DEFAULT_SETTINGS.scanner.stochasticScanner.oversoldThreshold,
+          overboughtThreshold: storedSettings.scanner?.stochasticScanner?.overboughtThreshold ?? DEFAULT_SETTINGS.scanner.stochasticScanner.overboughtThreshold,
+          period: storedSettings.scanner?.stochasticScanner?.period ?? DEFAULT_SETTINGS.scanner.stochasticScanner.period,
+          smoothK: storedSettings.scanner?.stochasticScanner?.smoothK ?? DEFAULT_SETTINGS.scanner.stochasticScanner.smoothK,
+          smoothD: storedSettings.scanner?.stochasticScanner?.smoothD ?? DEFAULT_SETTINGS.scanner.stochasticScanner.smoothD,
+        },
+      },
       orders: storedSettings.orders ?? DEFAULT_SETTINGS.orders,
     };
   } catch (error) {
@@ -133,6 +148,16 @@ export const useSettingsStore = create<SettingsStore>()(
                 ...state.settings.indicators.macd,
                 ...updates,
               },
+            },
+          },
+        })),
+      updateScannerSettings: (updates) =>
+        set((state) => ({
+          settings: {
+            ...state.settings,
+            scanner: {
+              ...state.settings.scanner,
+              ...updates,
             },
           },
         })),

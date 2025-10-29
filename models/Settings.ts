@@ -41,8 +41,22 @@ export interface IndicatorSettings {
   macd: MacdSettings;
 }
 
+export interface StochasticScannerConfig {
+  enabled: boolean;
+  mode: 'oversold' | 'overbought';
+  timeframes: ('1m' | '5m' | '15m' | '1h')[];
+  oversoldThreshold: number;
+  overboughtThreshold: number;
+  period: number;
+  smoothK: number;
+  smoothD: number;
+}
+
 export interface ScannerSettings {
-  // TODO: Add scanner settings
+  enabled: boolean;
+  scanInterval: number;
+  topMarkets: number;
+  stochasticScanner: StochasticScannerConfig;
 }
 
 export interface OrderSettings {
@@ -87,6 +101,20 @@ export const DEFAULT_SETTINGS: AppSettings = {
       signalPeriod: 5,
     },
   },
-  scanner: {},
+  scanner: {
+    enabled: false,
+    scanInterval: 1,
+    topMarkets: 20,
+    stochasticScanner: {
+      enabled: false,
+      mode: 'oversold',
+      timeframes: ['1m', '5m', '15m'],
+      oversoldThreshold: 20,
+      overboughtThreshold: 80,
+      period: 14,
+      smoothK: 3,
+      smoothD: 3,
+    },
+  },
   orders: {},
 };

@@ -1,4 +1,5 @@
 import type { ExchangeProvider, CandleData } from './exchange-provider.interface';
+import type { Candle } from '@nktkas/hyperliquid';
 
 export class HyperliquidProvider implements ExchangeProvider {
   private baseUrl: string;
@@ -40,18 +41,28 @@ export class HyperliquidProvider implements ExchangeProvider {
     });
 
     if (!response.ok) {
-      throw new Error(`API request failed: ${response.statusText}`);
+      const errorText = await response.text();
+      throw new Error(`API request failed: ${response.statusText} - ${errorText}`);
     }
 
-    const candles = await response.json();
+    const candles = await response.json() as Candle[];
 
-    return candles.map((candle: any) => ({
+    if (!Array.isArray(candles)) {
+      throw new Error(`Invalid response format for ${params.coin}: expected array, got ${typeof candles}`);
+    }
+
+    return candles.map((candle) => ({
       time: candle.t,
       open: parseFloat(candle.o),
       high: parseFloat(candle.h),
       low: parseFloat(candle.l),
       close: parseFloat(candle.c),
-      volume: parseFloat(candle.v || '0')
+      volume: parseFloat(candle.v || '0'),
+      openFormatted: candle.o,
+      highFormatted: candle.h,
+      lowFormatted: candle.l,
+      closeFormatted: candle.c,
+      volumeFormatted: candle.v || '0',
     }));
   }
 

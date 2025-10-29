@@ -5,7 +5,7 @@ import type { CandleData, TimeInterval } from '@/types';
 import { useCandleStore } from '@/stores/useCandleStore';
 import { useSettingsStore } from '@/stores/useSettingsStore';
 import { getThemeColors } from '@/lib/theme-utils';
-import { calculateEMA, calculateMACD } from '@/lib/indicators';
+import { calculateEMA, calculateMACD, calculateStochastic, type StochasticData } from '@/lib/indicators';
 import { getStandardTimeWindow } from '@/lib/time-utils';
 
 interface ScalpingChartProps {
@@ -26,10 +26,6 @@ interface CrossoverMarker {
   text: string;
 }
 
-interface StochasticData {
-  k: number;
-  d: number;
-}
 
 function detectCrossovers(ema1: number[], ema2: number[], ema3: number[] | null, candles: CandleData[], bullishColor: string, bearishColor: string): any[] {
   const markers: any[] = [];
@@ -105,44 +101,6 @@ function detectCrossovers(ema1: number[], ema2: number[], ema3: number[] | null,
   return markers;
 }
 
-function calculateStochastic(candles: CandleData[], period: number = 14, smoothK: number = 3, smoothD: number = 3): StochasticData[] {
-  if (!candles || candles.length < period) return [];
-
-  const validCandles = candles.filter(c => c && typeof c.high === 'number' && typeof c.low === 'number' && typeof c.close === 'number');
-  if (validCandles.length < period) return [];
-
-  const result: StochasticData[] = [];
-  const kValues: number[] = [];
-
-  for (let i = period - 1; i < validCandles.length; i++) {
-    const slice = validCandles.slice(i - period + 1, i + 1);
-    if (slice.length !== period) continue;
-
-    const high = Math.max(...slice.map(c => c.high));
-    const low = Math.min(...slice.map(c => c.low));
-    const close = validCandles[i].close;
-
-    const k = high === low ? 50 : ((close - low) / (high - low)) * 100;
-    kValues.push(k);
-  }
-
-  const smoothedK: number[] = [];
-  for (let i = smoothK - 1; i < kValues.length; i++) {
-    const sum = kValues.slice(i - smoothK + 1, i + 1).reduce((a, b) => a + b, 0);
-    smoothedK.push(sum / smoothK);
-  }
-
-  for (let i = smoothD - 1; i < smoothedK.length; i++) {
-    const sum = smoothedK.slice(i - smoothD + 1, i + 1).reduce((a, b) => a + b, 0);
-    const d = sum / smoothD;
-    result.push({
-      k: smoothedK[i],
-      d: d
-    });
-  }
-
-  return result;
-}
 
 export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartReady, candleData, isExternalData = false, stochasticCandleData }: ScalpingChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
