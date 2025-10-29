@@ -28,11 +28,21 @@ export interface EmaSettings {
   ema3: EmaConfig;
 }
 
-export interface MacdSettings {
+export interface MacdTimeframeConfig {
   enabled: boolean;
   fastPeriod: number;
   slowPeriod: number;
   signalPeriod: number;
+}
+
+export interface MacdSettings {
+  showMultiTimeframe: boolean;
+  timeframes: {
+    '1m': MacdTimeframeConfig;
+    '5m': MacdTimeframeConfig;
+    '15m': MacdTimeframeConfig;
+    '1h': MacdTimeframeConfig;
+  };
 }
 
 export interface IndicatorSettings {
@@ -72,10 +82,18 @@ export interface OrderSettings {
   bigPercentage: number;
 }
 
+export type ThemeName = 'dark' | 'hyper' | 'midnight' | 'light' | 'dark-blue';
+
+export interface ThemeSettings {
+  selected: ThemeName;
+  playTradeSound: boolean;
+}
+
 export interface AppSettings {
   indicators: IndicatorSettings;
   scanner: ScannerSettings;
   orders: OrderSettings;
+  theme: ThemeSettings;
 }
 
 export const DEFAULT_STOCHASTIC_CONFIG: StochasticTimeframeConfig = {
@@ -83,6 +101,13 @@ export const DEFAULT_STOCHASTIC_CONFIG: StochasticTimeframeConfig = {
   period: 14,
   smoothK: 3,
   smoothD: 3,
+};
+
+export const DEFAULT_MACD_CONFIG: MacdTimeframeConfig = {
+  enabled: true,
+  fastPeriod: 5,
+  slowPeriod: 13,
+  signalPeriod: 5,
 };
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -104,10 +129,13 @@ export const DEFAULT_SETTINGS: AppSettings = {
       ema3: { enabled: true, period: 21 },
     },
     macd: {
-      enabled: true,
-      fastPeriod: 5,
-      slowPeriod: 13,
-      signalPeriod: 5,
+      showMultiTimeframe: true,
+      timeframes: {
+        '1m': { ...DEFAULT_MACD_CONFIG, enabled: true },
+        '5m': { ...DEFAULT_MACD_CONFIG, enabled: false },
+        '15m': { ...DEFAULT_MACD_CONFIG, enabled: false },
+        '1h': { ...DEFAULT_MACD_CONFIG, enabled: false },
+      },
     },
   },
   scanner: {
@@ -134,5 +162,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
     cloudPercentage: 5,
     smallPercentage: 10,
     bigPercentage: 25,
+  },
+  theme: {
+    selected: 'hyper',
+    playTradeSound: false,
   },
 };

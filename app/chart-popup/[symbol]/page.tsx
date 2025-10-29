@@ -25,12 +25,23 @@ export default function ChartPopupPage({ params }: ChartPopupPageProps) {
   const stoch5mData = useLocalCandleSubscription({ coin, interval: '5m' });
   const stoch15mData = useLocalCandleSubscription({ coin, interval: '15m' });
 
+  const macd1mData = useLocalCandleSubscription({ coin, interval: '1m' });
+  const macd5mData = useLocalCandleSubscription({ coin, interval: '5m' });
+  const macd15mData = useLocalCandleSubscription({ coin, interval: '15m' });
+
   const stochasticCandleData: Record<TimeInterval, CandleData[]> = useMemo(() => ({
     '1m': stoch1mData.candles,
     '5m': stoch5mData.candles,
     '15m': stoch15mData.candles,
     '1h': [],
   }), [stoch1mData.candles, stoch5mData.candles, stoch15mData.candles]);
+
+  const macdCandleData: Record<TimeInterval, CandleData[]> = useMemo(() => ({
+    '1m': macd1mData.candles,
+    '5m': macd5mData.candles,
+    '15m': macd15mData.candles,
+    '1h': [],
+  }), [macd1mData.candles, macd5mData.candles, macd15mData.candles]);
 
   return (
     <div className="min-h-screen bg-bg-primary p-4">
@@ -73,6 +84,7 @@ export default function ChartPopupPage({ params }: ChartPopupPageProps) {
             isExternalData={true}
             onPriceUpdate={setCurrentPrice}
             stochasticCandleData={stochasticCandleData}
+            macdCandleData={macdCandleData}
           />
         </div>
       </div>

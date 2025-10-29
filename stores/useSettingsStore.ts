@@ -1,8 +1,8 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { AppSettings, DEFAULT_SETTINGS, StochasticSettings, EmaSettings, MacdSettings, ScannerSettings, OrderSettings } from '@/models/Settings';
+import { AppSettings, DEFAULT_SETTINGS, StochasticSettings, EmaSettings, MacdSettings, ScannerSettings, OrderSettings, ThemeSettings } from '@/models/Settings';
 
-type TabType = 'scanner' | 'indicators' | 'orders';
+type TabType = 'scanner' | 'indicators' | 'orders' | 'ui';
 
 interface SettingsStore {
   isPanelOpen: boolean;
@@ -17,6 +17,7 @@ interface SettingsStore {
   updateMacdSettings: (settings: Partial<MacdSettings>) => void;
   updateScannerSettings: (settings: Partial<ScannerSettings>) => void;
   updateOrderSettings: (settings: Partial<OrderSettings>) => void;
+  updateThemeSettings: (settings: Partial<ThemeSettings>) => void;
   resetSettings: () => void;
 }
 
@@ -73,12 +74,64 @@ const mergeSettings = (storedSettings: any): AppSettings => {
             period: storedSettings.indicators?.ema?.ema3?.period ?? DEFAULT_SETTINGS.indicators.ema.ema3.period,
           },
         },
-        macd: {
-          enabled: storedSettings.indicators?.macd?.enabled ?? DEFAULT_SETTINGS.indicators.macd.enabled,
-          fastPeriod: storedSettings.indicators?.macd?.fastPeriod ?? DEFAULT_SETTINGS.indicators.macd.fastPeriod,
-          slowPeriod: storedSettings.indicators?.macd?.slowPeriod ?? DEFAULT_SETTINGS.indicators.macd.slowPeriod,
-          signalPeriod: storedSettings.indicators?.macd?.signalPeriod ?? DEFAULT_SETTINGS.indicators.macd.signalPeriod,
-        },
+        macd: (() => {
+          const storedMacd = storedSettings.indicators?.macd;
+
+          // Check if we have the new timeframe structure
+          if (storedMacd?.timeframes) {
+            return {
+              showMultiTimeframe: storedMacd.showMultiTimeframe ?? DEFAULT_SETTINGS.indicators.macd.showMultiTimeframe,
+              timeframes: {
+                '1m': {
+                  enabled: storedMacd.timeframes['1m']?.enabled ?? DEFAULT_SETTINGS.indicators.macd.timeframes['1m'].enabled,
+                  fastPeriod: storedMacd.timeframes['1m']?.fastPeriod ?? DEFAULT_SETTINGS.indicators.macd.timeframes['1m'].fastPeriod,
+                  slowPeriod: storedMacd.timeframes['1m']?.slowPeriod ?? DEFAULT_SETTINGS.indicators.macd.timeframes['1m'].slowPeriod,
+                  signalPeriod: storedMacd.timeframes['1m']?.signalPeriod ?? DEFAULT_SETTINGS.indicators.macd.timeframes['1m'].signalPeriod,
+                },
+                '5m': {
+                  enabled: storedMacd.timeframes['5m']?.enabled ?? DEFAULT_SETTINGS.indicators.macd.timeframes['5m'].enabled,
+                  fastPeriod: storedMacd.timeframes['5m']?.fastPeriod ?? DEFAULT_SETTINGS.indicators.macd.timeframes['5m'].fastPeriod,
+                  slowPeriod: storedMacd.timeframes['5m']?.slowPeriod ?? DEFAULT_SETTINGS.indicators.macd.timeframes['5m'].slowPeriod,
+                  signalPeriod: storedMacd.timeframes['5m']?.signalPeriod ?? DEFAULT_SETTINGS.indicators.macd.timeframes['5m'].signalPeriod,
+                },
+                '15m': {
+                  enabled: storedMacd.timeframes['15m']?.enabled ?? DEFAULT_SETTINGS.indicators.macd.timeframes['15m'].enabled,
+                  fastPeriod: storedMacd.timeframes['15m']?.fastPeriod ?? DEFAULT_SETTINGS.indicators.macd.timeframes['15m'].fastPeriod,
+                  slowPeriod: storedMacd.timeframes['15m']?.slowPeriod ?? DEFAULT_SETTINGS.indicators.macd.timeframes['15m'].slowPeriod,
+                  signalPeriod: storedMacd.timeframes['15m']?.signalPeriod ?? DEFAULT_SETTINGS.indicators.macd.timeframes['15m'].signalPeriod,
+                },
+                '1h': {
+                  enabled: storedMacd.timeframes['1h']?.enabled ?? DEFAULT_SETTINGS.indicators.macd.timeframes['1h'].enabled,
+                  fastPeriod: storedMacd.timeframes['1h']?.fastPeriod ?? DEFAULT_SETTINGS.indicators.macd.timeframes['1h'].fastPeriod,
+                  slowPeriod: storedMacd.timeframes['1h']?.slowPeriod ?? DEFAULT_SETTINGS.indicators.macd.timeframes['1h'].slowPeriod,
+                  signalPeriod: storedMacd.timeframes['1h']?.signalPeriod ?? DEFAULT_SETTINGS.indicators.macd.timeframes['1h'].signalPeriod,
+                },
+              },
+            };
+          }
+
+          // Migrate old structure to new structure
+          if (storedMacd && 'enabled' in storedMacd) {
+            console.log('Migrating old MACD settings to new multi-timeframe structure');
+            return {
+              showMultiTimeframe: false,
+              timeframes: {
+                '1m': {
+                  enabled: storedMacd.enabled ?? true,
+                  fastPeriod: storedMacd.fastPeriod ?? 5,
+                  slowPeriod: storedMacd.slowPeriod ?? 13,
+                  signalPeriod: storedMacd.signalPeriod ?? 5,
+                },
+                '5m': { ...DEFAULT_SETTINGS.indicators.macd.timeframes['5m'] },
+                '15m': { ...DEFAULT_SETTINGS.indicators.macd.timeframes['15m'] },
+                '1h': { ...DEFAULT_SETTINGS.indicators.macd.timeframes['1h'] },
+              },
+            };
+          }
+
+          // Use defaults
+          return DEFAULT_SETTINGS.indicators.macd;
+        })(),
       },
       scanner: {
         enabled: storedSettings.scanner?.enabled ?? DEFAULT_SETTINGS.scanner.enabled,
@@ -104,6 +157,10 @@ const mergeSettings = (storedSettings: any): AppSettings => {
         cloudPercentage: storedSettings.orders?.cloudPercentage ?? DEFAULT_SETTINGS.orders.cloudPercentage,
         smallPercentage: storedSettings.orders?.smallPercentage ?? DEFAULT_SETTINGS.orders.smallPercentage,
         bigPercentage: storedSettings.orders?.bigPercentage ?? DEFAULT_SETTINGS.orders.bigPercentage,
+      },
+      theme: {
+        selected: storedSettings.theme?.selected ?? DEFAULT_SETTINGS.theme.selected,
+        playTradeSound: storedSettings.theme?.playTradeSound ?? DEFAULT_SETTINGS.theme.playTradeSound,
       },
     };
   } catch (error) {
@@ -177,6 +234,16 @@ export const useSettingsStore = create<SettingsStore>()(
             ...state.settings,
             orders: {
               ...state.settings.orders,
+              ...updates,
+            },
+          },
+        })),
+      updateThemeSettings: (updates) =>
+        set((state) => ({
+          settings: {
+            ...state.settings,
+            theme: {
+              ...state.settings.theme,
               ...updates,
             },
           },

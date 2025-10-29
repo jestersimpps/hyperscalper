@@ -14,12 +14,12 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
   const router = useRouter();
   const symbols = ['BTC', 'PUMP'];
 
-  const { results, status, runScan, startAutoScan, stopAutoScan } = useScannerStore();
+  const { results, status, runScan, startAutoScanWithDelay, stopAutoScan } = useScannerStore();
   const { settings } = useSettingsStore();
 
   useEffect(() => {
     if (settings.scanner.enabled) {
-      startAutoScan();
+      startAutoScanWithDelay();
     } else {
       stopAutoScan();
     }
@@ -27,7 +27,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
     return () => {
       stopAutoScan();
     };
-  }, [settings.scanner.enabled, settings.scanner.scanInterval, startAutoScan, stopAutoScan]);
+  }, [settings.scanner.enabled, settings.scanner.scanInterval, startAutoScanWithDelay, stopAutoScan]);
 
   const formatTimeSince = (timestamp: number | null) => {
     if (!timestamp) return 'Never';

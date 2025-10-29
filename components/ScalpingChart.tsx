@@ -19,6 +19,7 @@ interface ScalpingChartProps {
   candleData?: CandleData[];
   isExternalData?: boolean;
   stochasticCandleData?: Record<TimeInterval, CandleData[]>;
+  macdCandleData?: Record<TimeInterval, CandleData[]>;
   position?: Position | null;
   orders?: Order[];
 }
@@ -107,7 +108,7 @@ function detectCrossovers(ema1: number[], ema2: number[], ema3: number[] | null,
 }
 
 
-export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartReady, candleData, isExternalData = false, stochasticCandleData, position, orders }: ScalpingChartProps) {
+export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartReady, candleData, isExternalData = false, stochasticCandleData, macdCandleData, position, orders }: ScalpingChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<any>(null);
   const candleSeriesRef = useRef<any>(null);
@@ -119,6 +120,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
   const macdSignalSeriesRef = useRef<any>(null);
   const macdHistogramSeriesRef = useRef<any>(null);
   const stochSeriesRefsRef = useRef<Record<string, { k: any; d: any }>>({});
+  const macdSeriesRefsRef = useRef<Record<string, { line: any; signal: any; histogram: any }>>({});
   const positionLineRef = useRef<any>(null);
   const orderLinesRef = useRef<any[]>([]);
   const [chartReady, setChartReady] = useState(false);
@@ -137,12 +139,19 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
   const stochasticSettings = useSettingsStore((state) => state.settings.indicators.stochastic);
   const macdSettings = useSettingsStore((state) => state.settings.indicators.macd);
 
-  const enabledTimeframes = Object.entries(stochasticSettings.timeframes)
+  const enabledStochTimeframes = Object.entries(stochasticSettings.timeframes)
     .filter(([_, config]) => config.enabled && stochasticSettings.showMultiTimeframe)
+    .map(([tf]) => tf as TimeInterval);
+
+  const enabledMacdTimeframes = Object.entries(macdSettings.timeframes || {})
+    .filter(([_, config]) => config.enabled && macdSettings.showMultiTimeframe)
     .map(([tf]) => tf as TimeInterval);
 
   const storeStochCandles = useCandleStore((state) => state.candles);
   const allStochCandles = isExternalData && stochasticCandleData ? stochasticCandleData : storeStochCandles;
+
+  const storeMacdCandles = useCandleStore((state) => state.candles);
+  const allMacdCandles = isExternalData && macdCandleData ? macdCandleData : storeMacdCandles;
 
   useEffect(() => {
     let mounted = true;
@@ -292,7 +301,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
 
         stochSeriesRefsRef.current = {};
 
-        enabledTimeframes.forEach((timeframe) => {
+        enabledStochTimeframes.forEach((timeframe) => {
           const kSeries = chart.addLineSeries({
             color: timeframeColors[timeframe].k,
             lineWidth: 2,
@@ -325,6 +334,64 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
           });
 
           stochSeriesRefsRef.current[timeframe] = { k: kSeries, d: dSeries };
+        });
+
+        // MACD multi-timeframe series
+        const macdTimeframeColors: Record<string, { line: string; signal: string }> = {
+          '1m': { line: colors.accentBlue, signal: colors.accentRose },
+          '5m': { line: colors.primary, signal: colors.statusBullish },
+          '15m': { line: colors.accentGreen, signal: colors.accentRose },
+          '1h': { line: colors.accentBlue, signal: colors.accentRose },
+        };
+
+        macdSeriesRefsRef.current = {};
+
+        enabledMacdTimeframes.forEach((timeframe) => {
+          const lineSeries = chart.addLineSeries({
+            color: macdTimeframeColors[timeframe].line,
+            lineWidth: 2,
+            priceScaleId: 'macd',
+            lastValueVisible: false,
+            priceLineVisible: false,
+          });
+
+          const signalSeries = chart.addLineSeries({
+            color: macdTimeframeColors[timeframe].signal,
+            lineWidth: 1,
+            lineStyle: 2,
+            priceScaleId: 'macd',
+            lastValueVisible: false,
+            priceLineVisible: false,
+          });
+
+          const histogramSeries = chart.addHistogramSeries({
+            priceScaleId: 'macd',
+            lastValueVisible: false,
+            priceLineVisible: false,
+          });
+
+          lineSeries.priceScale().applyOptions({
+            scaleMargins: {
+              top: 0.55,
+              bottom: 0.35,
+            },
+          });
+
+          signalSeries.priceScale().applyOptions({
+            scaleMargins: {
+              top: 0.55,
+              bottom: 0.35,
+            },
+          });
+
+          histogramSeries.priceScale().applyOptions({
+            scaleMargins: {
+              top: 0.55,
+              bottom: 0.35,
+            },
+          });
+
+          macdSeriesRefsRef.current[timeframe] = { line: lineSeries, signal: signalSeries, histogram: histogramSeries };
         });
 
         chartRef.current = chart;
@@ -379,7 +446,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
         macdHistogramSeriesRef.current = null;
       }
     };
-  }, [enabledTimeframes.join(','), stochasticSettings.showMultiTimeframe]);
+  }, [enabledStochTimeframes.join(','), enabledMacdTimeframes.join(','), stochasticSettings.showMultiTimeframe, macdSettings.showMultiTimeframe]);
 
   useEffect(() => {
     if (!chartReady || isExternalData) return;
@@ -391,7 +458,15 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
 
     // Fetch stochastic data
     if (stochasticSettings.showMultiTimeframe) {
-      enabledTimeframes.forEach(tf => {
+      enabledStochTimeframes.forEach(tf => {
+        fetchCandles(coin, tf, startTime, endTime);
+        subscribeToCandles(coin, tf);
+      });
+    }
+
+    // Fetch MACD data
+    if (macdSettings.showMultiTimeframe) {
+      enabledMacdTimeframes.forEach(tf => {
         fetchCandles(coin, tf, startTime, endTime);
         subscribeToCandles(coin, tf);
       });
@@ -402,12 +477,18 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
       unsubscribeFromCandles(coin, interval);
 
       if (stochasticSettings.showMultiTimeframe) {
-        enabledTimeframes.forEach(tf => {
+        enabledStochTimeframes.forEach(tf => {
+          unsubscribeFromCandles(coin, tf);
+        });
+      }
+
+      if (macdSettings.showMultiTimeframe) {
+        enabledMacdTimeframes.forEach(tf => {
           unsubscribeFromCandles(coin, tf);
         });
       }
     };
-  }, [coin, interval, chartReady, isExternalData, enabledTimeframes.join(','), stochasticSettings.showMultiTimeframe]);
+  }, [coin, interval, chartReady, isExternalData, enabledStochTimeframes.join(','), enabledMacdTimeframes.join(','), stochasticSettings.showMultiTimeframe, macdSettings.showMultiTimeframe]);
 
   useEffect(() => {
     lastCandleTimeRef.current = null;
@@ -438,8 +519,9 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
     const ema2 = emaSettings.ema2.enabled ? calculateEMA(closePrices, emaSettings.ema2.period) : [];
     const ema3 = emaSettings.ema3.enabled ? calculateEMA(closePrices, emaSettings.ema3.period) : [];
 
-    const macdResult = macdSettings.enabled
-      ? calculateMACD(closePrices, macdSettings.fastPeriod, macdSettings.slowPeriod, macdSettings.signalPeriod)
+    const macdIntervalConfig = macdSettings.timeframes?.[interval];
+    const macdResult = (!macdSettings.showMultiTimeframe && macdIntervalConfig?.enabled)
+      ? calculateMACD(closePrices, macdIntervalConfig.fastPeriod, macdIntervalConfig.slowPeriod, macdIntervalConfig.signalPeriod)
       : { macd: [], signal: [], histogram: [] };
 
     const lastCandle = candles[candles.length - 1];
@@ -563,7 +645,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
     if (!chartReady || Object.keys(stochSeriesRefsRef.current).length === 0) return;
     if (!stochasticSettings.showMultiTimeframe) return;
 
-    enabledTimeframes.forEach((timeframe) => {
+    enabledStochTimeframes.forEach((timeframe) => {
       const stochCandles = isExternalData ? allStochCandles[timeframe] : allStochCandles[`${coin}-${timeframe}`];
       if (!stochCandles || stochCandles.length === 0) return;
 
@@ -589,7 +671,49 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
         })));
       }
     });
-  }, [chartReady, enabledTimeframes.join(','), allStochCandles, stochasticSettings, coin, isExternalData]);
+  }, [chartReady, enabledStochTimeframes.join(','), allStochCandles, stochasticSettings, coin, isExternalData]);
+
+  // MACD multi-timeframe data update
+  useEffect(() => {
+    if (!chartReady || Object.keys(macdSeriesRefsRef.current).length === 0) return;
+    if (!macdSettings.showMultiTimeframe) return;
+
+    const colors = getThemeColors();
+
+    enabledMacdTimeframes.forEach((timeframe) => {
+      const macdCandles = isExternalData ? allMacdCandles[timeframe] : allMacdCandles[`${coin}-${timeframe}`];
+      if (!macdCandles || macdCandles.length === 0) return;
+
+      const config = macdSettings.timeframes?.[timeframe];
+      if (!config) return;
+
+      const validCandles = macdCandles.filter(c => c && typeof c.close === 'number');
+      if (validCandles.length === 0) return;
+
+      const closePrices = validCandles.map(c => c.close);
+      const macdData = calculateMACD(closePrices, config.fastPeriod, config.slowPeriod, config.signalPeriod);
+
+      if (macdData.macd.length > 0 && macdSeriesRefsRef.current[timeframe]) {
+        const offset = validCandles.length - macdData.macd.length;
+
+        macdSeriesRefsRef.current[timeframe].line.setData(macdData.macd.map((value, i) => ({
+          time: (validCandles[i + offset].time / 1000) as any,
+          value,
+        })));
+
+        macdSeriesRefsRef.current[timeframe].signal.setData(macdData.signal.map((value, i) => ({
+          time: (validCandles[i + offset].time / 1000) as any,
+          value,
+        })));
+
+        macdSeriesRefsRef.current[timeframe].histogram.setData(macdData.histogram.map((value, i) => ({
+          time: (validCandles[i + offset].time / 1000) as any,
+          value,
+          color: value >= 0 ? colors.statusBullish + '80' : colors.statusBearish + '80',
+        })));
+      }
+    });
+  }, [chartReady, enabledMacdTimeframes.join(','), allMacdCandles, macdSettings, coin, isExternalData]);
 
   // Position price line overlay
   useEffect(() => {
@@ -756,10 +880,10 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
             </div>
           </>
         )}
-        {stochasticSettings.showMultiTimeframe && enabledTimeframes.length > 0 && (
+        {stochasticSettings.showMultiTimeframe && enabledStochTimeframes.length > 0 && (
           <>
             <div className="w-px h-4 bg-frame mx-1"></div>
-            {enabledTimeframes.map((timeframe) => (
+            {enabledStochTimeframes.map((timeframe) => (
               <div key={timeframe} className="flex items-center gap-3">
                 <div className="flex items-center gap-1">
                   <div className="w-6 h-0.5" style={{ backgroundColor: timeframeColorVars[timeframe].k }}></div>

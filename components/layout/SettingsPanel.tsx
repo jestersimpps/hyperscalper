@@ -2,10 +2,10 @@
 
 import { useEffect, useCallback, useState } from 'react';
 import { useSettingsStore } from '@/stores/useSettingsStore';
-import { StochasticTimeframeConfig, EmaConfig } from '@/models/Settings';
+import { StochasticTimeframeConfig, EmaConfig, ThemeName } from '@/models/Settings';
 
 export default function SettingsPanel() {
-  const { isPanelOpen, activeTab, closePanel, setActiveTab, settings, updateStochasticSettings, updateEmaSettings, updateMacdSettings, updateScannerSettings, updateOrderSettings } = useSettingsStore();
+  const { isPanelOpen, activeTab, closePanel, setActiveTab, settings, updateStochasticSettings, updateEmaSettings, updateMacdSettings, updateScannerSettings, updateOrderSettings, updateThemeSettings } = useSettingsStore();
   const [isStochasticExpanded, setIsStochasticExpanded] = useState(false);
   const [isEmaExpanded, setIsEmaExpanded] = useState(false);
   const [isMacdExpanded, setIsMacdExpanded] = useState(false);
@@ -106,6 +106,16 @@ export default function SettingsPanel() {
             }`}
           >
             █ Orders
+          </button>
+          <button
+            onClick={() => setActiveTab('ui')}
+            className={`flex-1 px-4 py-3 text-xs font-mono uppercase tracking-wider transition-all ${
+              activeTab === 'ui'
+                ? 'bg-primary/10 text-primary border-b-2 border-primary'
+                : 'text-primary-muted hover:text-primary hover:bg-primary/5'
+            }`}
+          >
+            █ UI
           </button>
         </div>
 
@@ -691,66 +701,115 @@ export default function SettingsPanel() {
                   className="w-full p-3 bg-bg-secondary flex items-center justify-between hover:bg-primary/5 transition-colors"
                 >
                   <div className="flex items-center gap-2">
-                    <span className="text-primary font-mono text-xs font-bold">█ MACD</span>
+                    <span className="text-primary font-mono text-xs font-bold">█ MULTI-TIMEFRAME MACD</span>
                   </div>
                   <span className="text-primary text-sm">{isMacdExpanded ? '▼' : '▶'}</span>
                 </button>
 
                 {isMacdExpanded && (
-                  <div className="p-4 space-y-3 bg-bg-primary">
-                    {/* Enable/Disable */}
+                  <div className="p-4 space-y-4 bg-bg-primary">
+                    {/* Global Toggle */}
                     <div className="p-3 bg-bg-secondary border border-frame rounded">
                       <label className="flex items-center justify-between cursor-pointer">
-                        <span className="text-primary-muted text-xs font-mono">ENABLE MACD</span>
+                        <span className="text-primary-muted text-xs font-mono">SHOW MULTI-TIMEFRAME MACD</span>
                         <input
                           type="checkbox"
-                          checked={settings.indicators.macd.enabled}
-                          onChange={(e) => updateMacdSettings({ enabled: e.target.checked })}
+                          checked={settings.indicators.macd.showMultiTimeframe}
+                          onChange={(e) => updateMacdSettings({ showMultiTimeframe: e.target.checked })}
                           className="w-4 h-4 accent-primary cursor-pointer"
                         />
                       </label>
                     </div>
 
-                    {settings.indicators.macd.enabled && (
-                      <div className="p-3 bg-bg-secondary border border-frame rounded">
-                        <div className="text-primary font-mono text-xs font-bold mb-3">PARAMETERS</div>
-                        <div className="grid grid-cols-3 gap-3 text-xs">
-                          <div>
-                            <label className="text-primary-muted font-mono block mb-1">FAST PERIOD</label>
-                            <input
-                              type="number"
-                              min="2"
-                              max="50"
-                              value={settings.indicators.macd.fastPeriod}
-                              onChange={(e) => updateMacdSettings({ fastPeriod: Number(e.target.value) })}
-                              className="w-full bg-bg-primary border border-frame text-primary px-2 py-1 rounded font-mono text-xs"
-                            />
+                    {/* Timeframe Configuration */}
+                    <div className="space-y-2">
+                      <div className="text-primary text-xs font-mono mb-2">█ TIMEFRAME CONFIGURATION</div>
+
+                      {(Object.keys(settings.indicators.macd.timeframes) as Array<keyof typeof settings.indicators.macd.timeframes>).map((timeframe) => {
+                        const config = settings.indicators.macd.timeframes[timeframe];
+                        return (
+                          <div key={timeframe} className="p-3 bg-bg-secondary border border-frame rounded">
+                            <div className="flex items-center justify-between mb-3">
+                              <span className="text-primary font-mono text-xs font-bold">{timeframe.toUpperCase()}</span>
+                              <label className="flex items-center cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={config.enabled}
+                                  onChange={(e) => {
+                                    updateMacdSettings({
+                                      timeframes: {
+                                        ...settings.indicators.macd.timeframes,
+                                        [timeframe]: { ...config, enabled: e.target.checked },
+                                      },
+                                    });
+                                  }}
+                                  className="w-4 h-4 accent-primary cursor-pointer"
+                                />
+                              </label>
+                            </div>
+
+                            {config.enabled && (
+                              <div className="grid grid-cols-3 gap-3 text-xs">
+                                <div>
+                                  <label className="text-primary-muted font-mono block mb-1">FAST PERIOD</label>
+                                  <input
+                                    type="number"
+                                    min="2"
+                                    max="50"
+                                    value={config.fastPeriod}
+                                    onChange={(e) => {
+                                      updateMacdSettings({
+                                        timeframes: {
+                                          ...settings.indicators.macd.timeframes,
+                                          [timeframe]: { ...config, fastPeriod: Number(e.target.value) },
+                                        },
+                                      });
+                                    }}
+                                    className="w-full bg-bg-primary border border-frame text-primary px-2 py-1 rounded font-mono text-xs"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-primary-muted font-mono block mb-1">SLOW PERIOD</label>
+                                  <input
+                                    type="number"
+                                    min="2"
+                                    max="100"
+                                    value={config.slowPeriod}
+                                    onChange={(e) => {
+                                      updateMacdSettings({
+                                        timeframes: {
+                                          ...settings.indicators.macd.timeframes,
+                                          [timeframe]: { ...config, slowPeriod: Number(e.target.value) },
+                                        },
+                                      });
+                                    }}
+                                    className="w-full bg-bg-primary border border-frame text-primary px-2 py-1 rounded font-mono text-xs"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-primary-muted font-mono block mb-1">SIGNAL PERIOD</label>
+                                  <input
+                                    type="number"
+                                    min="2"
+                                    max="50"
+                                    value={config.signalPeriod}
+                                    onChange={(e) => {
+                                      updateMacdSettings({
+                                        timeframes: {
+                                          ...settings.indicators.macd.timeframes,
+                                          [timeframe]: { ...config, signalPeriod: Number(e.target.value) },
+                                        },
+                                      });
+                                    }}
+                                    className="w-full bg-bg-primary border border-frame text-primary px-2 py-1 rounded font-mono text-xs"
+                                  />
+                                </div>
+                              </div>
+                            )}
                           </div>
-                          <div>
-                            <label className="text-primary-muted font-mono block mb-1">SLOW PERIOD</label>
-                            <input
-                              type="number"
-                              min="2"
-                              max="100"
-                              value={settings.indicators.macd.slowPeriod}
-                              onChange={(e) => updateMacdSettings({ slowPeriod: Number(e.target.value) })}
-                              className="w-full bg-bg-primary border border-frame text-primary px-2 py-1 rounded font-mono text-xs"
-                            />
-                          </div>
-                          <div>
-                            <label className="text-primary-muted font-mono block mb-1">SIGNAL PERIOD</label>
-                            <input
-                              type="number"
-                              min="2"
-                              max="50"
-                              value={settings.indicators.macd.signalPeriod}
-                              onChange={(e) => updateMacdSettings({ signalPeriod: Number(e.target.value) })}
-                              className="w-full bg-bg-primary border border-frame text-primary px-2 py-1 rounded font-mono text-xs"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    )}
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
               </div>
@@ -832,6 +891,67 @@ export default function SettingsPanel() {
                 <div className="text-primary-muted text-[10px] leading-relaxed">
                   <span className="text-bullish font-bold">NOTE:</span> These percentages represent how much of your total account value will be used for each order type.
                   Make sure the total of all active positions doesn't exceed your risk tolerance.
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'ui' && (
+            <div className="space-y-3">
+              <div className="p-3 bg-bg-secondary border border-frame rounded">
+                <div className="text-primary font-mono text-xs font-bold mb-3">█ THEME</div>
+                <p className="text-primary-muted text-[10px] mb-4 leading-relaxed">
+                  Choose a color theme for the application. Changes apply instantly.
+                </p>
+                <div className="space-y-2">
+                  {(['hyper', 'dark', 'dark-blue', 'midnight', 'light'] as ThemeName[]).map((themeName) => (
+                    <label
+                      key={themeName}
+                      className="flex items-center gap-3 p-3 bg-bg-primary border border-frame rounded cursor-pointer hover:border-primary/50 transition-colors"
+                    >
+                      <input
+                        type="radio"
+                        name="theme"
+                        value={themeName}
+                        checked={settings.theme.selected === themeName}
+                        onChange={() => updateThemeSettings({ selected: themeName })}
+                        className="w-4 h-4 accent-primary cursor-pointer"
+                      />
+                      <div className="flex-1">
+                        <div className="text-primary font-mono text-xs capitalize">{themeName.replace('-', ' ')}</div>
+                        <div className="text-primary-muted text-[10px] mt-0.5">
+                          {themeName === 'hyper' && 'Teal/cyan theme (current default)'}
+                          {themeName === 'dark' && 'Pure black with blue-gray accents'}
+                          {themeName === 'dark-blue' && 'Soft navy blue, easy on the eyes'}
+                          {themeName === 'midnight' && 'Deep blue with purple accents'}
+                          {themeName === 'light' && 'Clean light theme'}
+                        </div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="p-3 bg-bg-secondary border border-frame rounded">
+                <div className="text-primary font-mono text-xs font-bold mb-3">█ SOUNDS</div>
+                <p className="text-primary-muted text-[10px] mb-4 leading-relaxed">
+                  Configure audio notifications for trading activity.
+                </p>
+                <div className="p-3 bg-bg-primary border border-frame rounded">
+                  <label className="flex items-center justify-between cursor-pointer">
+                    <div>
+                      <span className="text-primary-muted text-xs font-mono block">PLAY SOUND ON TRADES</span>
+                      <span className="text-primary-muted text-[10px] block mt-1">
+                        Play a sound for each trade (batches spread sequentially)
+                      </span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={settings.theme.playTradeSound}
+                      onChange={(e) => updateThemeSettings({ playTradeSound: e.target.checked })}
+                      className="w-4 h-4 accent-primary cursor-pointer"
+                    />
+                  </label>
                 </div>
               </div>
             </div>

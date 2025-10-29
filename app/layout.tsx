@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import SymbolMetaHydrator from "@/components/providers/SymbolMetaHydrator";
+import ThemeApplier from "@/components/providers/ThemeApplier";
 import SettingsPanel from "@/components/layout/SettingsPanel";
 
 const geistSans = Geist({
@@ -54,6 +55,7 @@ export default async function RootLayout({
         suppressHydrationWarning
       >
         <SymbolMetaHydrator initialData={symbolMetadata} />
+        <ThemeApplier />
         <SettingsPanel />
         {children}
       </body>
