@@ -39,8 +39,9 @@ export const useScannerStore = create<ScannerStore>((set, get) => ({
 
     try {
       const settings = useSettingsStore.getState().settings.scanner;
+      const indicatorSettings = useSettingsStore.getState().settings.indicators;
 
-      if (!settings.stochasticScanner.enabled) {
+      if (!settings.stochasticScanner.enabled && !settings.emaAlignmentScanner.enabled) {
         set({
           status: {
             ...get().status,
@@ -52,6 +53,7 @@ export const useScannerStore = create<ScannerStore>((set, get) => ({
       }
 
       const params = new URLSearchParams({
+        stochasticEnabled: settings.stochasticScanner.enabled.toString(),
         timeframes: settings.stochasticScanner.timeframes.join(','),
         oversoldThreshold: settings.stochasticScanner.oversoldThreshold.toString(),
         overboughtThreshold: settings.stochasticScanner.overboughtThreshold.toString(),
@@ -59,6 +61,12 @@ export const useScannerStore = create<ScannerStore>((set, get) => ({
         smoothK: settings.stochasticScanner.smoothK.toString(),
         smoothD: settings.stochasticScanner.smoothD.toString(),
         topMarkets: settings.topMarkets.toString(),
+        emaAlignmentEnabled: settings.emaAlignmentScanner.enabled.toString(),
+        emaTimeframes: settings.emaAlignmentScanner.timeframes.join(','),
+        ema1Period: indicatorSettings.ema.ema1.period.toString(),
+        ema2Period: indicatorSettings.ema.ema2.period.toString(),
+        ema3Period: indicatorSettings.ema.ema3.period.toString(),
+        emaLookbackBars: settings.emaAlignmentScanner.lookbackBars.toString(),
       });
 
       const response = await fetch(`/api/scanner?${params}`);

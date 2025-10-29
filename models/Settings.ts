@@ -51,12 +51,19 @@ export interface StochasticScannerConfig {
   smoothD: number;
 }
 
+export interface EmaAlignmentScannerConfig {
+  enabled: boolean;
+  timeframes: ('1m' | '5m' | '15m' | '1h')[];
+  lookbackBars: number;
+}
+
 export interface ScannerSettings {
   enabled: boolean;
   scanInterval: number;
   topMarkets: number;
   playSound: boolean;
   stochasticScanner: StochasticScannerConfig;
+  emaAlignmentScanner: EmaAlignmentScannerConfig;
 }
 
 export interface OrderSettings {
@@ -116,6 +123,11 @@ export const DEFAULT_SETTINGS: AppSettings = {
       period: 14,
       smoothK: 3,
       smoothD: 3,
+    },
+    emaAlignmentScanner: {
+      enabled: false,
+      timeframes: ['1m', '5m', '15m'],
+      lookbackBars: 3,
     },
   },
   orders: {

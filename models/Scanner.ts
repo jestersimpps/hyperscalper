@@ -6,14 +6,26 @@ export interface StochasticValue {
   timeframe: TimeInterval;
 }
 
+export interface EmaAlignmentValue {
+  ema1: number;
+  ema2: number;
+  ema3: number;
+  timeframe: TimeInterval;
+  alignmentType: 'bullish' | 'bearish';
+  barsAgo: number;
+}
+
 export type SignalType = 'bullish' | 'bearish';
+export type ScanType = 'stochastic' | 'emaAlignment';
 
 export interface ScanResult {
   symbol: string;
-  stochastics: StochasticValue[];
+  stochastics?: StochasticValue[];
+  emaAlignments?: EmaAlignmentValue[];
   matchedAt: number;
   signalType: SignalType;
   description: string;
+  scanType: ScanType;
 }
 
 export interface ScannerStatus {

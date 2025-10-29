@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ExchangeFactory } from '@/lib/exchange-factory';
-import { calculateStochastic } from '@/lib/indicators';
+import { calculateStochastic, detectEmaAlignment } from '@/lib/indicators';
 import type { TimeInterval, CandleData } from '@/types';
-import type { StochasticValue } from '@/models/Scanner';
+import type { StochasticValue, EmaAlignmentValue } from '@/models/Scanner';
 import type { PerpsMetaAndAssetCtxs } from '@nktkas/hyperliquid';
 
 export const runtime = 'nodejs';
@@ -16,6 +16,13 @@ interface ScanParams {
   smoothK: number;
   smoothD: number;
   topMarkets: number;
+  stochasticEnabled: boolean;
+  emaAlignmentEnabled: boolean;
+  emaTimeframes: TimeInterval[];
+  ema1Period: number;
+  ema2Period: number;
+  ema3Period: number;
+  emaLookbackBars: number;
 }
 
 interface SymbolWithVolume {
@@ -84,12 +91,20 @@ export async function GET(request: NextRequest) {
       smoothK: parseInt(searchParams.get('smoothK') || '3'),
       smoothD: parseInt(searchParams.get('smoothD') || '3'),
       topMarkets: parseInt(searchParams.get('topMarkets') || '20'),
+      stochasticEnabled: searchParams.get('stochasticEnabled') === 'true',
+      emaAlignmentEnabled: searchParams.get('emaAlignmentEnabled') === 'true',
+      emaTimeframes: (searchParams.get('emaTimeframes')?.split(',') as TimeInterval[]) || ['1m', '5m', '15m'],
+      ema1Period: parseInt(searchParams.get('ema1Period') || '5'),
+      ema2Period: parseInt(searchParams.get('ema2Period') || '13'),
+      ema3Period: parseInt(searchParams.get('ema3Period') || '21'),
+      emaLookbackBars: parseInt(searchParams.get('emaLookbackBars') || '3'),
     };
 
     console.log('🔍 Scanner started:', {
+      stochasticEnabled: params.stochasticEnabled,
+      emaAlignmentEnabled: params.emaAlignmentEnabled,
       timeframes: params.timeframes,
-      oversoldThreshold: params.oversoldThreshold,
-      overboughtThreshold: params.overboughtThreshold,
+      emaTimeframes: params.emaTimeframes,
       topMarkets: params.topMarkets,
     });
 
@@ -153,69 +168,130 @@ export async function GET(request: NextRequest) {
           continue;
         }
 
-        const stochastics: StochasticValue[] = [];
-        let allOversold = true;
-        let allOverbought = true;
+        if (params.stochasticEnabled) {
+          const stochastics: StochasticValue[] = [];
+          let allOversold = true;
+          let allOverbought = true;
 
-        for (const timeframe of params.timeframes) {
-          const timeframeMinutes = getTimeframeMinutes(timeframe);
-          const aggregatedCandles = aggregateCandles(candles1m, timeframeMinutes);
+          for (const timeframe of params.timeframes) {
+            const timeframeMinutes = getTimeframeMinutes(timeframe);
+            const aggregatedCandles = aggregateCandles(candles1m, timeframeMinutes);
 
-          if (aggregatedCandles.length === 0) {
-            allOversold = false;
-            allOverbought = false;
-            break;
+            if (aggregatedCandles.length === 0) {
+              allOversold = false;
+              allOverbought = false;
+              break;
+            }
+
+            const stochData = calculateStochastic(aggregatedCandles, params.period, params.smoothK, params.smoothD);
+
+            if (stochData.length === 0) {
+              allOversold = false;
+              allOverbought = false;
+              break;
+            }
+
+            const latestStoch = stochData[stochData.length - 1];
+
+            if (latestStoch.k > params.oversoldThreshold || latestStoch.d > params.oversoldThreshold) {
+              allOversold = false;
+            }
+
+            if (latestStoch.k < params.overboughtThreshold || latestStoch.d < params.overboughtThreshold) {
+              allOverbought = false;
+            }
+
+            stochastics.push({
+              k: latestStoch.k,
+              d: latestStoch.d,
+              timeframe,
+            });
           }
 
-          const stochData = calculateStochastic(aggregatedCandles, params.period, params.smoothK, params.smoothD);
+          if (allOversold || allOverbought) {
+            const signalType = allOversold ? 'bullish' : 'bearish';
+            const avgK = stochastics.reduce((sum, s) => sum + s.k, 0) / stochastics.length;
 
-          if (stochData.length === 0) {
-            allOversold = false;
-            allOverbought = false;
-            break;
+            let description = '';
+            if (allOversold) {
+              const intensity = avgK < 10 ? 'Extreme' : avgK < 15 ? 'Strong' : 'Moderate';
+              description = `${intensity} oversold - Stochastics bottomed across ${stochastics.length} timeframe${stochastics.length > 1 ? 's' : ''} (avg K:${avgK.toFixed(1)})`;
+            } else {
+              const intensity = avgK > 90 ? 'Extreme' : avgK > 85 ? 'Strong' : 'Moderate';
+              description = `${intensity} overbought - Stochastics topped across ${stochastics.length} timeframe${stochastics.length > 1 ? 's' : ''} (avg K:${avgK.toFixed(1)})`;
+            }
+
+            console.log(`  ✅ ${symbol}: STOCHASTIC MATCH! ${description}`);
+            results.push({
+              symbol,
+              stochastics,
+              matchedAt: Date.now(),
+              signalType,
+              description,
+              scanType: 'stochastic' as const,
+            });
+          } else {
+            filteredOutCount++;
           }
-
-          const latestStoch = stochData[stochData.length - 1];
-
-          if (latestStoch.k > params.oversoldThreshold || latestStoch.d > params.oversoldThreshold) {
-            allOversold = false;
-          }
-
-          if (latestStoch.k < params.overboughtThreshold || latestStoch.d < params.overboughtThreshold) {
-            allOverbought = false;
-          }
-
-          stochastics.push({
-            k: latestStoch.k,
-            d: latestStoch.d,
-            timeframe,
-          });
         }
 
-        if (allOversold || allOverbought) {
-          const signalType = allOversold ? 'bullish' : 'bearish';
-          const avgK = stochastics.reduce((sum, s) => sum + s.k, 0) / stochastics.length;
-          const avgD = stochastics.reduce((sum, s) => sum + s.d, 0) / stochastics.length;
+        if (params.emaAlignmentEnabled) {
+          const emaAlignments: EmaAlignmentValue[] = [];
+          let hasAlignment = false;
+          let alignmentType: 'bullish' | 'bearish' | null = null;
 
-          let description = '';
-          if (allOversold) {
-            const intensity = avgK < 10 ? 'Extreme' : avgK < 15 ? 'Strong' : 'Moderate';
-            description = `${intensity} oversold - Stochastics bottomed across ${stochastics.length} timeframe${stochastics.length > 1 ? 's' : ''} (avg K:${avgK.toFixed(1)})`;
-          } else {
-            const intensity = avgK > 90 ? 'Extreme' : avgK > 85 ? 'Strong' : 'Moderate';
-            description = `${intensity} overbought - Stochastics topped across ${stochastics.length} timeframe${stochastics.length > 1 ? 's' : ''} (avg K:${avgK.toFixed(1)})`;
+          for (const timeframe of params.emaTimeframes) {
+            const timeframeMinutes = getTimeframeMinutes(timeframe);
+            const aggregatedCandles = aggregateCandles(candles1m, timeframeMinutes);
+
+            if (aggregatedCandles.length === 0) {
+              break;
+            }
+
+            const alignment = detectEmaAlignment(
+              aggregatedCandles,
+              params.ema1Period,
+              params.ema2Period,
+              params.ema3Period,
+              params.emaLookbackBars
+            );
+
+            if (alignment) {
+              hasAlignment = true;
+              if (!alignmentType) {
+                alignmentType = alignment.type;
+              } else if (alignmentType !== alignment.type) {
+                hasAlignment = false;
+                break;
+              }
+
+              emaAlignments.push({
+                ema1: alignment.ema1,
+                ema2: alignment.ema2,
+                ema3: alignment.ema3,
+                timeframe,
+                alignmentType: alignment.type,
+                barsAgo: alignment.barsAgo,
+              });
+            } else {
+              hasAlignment = false;
+              break;
+            }
           }
 
-          console.log(`  ✅ ${symbol}: MATCH! ${description}`);
-          results.push({
-            symbol,
-            stochastics,
-            matchedAt: Date.now(),
-            signalType,
-            description,
-          });
-        } else {
-          filteredOutCount++;
+          if (hasAlignment && alignmentType && emaAlignments.length > 0) {
+            const description = `EMA alignment ${alignmentType === 'bullish' ? 'crossed up' : 'crossed down'} across ${emaAlignments.length} timeframe${emaAlignments.length > 1 ? 's' : ''}`;
+
+            console.log(`  ✅ ${symbol}: EMA MATCH! ${description}`);
+            results.push({
+              symbol,
+              emaAlignments,
+              matchedAt: Date.now(),
+              signalType: alignmentType,
+              description,
+              scanType: 'emaAlignment' as const,
+            });
+          }
         }
       } catch (error) {
         failedFetchCount++;

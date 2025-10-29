@@ -58,6 +58,14 @@ interface CandleData {
   close: number;
 }
 
+export interface EmaAlignment {
+  type: 'bullish' | 'bearish';
+  barsAgo: number;
+  ema1: number;
+  ema2: number;
+  ema3: number;
+}
+
 export function calculateStochastic(
   candles: CandleData[],
   period: number = 14,
@@ -102,4 +110,84 @@ export function calculateStochastic(
   }
 
   return result;
+}
+
+export function detectEmaAlignment(
+  candles: CandleData[],
+  period1: number,
+  period2: number,
+  period3: number,
+  lookbackBars: number
+): EmaAlignment | null {
+  if (!candles || candles.length < Math.max(period1, period2, period3) + lookbackBars) {
+    return null;
+  }
+
+  const closes = candles.map((c) => c.close);
+
+  const ema1 = calculateEMA(closes, period1);
+  const ema2 = calculateEMA(closes, period2);
+  const ema3 = calculateEMA(closes, period3);
+
+  if (ema1.length === 0 || ema2.length === 0 || ema3.length === 0) {
+    return null;
+  }
+
+  const lastIndex = ema1.length - 1;
+
+  const isCurrentlyBullish = ema1[lastIndex] > ema2[lastIndex] && ema2[lastIndex] > ema3[lastIndex];
+  const isCurrentlyBearish = ema1[lastIndex] < ema2[lastIndex] && ema2[lastIndex] < ema3[lastIndex];
+
+  if (!isCurrentlyBullish && !isCurrentlyBearish) {
+    return null;
+  }
+
+  for (let barsAgo = 0; barsAgo <= lookbackBars; barsAgo++) {
+    const index = lastIndex - barsAgo;
+
+    if (index < 0) break;
+
+    const isBullish = ema1[index] > ema2[index] && ema2[index] > ema3[index];
+    const isBearish = ema1[index] < ema2[index] && ema2[index] < ema3[index];
+
+    if (barsAgo === 0) {
+      if (isBullish || isBearish) {
+        if (index > 0) {
+          const prevBullish = ema1[index - 1] > ema2[index - 1] && ema2[index - 1] > ema3[index - 1];
+          const prevBearish = ema1[index - 1] < ema2[index - 1] && ema2[index - 1] < ema3[index - 1];
+
+          if ((isBullish && !prevBullish) || (isBearish && !prevBearish)) {
+            return {
+              type: isBullish ? 'bullish' : 'bearish',
+              barsAgo: 0,
+              ema1: ema1[lastIndex],
+              ema2: ema2[lastIndex],
+              ema3: ema3[lastIndex],
+            };
+          }
+        }
+      }
+      continue;
+    }
+
+    if (index > 0) {
+      const prevIndex = index - 1;
+      const currentBullish = ema1[index] > ema2[index] && ema2[index] > ema3[index];
+      const currentBearish = ema1[index] < ema2[index] && ema2[index] < ema3[index];
+      const prevBullish = ema1[prevIndex] > ema2[prevIndex] && ema2[prevIndex] > ema3[prevIndex];
+      const prevBearish = ema1[prevIndex] < ema2[prevIndex] && ema2[prevIndex] < ema3[prevIndex];
+
+      if ((currentBullish && !prevBullish) || (currentBearish && !prevBearish)) {
+        return {
+          type: currentBullish ? 'bullish' : 'bearish',
+          barsAgo,
+          ema1: ema1[lastIndex],
+          ema2: ema2[lastIndex],
+          ema3: ema3[lastIndex],
+        };
+      }
+    }
+  }
+
+  return null;
 }

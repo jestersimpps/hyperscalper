@@ -10,6 +10,7 @@ export default function SettingsPanel() {
   const [isEmaExpanded, setIsEmaExpanded] = useState(false);
   const [isMacdExpanded, setIsMacdExpanded] = useState(false);
   const [isScannerStochExpanded, setIsScannerStochExpanded] = useState(false);
+  const [isScannerEmaExpanded, setIsScannerEmaExpanded] = useState(false);
 
   const handleBackdropClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget) {
@@ -323,6 +324,106 @@ export default function SettingsPanel() {
                                     }
                                     className="w-full bg-bg-primary border border-frame text-primary px-2 py-1 rounded font-mono text-xs"
                                   />
+                                </div>
+                              </div>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="border border-frame rounded overflow-hidden">
+                    <button
+                      onClick={() => setIsScannerEmaExpanded(!isScannerEmaExpanded)}
+                      className="w-full p-3 bg-bg-secondary flex items-center justify-between hover:bg-primary/5 transition-colors"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-primary font-mono text-xs font-bold">█ EMA ALIGNMENT SCANNER</span>
+                      </div>
+                      <span className="text-primary text-sm">{isScannerEmaExpanded ? '▼' : '▶'}</span>
+                    </button>
+
+                    {isScannerEmaExpanded && (
+                      <div className="p-4 space-y-4 bg-bg-primary">
+                        <div className="p-3 bg-bg-secondary border border-frame rounded">
+                          <label className="flex items-center justify-between cursor-pointer">
+                            <span className="text-primary-muted text-xs font-mono">ENABLE EMA ALIGNMENT SCANNER</span>
+                            <input
+                              type="checkbox"
+                              checked={settings.scanner.emaAlignmentScanner.enabled}
+                              onChange={(e) =>
+                                updateScannerSettings({
+                                  emaAlignmentScanner: {
+                                    ...settings.scanner.emaAlignmentScanner,
+                                    enabled: e.target.checked,
+                                  },
+                                })
+                              }
+                              className="w-4 h-4 accent-primary cursor-pointer"
+                            />
+                          </label>
+                        </div>
+
+                        {settings.scanner.emaAlignmentScanner.enabled && (
+                          <>
+                            <div className="p-3 bg-bg-secondary border border-frame rounded">
+                              <div className="text-primary-muted text-xs font-mono mb-2">
+                                Uses chart EMA settings (EMA1: {settings.indicators.ema.ema1.period}, EMA2: {settings.indicators.ema.ema2.period}, EMA3: {settings.indicators.ema.ema3.period})
+                              </div>
+                              <div className="text-primary-muted text-xs font-mono">
+                                Detects when all EMAs align in the same direction
+                              </div>
+                            </div>
+
+                            <div className="p-3 bg-bg-secondary border border-frame rounded space-y-3">
+                              <div className="text-primary font-mono text-xs font-bold mb-2">TIMEFRAMES TO SCAN</div>
+                              <div className="grid grid-cols-2 gap-2">
+                                {(['1m', '5m', '15m', '1h'] as const).map((tf) => (
+                                  <label key={tf} className="flex items-center gap-2 cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={settings.scanner.emaAlignmentScanner.timeframes.includes(tf)}
+                                      onChange={(e) => {
+                                        const newTimeframes = e.target.checked
+                                          ? [...settings.scanner.emaAlignmentScanner.timeframes, tf]
+                                          : settings.scanner.emaAlignmentScanner.timeframes.filter((t) => t !== tf);
+                                        updateScannerSettings({
+                                          emaAlignmentScanner: {
+                                            ...settings.scanner.emaAlignmentScanner,
+                                            timeframes: newTimeframes,
+                                          },
+                                        });
+                                      }}
+                                      className="w-4 h-4 accent-primary cursor-pointer"
+                                    />
+                                    <span className="text-primary-muted font-mono text-xs">{tf.toUpperCase()}</span>
+                                  </label>
+                                ))}
+                              </div>
+                            </div>
+
+                            <div className="p-3 bg-bg-secondary border border-frame rounded">
+                              <div className="text-primary font-mono text-xs font-bold mb-3">LOOKBACK PERIOD</div>
+                              <div>
+                                <label className="text-primary-muted font-mono block mb-1 text-xs">BARS TO CHECK</label>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  max="10"
+                                  value={settings.scanner.emaAlignmentScanner.lookbackBars}
+                                  onChange={(e) =>
+                                    updateScannerSettings({
+                                      emaAlignmentScanner: {
+                                        ...settings.scanner.emaAlignmentScanner,
+                                        lookbackBars: Number(e.target.value),
+                                      },
+                                    })
+                                  }
+                                  className="w-full bg-bg-primary border border-frame text-primary px-2 py-1 rounded font-mono text-xs"
+                                />
+                                <div className="text-primary-muted text-xs font-mono mt-1">
+                                  How many bars back to check for recent alignment
                                 </div>
                               </div>
                             </div>

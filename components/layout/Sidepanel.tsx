@@ -78,15 +78,23 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
               <div className="text-xs text-primary-muted font-mono px-1">
                 {results.length} match{results.length !== 1 ? 'es' : ''}
               </div>
-              {results.map((result) => {
+              {results.map((result, index) => {
                 const isBullish = result.signalType === 'bullish';
                 const bgColor = isBullish ? 'bg-bullish/5' : 'bg-bearish/5';
                 const borderColor = isBullish ? 'border-bullish' : 'border-bearish';
                 const textColor = isBullish ? 'text-bullish' : 'text-bearish';
-                const arrow = isBullish ? '↗' : '↘';
+
+                let displayText = '';
+                if (result.scanType === 'stochastic') {
+                  const signal = isBullish ? 'bottomed' : 'topped';
+                  displayText = `${result.symbol}/USD stochastics ${signal}`;
+                } else if (result.scanType === 'emaAlignment') {
+                  const signal = isBullish ? 'crossed up' : 'crossed down';
+                  displayText = `${result.symbol}/USD ema ${signal}`;
+                }
 
                 return (
-                  <div key={result.symbol} className={`terminal-border ${bgColor} ${borderColor}`}>
+                  <div key={`${result.symbol}-${result.scanType}-${index}`} className={`terminal-border ${bgColor} ${borderColor}`}>
                     <button
                       onClick={() => {
                         if (onSymbolSelect) {
@@ -97,13 +105,8 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                       }}
                       className="w-full text-left p-2"
                     >
-                      <div className="flex justify-between items-center mb-1">
-                        <span className={`${textColor} font-bold text-sm`}>{result.symbol}/USD</span>
-                        <span className={`${textColor} text-sm font-bold`}>{arrow}</span>
-                      </div>
-
-                      <div className={`text-[10px] font-mono ${textColor} leading-tight`}>
-                        {result.description}
+                      <div className={`text-xs font-mono ${textColor}`}>
+                        {displayText}
                       </div>
                     </button>
                   </div>

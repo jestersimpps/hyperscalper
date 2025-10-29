@@ -94,6 +94,11 @@ const mergeSettings = (storedSettings: any): AppSettings => {
           smoothK: storedSettings.scanner?.stochasticScanner?.smoothK ?? DEFAULT_SETTINGS.scanner.stochasticScanner.smoothK,
           smoothD: storedSettings.scanner?.stochasticScanner?.smoothD ?? DEFAULT_SETTINGS.scanner.stochasticScanner.smoothD,
         },
+        emaAlignmentScanner: {
+          enabled: storedSettings.scanner?.emaAlignmentScanner?.enabled ?? DEFAULT_SETTINGS.scanner.emaAlignmentScanner.enabled,
+          timeframes: storedSettings.scanner?.emaAlignmentScanner?.timeframes ?? DEFAULT_SETTINGS.scanner.emaAlignmentScanner.timeframes,
+          lookbackBars: storedSettings.scanner?.emaAlignmentScanner?.lookbackBars ?? DEFAULT_SETTINGS.scanner.emaAlignmentScanner.lookbackBars,
+        },
       },
       orders: {
         cloudPercentage: storedSettings.orders?.cloudPercentage ?? DEFAULT_SETTINGS.orders.cloudPercentage,
