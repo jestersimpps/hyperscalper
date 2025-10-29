@@ -300,7 +300,7 @@ export default function IndicatorSignals({ coin }: IndicatorSignalsProps) {
             <div className="flex items-center gap-2 flex-wrap">
               {macdStats.map((stat, idx) => {
                 const histColor = stat.histogram >= 0 ? 'text-bullish' : 'text-bearish';
-                const turnPointColor = stat.turnPoint === 'topped' ? 'text-yellow-500' : 'text-cyan-400';
+                const turnPointColor = stat.turnPoint === 'topped' ? 'text-accent-rose' : 'text-accent-blue';
 
                 return (
                   <div key={stat.timeframe} className="flex items-center gap-0.5">
