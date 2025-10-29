@@ -86,7 +86,6 @@ const mergeSettings = (storedSettings: any): AppSettings => {
         playSound: storedSettings.scanner?.playSound ?? DEFAULT_SETTINGS.scanner.playSound,
         stochasticScanner: {
           enabled: storedSettings.scanner?.stochasticScanner?.enabled ?? DEFAULT_SETTINGS.scanner.stochasticScanner.enabled,
-          mode: storedSettings.scanner?.stochasticScanner?.mode ?? DEFAULT_SETTINGS.scanner.stochasticScanner.mode,
           timeframes: storedSettings.scanner?.stochasticScanner?.timeframes ?? DEFAULT_SETTINGS.scanner.stochasticScanner.timeframes,
           oversoldThreshold: storedSettings.scanner?.stochasticScanner?.oversoldThreshold ?? DEFAULT_SETTINGS.scanner.stochasticScanner.oversoldThreshold,
           overboughtThreshold: storedSettings.scanner?.stochasticScanner?.overboughtThreshold ?? DEFAULT_SETTINGS.scanner.stochasticScanner.overboughtThreshold,

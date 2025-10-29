@@ -16,7 +16,6 @@ interface ScanParams {
   smoothK: number;
   smoothD: number;
   topMarkets: number;
-  mode: 'oversold' | 'overbought';
 }
 
 interface SymbolWithVolume {
@@ -85,13 +84,12 @@ export async function GET(request: NextRequest) {
       smoothK: parseInt(searchParams.get('smoothK') || '3'),
       smoothD: parseInt(searchParams.get('smoothD') || '3'),
       topMarkets: parseInt(searchParams.get('topMarkets') || '20'),
-      mode: (searchParams.get('mode') as 'oversold' | 'overbought') || 'oversold',
     };
 
     console.log('🔍 Scanner started:', {
       timeframes: params.timeframes,
-      mode: params.mode,
-      threshold: params.mode === 'oversold' ? params.oversoldThreshold : params.overboughtThreshold,
+      oversoldThreshold: params.oversoldThreshold,
+      overboughtThreshold: params.overboughtThreshold,
       topMarkets: params.topMarkets,
     });
 
@@ -156,36 +154,35 @@ export async function GET(request: NextRequest) {
         }
 
         const stochastics: StochasticValue[] = [];
-        let allTimeframesMeetCriteria = true;
+        let allOversold = true;
+        let allOverbought = true;
 
         for (const timeframe of params.timeframes) {
           const timeframeMinutes = getTimeframeMinutes(timeframe);
           const aggregatedCandles = aggregateCandles(candles1m, timeframeMinutes);
 
           if (aggregatedCandles.length === 0) {
-            allTimeframesMeetCriteria = false;
+            allOversold = false;
+            allOverbought = false;
             break;
           }
 
           const stochData = calculateStochastic(aggregatedCandles, params.period, params.smoothK, params.smoothD);
 
           if (stochData.length === 0) {
-            allTimeframesMeetCriteria = false;
+            allOversold = false;
+            allOverbought = false;
             break;
           }
 
           const latestStoch = stochData[stochData.length - 1];
 
-          if (params.mode === 'oversold') {
-            if (latestStoch.k > params.oversoldThreshold || latestStoch.d > params.oversoldThreshold) {
-              allTimeframesMeetCriteria = false;
-              break;
-            }
-          } else {
-            if (latestStoch.k < params.overboughtThreshold || latestStoch.d < params.overboughtThreshold) {
-              allTimeframesMeetCriteria = false;
-              break;
-            }
+          if (latestStoch.k > params.oversoldThreshold || latestStoch.d > params.oversoldThreshold) {
+            allOversold = false;
+          }
+
+          if (latestStoch.k < params.overboughtThreshold || latestStoch.d < params.overboughtThreshold) {
+            allOverbought = false;
           }
 
           stochastics.push({
@@ -195,13 +192,13 @@ export async function GET(request: NextRequest) {
           });
         }
 
-        if (allTimeframesMeetCriteria) {
-          const signalType = params.mode === 'oversold' ? 'bullish' : 'bearish';
+        if (allOversold || allOverbought) {
+          const signalType = allOversold ? 'bullish' : 'bearish';
           const avgK = stochastics.reduce((sum, s) => sum + s.k, 0) / stochastics.length;
           const avgD = stochastics.reduce((sum, s) => sum + s.d, 0) / stochastics.length;
 
           let description = '';
-          if (params.mode === 'oversold') {
+          if (allOversold) {
             const intensity = avgK < 10 ? 'Extreme' : avgK < 15 ? 'Strong' : 'Moderate';
             description = `${intensity} oversold - Stochastics bottomed across ${stochastics.length} timeframe${stochastics.length > 1 ? 's' : ''} (avg K:${avgK.toFixed(1)})`;
           } else {

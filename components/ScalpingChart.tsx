@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { CandleData, TimeInterval } from '@/types';
 import { useCandleStore } from '@/stores/useCandleStore';
 import { useSettingsStore } from '@/stores/useSettingsStore';
+import { useSymbolMetaStore } from '@/stores/useSymbolMetaStore';
 import { getThemeColors } from '@/lib/theme-utils';
 import { calculateEMA, calculateMACD, calculateStochastic, type StochasticData } from '@/lib/indicators';
 import { getStandardTimeWindow } from '@/lib/time-utils';
@@ -121,6 +122,8 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
   const candleKey = `${coin}-${interval}`;
   const storeCandles = useCandleStore((state) => state.candles[candleKey]) || [];
   const storeLoading = useCandleStore((state) => state.loading[candleKey]) || false;
+  const getDecimals = useSymbolMetaStore((state) => state.getDecimals);
+  const decimals = getDecimals(coin);
 
   const candles = isExternalData && candleData ? candleData : storeCandles;
   const isLoading = isExternalData ? false : storeLoading;
@@ -183,6 +186,11 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
           borderVisible: false,
           wickUpColor: colors.statusBullish,
           wickDownColor: colors.statusBearish,
+          priceFormat: {
+            type: 'price',
+            precision: decimals.price,
+            minMove: 1 / Math.pow(10, decimals.price),
+          },
         });
 
         const volumeSeries = chart.addHistogramSeries({

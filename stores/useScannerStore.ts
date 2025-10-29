@@ -59,7 +59,6 @@ export const useScannerStore = create<ScannerStore>((set, get) => ({
         smoothK: settings.stochasticScanner.smoothK.toString(),
         smoothD: settings.stochasticScanner.smoothD.toString(),
         topMarkets: settings.topMarkets.toString(),
-        mode: settings.stochasticScanner.mode,
       });
 
       const response = await fetch(`/api/scanner?${params}`);
@@ -72,17 +71,17 @@ export const useScannerStore = create<ScannerStore>((set, get) => ({
 
       const newResults = data.results || [];
       const newSymbols = new Set(newResults.map((r: ScanResult) => r.symbol));
-      const { previousSymbols } = get();
 
-      const hasNewSymbols = newResults.some((r: ScanResult) => !previousSymbols.has(r.symbol));
-
-      if (hasNewSymbols && previousSymbols.size > 0 && settings.playSound) {
-        const firstNewResult = newResults.find((r: ScanResult) => !previousSymbols.has(r.symbol));
-        if (firstNewResult) {
-          playNotificationSound(firstNewResult.signalType).catch(err =>
-            console.error('Error playing sound:', err)
-          );
-        }
+      if (newResults.length > 0 && settings.playSound) {
+        const firstResult = newResults[0];
+        console.log(`[Scanner] Scan completed with ${newResults.length} result(s): ${newResults.map(r => r.symbol).join(', ')} - Playing sound`);
+        playNotificationSound(firstResult.signalType).catch(err =>
+          console.error('Error playing sound:', err)
+        );
+      } else if (settings.playSound) {
+        console.log('[Scanner] Scan completed with no results - skipping sound');
+      } else {
+        console.log('[Scanner] Sound disabled in settings');
       }
 
       set({
@@ -147,6 +146,6 @@ export const useScannerStore = create<ScannerStore>((set, get) => ({
   },
 
   clearResults: () => {
-    set({ results: [] });
+    set({ results: [], previousSymbols: new Set() });
   },
 }));

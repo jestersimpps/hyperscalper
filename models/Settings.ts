@@ -43,7 +43,6 @@ export interface IndicatorSettings {
 
 export interface StochasticScannerConfig {
   enabled: boolean;
-  mode: 'oversold' | 'overbought';
   timeframes: ('1m' | '5m' | '15m' | '1h')[];
   oversoldThreshold: number;
   overboughtThreshold: number;
@@ -109,7 +108,6 @@ export const DEFAULT_SETTINGS: AppSettings = {
     playSound: true,
     stochasticScanner: {
       enabled: false,
-      mode: 'oversold',
       timeframes: ['1m', '5m', '15m'],
       oversoldThreshold: 20,
       overboughtThreshold: 80,
