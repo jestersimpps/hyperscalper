@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Position } from '@/models/Position';
+import { getHyperliquidService } from '@/lib/services/hyperliquid.service';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -16,29 +17,53 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // TODO: Implement actual Hyperliquid position fetching
-    // const walletAddress = process.env.HYPERLIQUID_WALLET_ADDRESS;
-    // const infoClient = ExchangeFactory.createFromEnv().info;
-    // const userState = await infoClient.userState(walletAddress);
-    // const position = userState.assetPositions.find(p => p.position.coin === coin);
+    const service = getHyperliquidService();
+    const positions = await service.getOpenPositions();
+    const allMids = await service.getAllMids();
 
-    // Mock position data for now
-    const mockPosition: Position | null = Math.random() > 0.5 ? {
-      symbol: coin,
-      side: Math.random() > 0.5 ? 'long' : 'short',
-      size: Math.random() * 10,
-      entryPrice: 95000 + Math.random() * 10000,
-      currentPrice: 96000 + Math.random() * 8000,
-      pnl: -500 + Math.random() * 2000,
-      pnlPercentage: -2 + Math.random() * 6,
-      leverage: Math.floor(Math.random() * 10) + 1,
-    } : null;
+    console.log(`All positions:`, positions);
+    console.log(`Looking for coin: "${coin}"`);
+    console.log(`Available coins in positions:`, positions.map(p => `"${p.position.coin}"`));
 
-    console.log(`Position data for ${coin}:`, mockPosition);
+    const assetPosition = positions.find(p => p.position.coin === coin);
+
+    let position: Position | null = null;
+
+    if (assetPosition) {
+      const szi = parseFloat(assetPosition.position.szi);
+      const entryPrice = parseFloat(assetPosition.position.entryPx || '0');
+      const leverage = parseFloat(assetPosition.position.leverage.value);
+
+      const currentPrice = parseFloat(allMids[coin] || '0');
+
+      const side: 'long' | 'short' = szi > 0 ? 'long' : 'short';
+      const size = Math.abs(szi);
+
+      const positionValue = size * currentPrice;
+      const entryValue = size * entryPrice;
+      const pnl = side === 'long'
+        ? positionValue - entryValue
+        : entryValue - positionValue;
+
+      const pnlPercentage = (pnl / entryValue) * 100;
+
+      position = {
+        symbol: coin,
+        side,
+        size,
+        entryPrice,
+        currentPrice,
+        pnl,
+        pnlPercentage,
+        leverage: Math.floor(leverage),
+      };
+    }
+
+    console.log(`Position data for ${coin}:`, position);
 
     return NextResponse.json({
       success: true,
-      position: mockPosition,
+      position,
     });
   } catch (error) {
     console.error('Error fetching position:', error);

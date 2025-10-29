@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { useSymbolMetaStore } from '@/stores/useSymbolMetaStore';
+import { getHyperliquidService } from '@/lib/services/hyperliquid.service';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -13,27 +14,8 @@ export async function GET(request: NextRequest) {
   const coin = searchParams.get('coin') || 'BTC';
 
   try {
-    const isTestnet = process.env.HYPERLIQUID_TESTNET === 'true';
-    const apiUrl = isTestnet
-      ? 'https://api.hyperliquid-testnet.xyz/info'
-      : 'https://api.hyperliquid.xyz/info';
-
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        type: 'l2Book',
-        coin
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`API request failed: ${response.statusText}`);
-    }
-
-    const book = await response.json();
+    const service = getHyperliquidService();
+    const book = await service.getOrderBook({ coin });
     const decimals = useSymbolMetaStore.getState().getDecimals(coin);
 
     const bids = book.levels[0].map((level: any) => ({

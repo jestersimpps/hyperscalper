@@ -1,25 +1,10 @@
 import { NextResponse } from 'next/server';
-
-const API_URL = 'https://api.hyperliquid.xyz/info';
+import { getHyperliquidService } from '@/lib/services/hyperliquid.service';
 
 export async function GET() {
   try {
-    const response = await fetch(API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        type: 'meta',
-      }),
-      cache: 'no-store',
-    });
-
-    if (!response.ok) {
-      throw new Error(`API responded with status: ${response.status}`);
-    }
-
-    const data = await response.json();
+    const service = getHyperliquidService();
+    const data = await service.getMeta();
 
     return NextResponse.json(data);
   } catch (error) {
