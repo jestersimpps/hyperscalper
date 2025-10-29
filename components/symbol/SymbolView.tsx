@@ -1,16 +1,18 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import ScalpingChart from '@/components/ScalpingChart';
 import MarketStats from '@/components/MarketStats';
 import OrderBook from '@/components/OrderBook';
 import TerminalHeader from '@/components/layout/TerminalHeader';
 import TradeVolumeTimeline from '@/components/TradeVolumeTimeline';
 import { useTradesStore } from '@/stores/useTradesStore';
+import { usePositionStore } from '@/stores/usePositionStore';
 import { playNotificationSound } from '@/lib/sound-utils';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { KeyBinding } from '@/lib/keyboard-utils';
 import { useSettingsStore } from '@/stores/useSettingsStore';
+import { useSymbolMetaStore } from '@/stores/useSymbolMetaStore';
 
 interface SymbolViewProps {
   coin: string;
@@ -26,14 +28,22 @@ export default function SymbolView({ coin }: SymbolViewProps) {
   const seenTimestampsRef = useRef<Set<number>>(new Set());
   const isPanelOpen = useSettingsStore((state) => state.isPanelOpen);
 
+  const position = usePositionStore((state) => state.positions[coin]);
+  const subscribeToPosition = usePositionStore((state) => state.subscribeToPosition);
+  const unsubscribeFromPosition = usePositionStore((state) => state.unsubscribeFromPosition);
+  const getDecimals = useSymbolMetaStore((state) => state.getDecimals);
+  const decimals = useMemo(() => getDecimals(coin), [getDecimals, coin]);
+
   useEffect(() => {
     seenTimestampsRef.current.clear();
     subscribeToTrades(coin);
+    subscribeToPosition(coin);
 
     return () => {
       unsubscribeFromTrades(coin);
+      unsubscribeFromPosition(coin);
     };
-  }, [coin, subscribeToTrades, unsubscribeFromTrades]);
+  }, [coin, subscribeToTrades, unsubscribeFromTrades, subscribeToPosition, unsubscribeFromPosition]);
 
   useEffect(() => {
     if (trades.length === 0) return;
@@ -248,6 +258,7 @@ export default function SymbolView({ coin }: SymbolViewProps) {
                 coin={coin}
                 interval="1m"
                 onPriceUpdate={setCurrentPrice}
+                position={position}
               />
             </div>
           </div>
@@ -262,19 +273,27 @@ export default function SymbolView({ coin }: SymbolViewProps) {
                 <div className="text-[10px] space-y-1 font-mono">
                   <div className="flex justify-between">
                     <span className="text-primary-muted">SIZE:</span>
-                    <span className="text-primary">-- BTC</span>
+                    <span className={position ? (position.side === 'long' ? 'text-bullish' : 'text-bearish') : 'text-primary'}>
+                      {position ? `${position.size.toFixed(decimals.size)} ${coin} ${position.side.toUpperCase()}` : `-- ${coin}`}
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-primary-muted">ENTRY:</span>
-                    <span className="text-primary">---.--</span>
+                    <span className="text-primary">
+                      {position ? position.entryPrice.toFixed(decimals.price) : '---.--'}
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-primary-muted">PNL:</span>
-                    <span className="text-primary">+-.-- USD</span>
+                    <span className={position ? (position.pnl >= 0 ? 'text-bullish' : 'text-bearish') : 'text-primary'}>
+                      {position ? `${position.pnl >= 0 ? '+' : ''}${position.pnl.toFixed(2)} USD (${position.pnlPercentage >= 0 ? '+' : ''}${position.pnlPercentage.toFixed(2)}%)` : '+-.-- USD'}
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-primary-muted">LEVERAGE:</span>
-                    <span className="text-primary">--x</span>
+                    <span className="text-primary">
+                      {position ? `${position.leverage}x` : '--x'}
+                    </span>
                   </div>
                 </div>
 

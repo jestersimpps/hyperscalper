@@ -1,0 +1,91 @@
+import { create } from 'zustand';
+import { Position } from '@/models/Position';
+
+interface PositionStore {
+  positions: Record<string, Position | null>;
+  loading: Record<string, boolean>;
+  errors: Record<string, string | null>;
+  pollingIntervals: Record<string, NodeJS.Timeout>;
+
+  fetchPosition: (coin: string) => Promise<void>;
+  subscribeToPosition: (coin: string) => void;
+  unsubscribeFromPosition: (coin: string) => void;
+  startPolling: (coin: string, interval: number) => void;
+  stopPolling: (coin: string) => void;
+}
+
+export const usePositionStore = create<PositionStore>((set, get) => ({
+  positions: {},
+  loading: {},
+  errors: {},
+  pollingIntervals: {},
+
+  fetchPosition: async (coin: string) => {
+    set((state) => ({
+      loading: { ...state.loading, [coin]: true },
+      errors: { ...state.errors, [coin]: null },
+    }));
+
+    try {
+      const response = await fetch(`/api/positions?coin=${coin}`);
+      const data = await response.json();
+
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to fetch position');
+      }
+
+      set((state) => ({
+        positions: { ...state.positions, [coin]: data.position },
+        loading: { ...state.loading, [coin]: false },
+      }));
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error(`Error fetching position for ${coin}:`, errorMessage);
+
+      set((state) => ({
+        loading: { ...state.loading, [coin]: false },
+        errors: { ...state.errors, [coin]: errorMessage },
+      }));
+    }
+  },
+
+  startPolling: (coin: string, interval: number = 5000) => {
+    const { stopPolling, fetchPosition, pollingIntervals } = get();
+
+    if (pollingIntervals[coin]) {
+      stopPolling(coin);
+    }
+
+    fetchPosition(coin);
+
+    const intervalId = setInterval(() => {
+      fetchPosition(coin);
+    }, interval);
+
+    set((state) => ({
+      pollingIntervals: { ...state.pollingIntervals, [coin]: intervalId },
+    }));
+  },
+
+  stopPolling: (coin: string) => {
+    const { pollingIntervals } = get();
+    const intervalId = pollingIntervals[coin];
+
+    if (intervalId) {
+      clearInterval(intervalId);
+
+      const { [coin]: _, ...remainingIntervals } = pollingIntervals;
+      set({ pollingIntervals: remainingIntervals });
+    }
+  },
+
+  subscribeToPosition: (coin: string) => {
+    const { startPolling } = get();
+    startPolling(coin, 5000);
+  },
+
+  unsubscribeFromPosition: (coin: string) => {
+    const { stopPolling } = get();
+    stopPolling(coin);
+  },
+}));

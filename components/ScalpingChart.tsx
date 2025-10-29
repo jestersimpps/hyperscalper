@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { CandleData, TimeInterval } from '@/types';
+import type { Position } from '@/models/Position';
 import { useCandleStore } from '@/stores/useCandleStore';
 import { useSettingsStore } from '@/stores/useSettingsStore';
 import { useSymbolMetaStore } from '@/stores/useSymbolMetaStore';
@@ -17,6 +18,7 @@ interface ScalpingChartProps {
   candleData?: CandleData[];
   isExternalData?: boolean;
   stochasticCandleData?: Record<TimeInterval, CandleData[]>;
+  position?: Position | null;
 }
 
 interface CrossoverMarker {
@@ -103,7 +105,7 @@ function detectCrossovers(ema1: number[], ema2: number[], ema3: number[] | null,
 }
 
 
-export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartReady, candleData, isExternalData = false, stochasticCandleData }: ScalpingChartProps) {
+export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartReady, candleData, isExternalData = false, stochasticCandleData, position }: ScalpingChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<any>(null);
   const candleSeriesRef = useRef<any>(null);
@@ -115,6 +117,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
   const macdSignalSeriesRef = useRef<any>(null);
   const macdHistogramSeriesRef = useRef<any>(null);
   const stochSeriesRefsRef = useRef<Record<string, { k: any; d: any }>>({});
+  const positionLineRef = useRef<any>(null);
   const [chartReady, setChartReady] = useState(false);
   const candlesBufferRef = useRef<CandleData[]>([]);
   const lastCandleTimeRef = useRef<number | null>(null);
@@ -575,6 +578,45 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
       }
     });
   }, [chartReady, enabledTimeframes.join(','), allStochCandles, stochasticSettings, coin, isExternalData]);
+
+  // Position price line overlay
+  useEffect(() => {
+    if (!chartReady || !candleSeriesRef.current) return;
+
+    // Remove existing position line if it exists
+    if (positionLineRef.current) {
+      candleSeriesRef.current.removePriceLine(positionLineRef.current);
+      positionLineRef.current = null;
+    }
+
+    // Create new position line if position exists
+    if (position) {
+      const colors = getThemeColors();
+      const isLong = position.side === 'long';
+      const isProfitable = position.pnl >= 0;
+
+      positionLineRef.current = candleSeriesRef.current.createPriceLine({
+        price: position.entryPrice,
+        color: isLong ? colors.statusBullish : colors.statusBearish,
+        lineWidth: 2,
+        lineStyle: 2, // dashed
+        axisLabelVisible: true,
+        title: `ENTRY ${position.side.toUpperCase()}`,
+      });
+    }
+
+    // Cleanup on unmount or position change
+    return () => {
+      if (positionLineRef.current && candleSeriesRef.current) {
+        try {
+          candleSeriesRef.current.removePriceLine(positionLineRef.current);
+        } catch (e) {
+          // Ignore errors during cleanup
+        }
+        positionLineRef.current = null;
+      }
+    };
+  }, [position, chartReady]);
 
   const timeframeColorVars: Record<string, { k: string; d: string }> = {
     '1m': { k: 'var(--accent-blue)', d: 'var(--accent-blue)' },
