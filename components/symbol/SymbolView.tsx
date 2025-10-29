@@ -6,6 +6,7 @@ import MarketStats from '@/components/MarketStats';
 import OrderBook from '@/components/OrderBook';
 import TerminalHeader from '@/components/layout/TerminalHeader';
 import TradeVolumeTimeline from '@/components/TradeVolumeTimeline';
+import IndicatorSignals from '@/components/IndicatorSignals';
 import { useTradesStore } from '@/stores/useTradesStore';
 import { usePositionStore } from '@/stores/usePositionStore';
 import { useOrderStore } from '@/stores/useOrderStore';
@@ -288,11 +289,6 @@ export default function SymbolView({ coin }: SymbolViewProps) {
         {/* Header */}
         <TerminalHeader coin={coin} />
 
-        {/* Market Stats */}
-        <div className="mb-2">
-          <MarketStats coin={coin} currentPrice={currentPrice} />
-        </div>
-
         {/* Main Content - Side by Side */}
         <div className="flex gap-2 overflow-x-auto flex-1 min-h-0">
           {/* Left Side - Charts */}
@@ -310,10 +306,18 @@ export default function SymbolView({ coin }: SymbolViewProps) {
           </div>
 
           {/* Right Side - Trading Info */}
-          <div className="flex-1 min-w-[500px] flex gap-2">
-            {/* Left Column - Position and Order Book */}
-            <div className="flex-shrink-0 w-80 flex flex-col gap-2">
-              {/* Position Info */}
+          <div className="flex-1 min-w-[500px] flex flex-col gap-2">
+            {/* Market Stats - Full Width */}
+            <MarketStats coin={coin} currentPrice={currentPrice} />
+
+            {/* Indicator Signals - Full Width */}
+            <IndicatorSignals coin={coin} />
+
+            {/* Two Column Layout for Position/OrderBook and Volume/Trades */}
+            <div className="flex gap-2 flex-1 min-h-0">
+              {/* Left Column - Position and Order Book */}
+              <div className="flex-shrink-0 w-80 flex flex-col gap-2">
+                {/* Position Info */}
               <div className="terminal-border p-1.5">
                 <div className="text-[10px] text-primary-muted mb-1.5 uppercase tracking-wider">█ POSITION</div>
                 <div className="text-[10px] space-y-1 font-mono">
@@ -506,6 +510,7 @@ export default function SymbolView({ coin }: SymbolViewProps) {
                   </div>
                 </div>
               </div>
+            </div>
             </div>
           </div>
         </div>

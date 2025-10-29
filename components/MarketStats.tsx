@@ -64,7 +64,12 @@ export default function MarketStats({ coin, currentPrice }: MarketStatsProps) {
 
   return (
     <div className="terminal-border p-1.5">
-      <div className="grid grid-cols-5 gap-3 text-[10px]">
+      <div className="grid grid-cols-6 gap-3 text-[10px]">
+        <div>
+          <div className="text-primary-muted uppercase tracking-wider font-bold mb-0.5">MARKET</div>
+          <div className="text-primary text-base font-bold font-mono">{coin}</div>
+        </div>
+
         <div>
           <div className="text-primary-muted uppercase tracking-wider font-bold mb-0.5">PRICE</div>
           <div className="text-primary text-base font-bold font-mono">${parseFloat(currentPrice.toFixed(decimals.price))}</div>
