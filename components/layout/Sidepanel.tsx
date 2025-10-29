@@ -80,9 +80,9 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
               </div>
               {results.map((result) => {
                 const isBullish = result.signalType === 'bullish';
-                const bgColor = isBullish ? 'bg-success/5' : 'bg-error/5';
-                const borderColor = isBullish ? 'border-success' : 'border-error';
-                const textColor = isBullish ? 'text-success' : 'text-error';
+                const bgColor = isBullish ? 'bg-bullish/5' : 'bg-bearish/5';
+                const borderColor = isBullish ? 'border-bullish' : 'border-bearish';
+                const textColor = isBullish ? 'text-bullish' : 'text-bearish';
                 const arrow = isBullish ? '↗' : '↘';
 
                 return (
@@ -98,7 +98,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                       className="w-full text-left p-2"
                     >
                       <div className="flex justify-between items-center mb-1">
-                        <span className="text-primary font-bold text-sm">{result.symbol}/USD</span>
+                        <span className={`${textColor} font-bold text-sm`}>{result.symbol}/USD</span>
                         <span className={`${textColor} text-sm font-bold`}>{arrow}</span>
                       </div>
 
