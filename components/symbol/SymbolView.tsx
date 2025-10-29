@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import ScalpingChart from '@/components/ScalpingChart';
 import MarketStats from '@/components/MarketStats';
 import OrderBook from '@/components/OrderBook';
@@ -8,6 +8,9 @@ import TerminalHeader from '@/components/layout/TerminalHeader';
 import TradeVolumeTimeline from '@/components/TradeVolumeTimeline';
 import { useTradesStore } from '@/stores/useTradesStore';
 import { playNotificationSound } from '@/lib/sound-utils';
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
+import { KeyBinding } from '@/lib/keyboard-utils';
+import { useSettingsStore } from '@/stores/useSettingsStore';
 
 interface SymbolViewProps {
   coin: string;
@@ -21,6 +24,7 @@ export default function SymbolView({ coin }: SymbolViewProps) {
   const subscribeToTrades = useTradesStore((state) => state.subscribeToTrades);
   const unsubscribeFromTrades = useTradesStore((state) => state.unsubscribeFromTrades);
   const seenTimestampsRef = useRef<Set<number>>(new Set());
+  const isPanelOpen = useSettingsStore((state) => state.isPanelOpen);
 
   useEffect(() => {
     seenTimestampsRef.current.clear();
@@ -61,6 +65,167 @@ export default function SymbolView({ coin }: SymbolViewProps) {
       return () => clearTimeout(timer);
     }
   }, [trades]);
+
+  const handleBuyCloud = useCallback(async () => {
+    playNotificationSound('bullish', 'cloud');
+    try {
+      const response = await fetch('/api/trade/buy-cloud', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ symbol: coin }),
+      });
+      const data = await response.json();
+      console.log('Buy Cloud response:', data);
+    } catch (error) {
+      console.error('Error executing buy cloud:', error);
+    }
+  }, [coin]);
+
+  const handleSellCloud = useCallback(async () => {
+    playNotificationSound('bearish', 'cloud');
+    try {
+      const response = await fetch('/api/trade/sell-cloud', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ symbol: coin }),
+      });
+      const data = await response.json();
+      console.log('Sell Cloud response:', data);
+    } catch (error) {
+      console.error('Error executing sell cloud:', error);
+    }
+  }, [coin]);
+
+  const handleSmLong = useCallback(async () => {
+    playNotificationSound('bullish', 'standard');
+    try {
+      const response = await fetch('/api/trade/sm-long', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ symbol: coin }),
+      });
+      const data = await response.json();
+      console.log('SM Long response:', data);
+    } catch (error) {
+      console.error('Error executing sm long:', error);
+    }
+  }, [coin]);
+
+  const handleSmShort = useCallback(async () => {
+    playNotificationSound('bearish', 'standard');
+    try {
+      const response = await fetch('/api/trade/sm-short', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ symbol: coin }),
+      });
+      const data = await response.json();
+      console.log('SM Short response:', data);
+    } catch (error) {
+      console.error('Error executing sm short:', error);
+    }
+  }, [coin]);
+
+  const handleBigLong = useCallback(async () => {
+    playNotificationSound('bullish', 'big');
+    try {
+      const response = await fetch('/api/trade/big-long', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ symbol: coin }),
+      });
+      const data = await response.json();
+      console.log('Big Long response:', data);
+    } catch (error) {
+      console.error('Error executing big long:', error);
+    }
+  }, [coin]);
+
+  const handleBigShort = useCallback(async () => {
+    playNotificationSound('bearish', 'big');
+    try {
+      const response = await fetch('/api/trade/big-short', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ symbol: coin }),
+      });
+      const data = await response.json();
+      console.log('Big Short response:', data);
+    } catch (error) {
+      console.error('Error executing big short:', error);
+    }
+  }, [coin]);
+
+  const handleClose25 = useCallback(async () => {
+    try {
+      const response = await fetch('/api/positions/close', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ symbol: coin, percentage: 25 }),
+      });
+      const data = await response.json();
+      console.log('Close 25% response:', data);
+    } catch (error) {
+      console.error('Error closing 25% position:', error);
+    }
+  }, [coin]);
+
+  const handleClose50 = useCallback(async () => {
+    try {
+      const response = await fetch('/api/positions/close', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ symbol: coin, percentage: 50 }),
+      });
+      const data = await response.json();
+      console.log('Close 50% response:', data);
+    } catch (error) {
+      console.error('Error closing 50% position:', error);
+    }
+  }, [coin]);
+
+  const handleClose75 = useCallback(async () => {
+    try {
+      const response = await fetch('/api/positions/close', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ symbol: coin, percentage: 75 }),
+      });
+      const data = await response.json();
+      console.log('Close 75% response:', data);
+    } catch (error) {
+      console.error('Error closing 75% position:', error);
+    }
+  }, [coin]);
+
+  const handleClose100 = useCallback(async () => {
+    try {
+      const response = await fetch('/api/positions/close', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ symbol: coin, percentage: 100 }),
+      });
+      const data = await response.json();
+      console.log('Close 100% response:', data);
+    } catch (error) {
+      console.error('Error closing 100% position:', error);
+    }
+  }, [coin]);
+
+  const keyBindings: KeyBinding[] = [
+    { key: 'q', action: handleBuyCloud, description: 'Buy Cloud' },
+    { key: 'w', action: handleSellCloud, description: 'Sell Cloud' },
+    { key: 'a', action: handleSmLong, description: 'Small Long' },
+    { key: 's', action: handleSmShort, description: 'Small Short' },
+    { key: 'a', modifiers: { shift: true }, action: handleBigLong, description: 'Big Long' },
+    { key: 's', modifiers: { shift: true }, action: handleBigShort, description: 'Big Short' },
+    { key: '1', action: handleClose25, description: 'Close 25%' },
+    { key: '2', action: handleClose50, description: 'Close 50%' },
+    { key: '3', action: handleClose75, description: 'Close 75%' },
+    { key: '4', action: handleClose100, description: 'Close 100%' },
+  ];
+
+  useKeyboardShortcuts(keyBindings, !isPanelOpen);
 
   return (
     <div className="h-full flex flex-col bg-bg-primary">
@@ -119,63 +284,73 @@ export default function SymbolView({ coin }: SymbolViewProps) {
                   <div className="grid grid-cols-2 gap-1.5 text-[10px] font-mono">
                     <button
                       className="px-2 py-1.5 bg-accent-blue/20 border border-accent-blue/40 text-accent-blue hover:bg-accent-blue/30 hover:border-accent-blue/60 transition-all rounded-sm hover:shadow-[0_0_8px_rgba(50,116,170,0.3)]"
-                      onClick={() => {
-                        playNotificationSound('bullish', 'cloud');
-                        console.log('Open Buy Cloud');
-                      }}
+                      onClick={handleBuyCloud}
                     >
+                      <span className="text-accent-blue/60 text-[10px] font-bold mr-1">Q</span>
                       █ BUY CLOUD
                     </button>
                     <button
                       className="px-2 py-1.5 bg-accent-rose/20 border border-accent-rose/40 text-accent-rose hover:bg-accent-rose/30 hover:border-accent-rose/60 transition-all rounded-sm hover:shadow-[0_0_8px_rgba(194,150,141,0.3)]"
-                      onClick={() => {
-                        playNotificationSound('bearish', 'cloud');
-                        console.log('Open Sell Cloud');
-                      }}
+                      onClick={handleSellCloud}
                     >
+                      <span className="text-accent-rose/60 text-[10px] font-bold mr-1">W</span>
                       █ SELL CLOUD
                     </button>
                     <button
                       className="px-2 py-1.5 bg-bullish/20 border border-bullish/40 text-bullish hover:bg-bullish/30 hover:border-bullish/60 transition-all rounded-sm hover:shadow-[0_0_8px_rgba(38,166,154,0.3)]"
-                      onClick={() => {
-                        playNotificationSound('bullish', 'standard');
-                        console.log('Open Small Long');
-                      }}
+                      onClick={handleSmLong}
                     >
+                      <span className="text-bullish/60 text-[10px] font-bold mr-1">A</span>
                       █ SM LONG
                     </button>
                     <button
                       className="px-2 py-1.5 bg-bearish/20 border border-bearish/40 text-bearish hover:bg-bearish/30 hover:border-bearish/60 transition-all rounded-sm hover:shadow-[0_0_8px_rgba(239,83,80,0.3)]"
-                      onClick={() => {
-                        playNotificationSound('bearish', 'standard');
-                        console.log('Open Small Short');
-                      }}
+                      onClick={handleSmShort}
                     >
+                      <span className="text-bearish/60 text-[10px] font-bold mr-1">S</span>
                       █ SM SHORT
                     </button>
                     <button
                       className="px-2 py-1.5 bg-bullish/30 border-2 border-bullish/60 text-bullish font-bold hover:bg-bullish/40 hover:border-bullish/80 transition-all rounded-sm hover:shadow-[0_0_10px_rgba(38,166,154,0.5)]"
-                      onClick={() => {
-                        playNotificationSound('bullish', 'big');
-                        console.log('Open Big Long');
-                      }}
+                      onClick={handleBigLong}
                     >
+                      <span className="text-bullish/60 text-[10px] font-bold mr-1">⇧A</span>
                       ██ BIG LONG
                     </button>
                     <button
                       className="px-2 py-1.5 bg-bearish/30 border-2 border-bearish/60 text-bearish font-bold hover:bg-bearish/40 hover:border-bearish/80 transition-all rounded-sm hover:shadow-[0_0_10px_rgba(239,83,80,0.5)]"
-                      onClick={() => {
-                        playNotificationSound('bearish', 'big');
-                        console.log('Open Big Short');
-                      }}
+                      onClick={handleBigShort}
                     >
+                      <span className="text-bearish/60 text-[10px] font-bold mr-1">⇧S</span>
                       ██ BIG SHORT
                     </button>
                     <button
-                      className="col-span-2 px-2 py-1.5 bg-primary-muted/10 border border-primary-muted/30 text-primary-muted hover:bg-primary-muted/20 hover:border-primary-muted/50 hover:text-primary transition-all rounded-sm hover:shadow-[0_0_8px_rgba(68,186,186,0.2)]"
-                      onClick={() => console.log('Close Position')}
+                      className="px-2 py-1.5 bg-primary-muted/10 border border-primary-muted/30 text-primary-muted hover:bg-primary-muted/20 hover:border-primary-muted/50 hover:text-primary transition-all rounded-sm hover:shadow-[0_0_8px_rgba(68,186,186,0.2)]"
+                      onClick={handleClose25}
                     >
-                      █ CLOSE POSITION
+                      <span className="text-primary-muted/60 text-[10px] font-bold mr-1">1</span>
+                      █ CLOSE 25%
+                    </button>
+                    <button
+                      className="px-2 py-1.5 bg-primary-muted/10 border border-primary-muted/30 text-primary-muted hover:bg-primary-muted/20 hover:border-primary-muted/50 hover:text-primary transition-all rounded-sm hover:shadow-[0_0_8px_rgba(68,186,186,0.2)]"
+                      onClick={handleClose50}
+                    >
+                      <span className="text-primary-muted/60 text-[10px] font-bold mr-1">2</span>
+                      █ CLOSE 50%
+                    </button>
+                    <button
+                      className="px-2 py-1.5 bg-primary-muted/10 border border-primary-muted/30 text-primary-muted hover:bg-primary-muted/20 hover:border-primary-muted/50 hover:text-primary transition-all rounded-sm hover:shadow-[0_0_8px_rgba(68,186,186,0.2)]"
+                      onClick={handleClose75}
+                    >
+                      <span className="text-primary-muted/60 text-[10px] font-bold mr-1">3</span>
+                      █ CLOSE 75%
+                    </button>
+                    <button
+                      className="px-2 py-1.5 bg-primary-muted/10 border border-primary-muted/30 text-primary-muted hover:bg-primary-muted/20 hover:border-primary-muted/50 hover:text-primary transition-all rounded-sm hover:shadow-[0_0_8px_rgba(68,186,186,0.2)]"
+                      onClick={handleClose100}
+                    >
+                      <span className="text-primary-muted/60 text-[10px] font-bold mr-1">4</span>
+                      █ CLOSE 100%
                     </button>
                   </div>
                 </div>

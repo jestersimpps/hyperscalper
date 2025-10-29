@@ -5,11 +5,11 @@ import { useSettingsStore } from '@/stores/useSettingsStore';
 import { StochasticTimeframeConfig, EmaConfig } from '@/models/Settings';
 
 export default function SettingsPanel() {
-  const { isPanelOpen, activeTab, closePanel, setActiveTab, settings, updateStochasticSettings, updateEmaSettings, updateMacdSettings, updateScannerSettings } = useSettingsStore();
-  const [isStochasticExpanded, setIsStochasticExpanded] = useState(true);
-  const [isEmaExpanded, setIsEmaExpanded] = useState(true);
-  const [isMacdExpanded, setIsMacdExpanded] = useState(true);
-  const [isScannerStochExpanded, setIsScannerStochExpanded] = useState(true);
+  const { isPanelOpen, activeTab, closePanel, setActiveTab, settings, updateStochasticSettings, updateEmaSettings, updateMacdSettings, updateScannerSettings, updateOrderSettings } = useSettingsStore();
+  const [isStochasticExpanded, setIsStochasticExpanded] = useState(false);
+  const [isEmaExpanded, setIsEmaExpanded] = useState(false);
+  const [isMacdExpanded, setIsMacdExpanded] = useState(false);
+  const [isScannerStochExpanded, setIsScannerStochExpanded] = useState(false);
 
   const handleBackdropClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget) {
@@ -657,9 +657,82 @@ export default function SettingsPanel() {
           )}
 
           {activeTab === 'orders' && (
-            <div className="text-primary-muted text-sm">
-              <div className="text-primary font-mono mb-2">█ ORDER SETTINGS</div>
-              <p className="text-xs">Order configuration coming soon...</p>
+            <div className="space-y-3">
+              <div className="p-3 bg-bg-secondary border border-frame rounded">
+                <div className="text-primary font-mono text-xs font-bold mb-3">█ POSITION SIZE (% OF ACCOUNT VALUE)</div>
+                <p className="text-primary-muted text-[10px] mb-4 leading-relaxed">
+                  Configure the percentage of your account value to use for each order type.
+                  These percentages will be applied when executing trades.
+                </p>
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-primary-muted font-mono block mb-2 text-xs flex items-center justify-between">
+                      <span>CLOUD ORDERS</span>
+                      <span className="text-accent-blue">{settings.orders.cloudPercentage}%</span>
+                    </label>
+                    <input
+                      type="range"
+                      min="1"
+                      max="50"
+                      step="1"
+                      value={settings.orders.cloudPercentage}
+                      onChange={(e) => updateOrderSettings({ cloudPercentage: Number(e.target.value) })}
+                      className="w-full h-2 bg-bg-primary rounded-lg appearance-none cursor-pointer accent-accent-blue"
+                    />
+                    <div className="flex justify-between text-[10px] text-primary-muted mt-1">
+                      <span>1%</span>
+                      <span>50%</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-primary-muted font-mono block mb-2 text-xs flex items-center justify-between">
+                      <span>SMALL ORDERS (SM LONG/SHORT)</span>
+                      <span className="text-primary">{settings.orders.smallPercentage}%</span>
+                    </label>
+                    <input
+                      type="range"
+                      min="1"
+                      max="50"
+                      step="1"
+                      value={settings.orders.smallPercentage}
+                      onChange={(e) => updateOrderSettings({ smallPercentage: Number(e.target.value) })}
+                      className="w-full h-2 bg-bg-primary rounded-lg appearance-none cursor-pointer accent-primary"
+                    />
+                    <div className="flex justify-between text-[10px] text-primary-muted mt-1">
+                      <span>1%</span>
+                      <span>50%</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-primary-muted font-mono block mb-2 text-xs flex items-center justify-between">
+                      <span>BIG ORDERS (BIG LONG/SHORT)</span>
+                      <span className="text-accent-rose">{settings.orders.bigPercentage}%</span>
+                    </label>
+                    <input
+                      type="range"
+                      min="1"
+                      max="100"
+                      step="1"
+                      value={settings.orders.bigPercentage}
+                      onChange={(e) => updateOrderSettings({ bigPercentage: Number(e.target.value) })}
+                      className="w-full h-2 bg-bg-primary rounded-lg appearance-none cursor-pointer accent-accent-rose"
+                    />
+                    <div className="flex justify-between text-[10px] text-primary-muted mt-1">
+                      <span>1%</span>
+                      <span>100%</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-3 bg-bg-secondary border border-frame rounded">
+                <div className="text-primary-muted text-[10px] leading-relaxed">
+                  <span className="text-bullish font-bold">NOTE:</span> These percentages represent how much of your total account value will be used for each order type.
+                  Make sure the total of all active positions doesn't exceed your risk tolerance.
+                </div>
+              </div>
             </div>
           )}
         </div>

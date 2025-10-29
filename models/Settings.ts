@@ -60,7 +60,9 @@ export interface ScannerSettings {
 }
 
 export interface OrderSettings {
-  // TODO: Add order settings
+  cloudPercentage: number;
+  smallPercentage: number;
+  bigPercentage: number;
 }
 
 export interface AppSettings {
@@ -103,7 +105,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   },
   scanner: {
     enabled: false,
-    scanInterval: 1,
+    scanInterval: 2,
     topMarkets: 20,
     playSound: true,
     stochasticScanner: {
@@ -116,5 +118,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
       smoothD: 3,
     },
   },
-  orders: {},
+  orders: {
+    cloudPercentage: 5,
+    smallPercentage: 10,
+    bigPercentage: 25,
+  },
 };

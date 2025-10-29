@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { AppSettings, DEFAULT_SETTINGS, StochasticSettings, EmaSettings, MacdSettings, ScannerSettings } from '@/models/Settings';
+import { AppSettings, DEFAULT_SETTINGS, StochasticSettings, EmaSettings, MacdSettings, ScannerSettings, OrderSettings } from '@/models/Settings';
 
 type TabType = 'scanner' | 'indicators' | 'orders';
 
@@ -16,6 +16,7 @@ interface SettingsStore {
   updateEmaSettings: (settings: Partial<EmaSettings>) => void;
   updateMacdSettings: (settings: Partial<MacdSettings>) => void;
   updateScannerSettings: (settings: Partial<ScannerSettings>) => void;
+  updateOrderSettings: (settings: Partial<OrderSettings>) => void;
   resetSettings: () => void;
 }
 
@@ -94,7 +95,11 @@ const mergeSettings = (storedSettings: any): AppSettings => {
           smoothD: storedSettings.scanner?.stochasticScanner?.smoothD ?? DEFAULT_SETTINGS.scanner.stochasticScanner.smoothD,
         },
       },
-      orders: storedSettings.orders ?? DEFAULT_SETTINGS.orders,
+      orders: {
+        cloudPercentage: storedSettings.orders?.cloudPercentage ?? DEFAULT_SETTINGS.orders.cloudPercentage,
+        smallPercentage: storedSettings.orders?.smallPercentage ?? DEFAULT_SETTINGS.orders.smallPercentage,
+        bigPercentage: storedSettings.orders?.bigPercentage ?? DEFAULT_SETTINGS.orders.bigPercentage,
+      },
     };
   } catch (error) {
     console.error('Error merging settings, using defaults:', error);
@@ -157,6 +162,16 @@ export const useSettingsStore = create<SettingsStore>()(
             ...state.settings,
             scanner: {
               ...state.settings.scanner,
+              ...updates,
+            },
+          },
+        })),
+      updateOrderSettings: (updates) =>
+        set((state) => ({
+          settings: {
+            ...state.settings,
+            orders: {
+              ...state.settings.orders,
               ...updates,
             },
           },
