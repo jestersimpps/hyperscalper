@@ -1,4 +1,4 @@
-export interface StochasticTimeframeConfig {
+export interface StochasticVariantConfig {
   enabled: boolean;
   period: number;
   smoothK: number;
@@ -6,14 +6,14 @@ export interface StochasticTimeframeConfig {
 }
 
 export interface StochasticSettings {
-  showMultiTimeframe: boolean;
+  showMultiVariant: boolean;
   overboughtLevel: number;
   oversoldLevel: number;
-  timeframes: {
-    '1m': StochasticTimeframeConfig;
-    '5m': StochasticTimeframeConfig;
-    '15m': StochasticTimeframeConfig;
-    '1h': StochasticTimeframeConfig;
+  variants: {
+    fast9: StochasticVariantConfig;
+    fast14: StochasticVariantConfig;
+    fast40: StochasticVariantConfig;
+    full60: StochasticVariantConfig;
   };
 }
 
@@ -53,17 +53,21 @@ export interface IndicatorSettings {
 
 export interface StochasticScannerConfig {
   enabled: boolean;
-  timeframes: ('1m' | '5m' | '15m' | '1h')[];
   oversoldThreshold: number;
   overboughtThreshold: number;
-  period: number;
-  smoothK: number;
-  smoothD: number;
 }
 
 export interface EmaAlignmentScannerConfig {
   enabled: boolean;
   timeframes: ('1m' | '5m' | '15m' | '1h')[];
+  lookbackBars: number;
+}
+
+export interface ChannelScannerConfig {
+  enabled: boolean;
+  timeframes: ('1m' | '5m')[];
+  minTouches: number;
+  pivotStrength: number;
   lookbackBars: number;
 }
 
@@ -74,6 +78,7 @@ export interface ScannerSettings {
   playSound: boolean;
   stochasticScanner: StochasticScannerConfig;
   emaAlignmentScanner: EmaAlignmentScannerConfig;
+  channelScanner: ChannelScannerConfig;
 }
 
 export interface OrderSettings {
@@ -96,11 +101,32 @@ export interface AppSettings {
   theme: ThemeSettings;
 }
 
-export const DEFAULT_STOCHASTIC_CONFIG: StochasticTimeframeConfig = {
+export const DEFAULT_STOCHASTIC_FAST9: StochasticVariantConfig = {
+  enabled: true,
+  period: 9,
+  smoothK: 1,
+  smoothD: 3,
+};
+
+export const DEFAULT_STOCHASTIC_FAST14: StochasticVariantConfig = {
   enabled: true,
   period: 14,
-  smoothK: 3,
+  smoothK: 1,
   smoothD: 3,
+};
+
+export const DEFAULT_STOCHASTIC_FAST40: StochasticVariantConfig = {
+  enabled: true,
+  period: 40,
+  smoothK: 1,
+  smoothD: 4,
+};
+
+export const DEFAULT_STOCHASTIC_FULL60: StochasticVariantConfig = {
+  enabled: true,
+  period: 60,
+  smoothK: 10,
+  smoothD: 10,
 };
 
 export const DEFAULT_MACD_CONFIG: MacdTimeframeConfig = {
@@ -113,14 +139,14 @@ export const DEFAULT_MACD_CONFIG: MacdTimeframeConfig = {
 export const DEFAULT_SETTINGS: AppSettings = {
   indicators: {
     stochastic: {
-      showMultiTimeframe: true,
+      showMultiVariant: true,
       overboughtLevel: 80,
       oversoldLevel: 20,
-      timeframes: {
-        '1m': { ...DEFAULT_STOCHASTIC_CONFIG, enabled: true },
-        '5m': { ...DEFAULT_STOCHASTIC_CONFIG, enabled: true },
-        '15m': { ...DEFAULT_STOCHASTIC_CONFIG, enabled: true },
-        '1h': { ...DEFAULT_STOCHASTIC_CONFIG, enabled: false },
+      variants: {
+        fast9: DEFAULT_STOCHASTIC_FAST9,
+        fast14: DEFAULT_STOCHASTIC_FAST14,
+        fast40: DEFAULT_STOCHASTIC_FAST40,
+        full60: DEFAULT_STOCHASTIC_FULL60,
       },
     },
     ema: {
@@ -145,17 +171,20 @@ export const DEFAULT_SETTINGS: AppSettings = {
     playSound: true,
     stochasticScanner: {
       enabled: false,
-      timeframes: ['1m', '5m', '15m'],
       oversoldThreshold: 20,
       overboughtThreshold: 80,
-      period: 14,
-      smoothK: 3,
-      smoothD: 3,
     },
     emaAlignmentScanner: {
       enabled: false,
       timeframes: ['1m', '5m', '15m'],
       lookbackBars: 3,
+    },
+    channelScanner: {
+      enabled: false,
+      timeframes: ['1m', '5m'],
+      minTouches: 3,
+      pivotStrength: 3,
+      lookbackBars: 50,
     },
   },
   orders: {

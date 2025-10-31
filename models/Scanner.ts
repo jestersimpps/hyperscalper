@@ -15,13 +15,27 @@ export interface EmaAlignmentValue {
   barsAgo: number;
 }
 
+export interface ChannelValue {
+  type: 'horizontal' | 'ascending' | 'descending';
+  upperPrice: number;
+  lowerPrice: number;
+  currentPrice: number;
+  distanceToUpper: number;
+  distanceToLower: number;
+  angle: number;
+  touches: number;
+  strength: number;
+  timeframe: TimeInterval;
+}
+
 export type SignalType = 'bullish' | 'bearish';
-export type ScanType = 'stochastic' | 'emaAlignment';
+export type ScanType = 'stochastic' | 'emaAlignment' | 'channel';
 
 export interface ScanResult {
   symbol: string;
   stochastics?: StochasticValue[];
   emaAlignments?: EmaAlignmentValue[];
+  channels?: ChannelValue[];
   matchedAt: number;
   signalType: SignalType;
   description: string;

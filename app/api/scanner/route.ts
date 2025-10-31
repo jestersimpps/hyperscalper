@@ -1,28 +1,42 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ExchangeFactory } from '@/lib/exchange-factory';
-import { calculateStochastic, detectEmaAlignment } from '@/lib/indicators';
+import { calculateStochastic, detectEmaAlignment, detectChannels } from '@/lib/indicators';
 import type { TimeInterval, CandleData } from '@/types';
-import type { StochasticValue, EmaAlignmentValue } from '@/models/Scanner';
+import type { StochasticValue, EmaAlignmentValue, ChannelValue } from '@/models/Scanner';
 import type { PerpsMetaAndAssetCtxs } from '@nktkas/hyperliquid';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-interface ScanParams {
-  timeframes: TimeInterval[];
-  oversoldThreshold: number;
-  overboughtThreshold: number;
+interface StochasticVariantConfig {
+  enabled: boolean;
   period: number;
   smoothK: number;
   smoothD: number;
+}
+
+interface ScanParams {
+  oversoldThreshold: number;
+  overboughtThreshold: number;
   topMarkets: number;
   stochasticEnabled: boolean;
+  stochasticVariants: {
+    fast9: StochasticVariantConfig;
+    fast14: StochasticVariantConfig;
+    fast40: StochasticVariantConfig;
+    full60: StochasticVariantConfig;
+  };
   emaAlignmentEnabled: boolean;
   emaTimeframes: TimeInterval[];
   ema1Period: number;
   ema2Period: number;
   ema3Period: number;
   emaLookbackBars: number;
+  channelEnabled: boolean;
+  channelTimeframes: ('1m' | '5m')[];
+  channelMinTouches: number;
+  channelPivotStrength: number;
+  channelLookbackBars: number;
 }
 
 interface SymbolWithVolume {
@@ -78,33 +92,62 @@ function getTimeframeMinutes(interval: TimeInterval): number {
   return map[interval];
 }
 
-export async function GET(request: NextRequest) {
-  const searchParams = request.nextUrl.searchParams;
+export async function POST(request: NextRequest) {
   const scanStartTime = Date.now();
 
   try {
+    const body = await request.json();
     const params: ScanParams = {
-      timeframes: (searchParams.get('timeframes')?.split(',') as TimeInterval[]) || ['1m', '5m', '15m'],
-      oversoldThreshold: parseInt(searchParams.get('oversoldThreshold') || '20'),
-      overboughtThreshold: parseInt(searchParams.get('overboughtThreshold') || '80'),
-      period: parseInt(searchParams.get('period') || '14'),
-      smoothK: parseInt(searchParams.get('smoothK') || '3'),
-      smoothD: parseInt(searchParams.get('smoothD') || '3'),
-      topMarkets: parseInt(searchParams.get('topMarkets') || '20'),
-      stochasticEnabled: searchParams.get('stochasticEnabled') === 'true',
-      emaAlignmentEnabled: searchParams.get('emaAlignmentEnabled') === 'true',
-      emaTimeframes: (searchParams.get('emaTimeframes')?.split(',') as TimeInterval[]) || ['1m', '5m', '15m'],
-      ema1Period: parseInt(searchParams.get('ema1Period') || '5'),
-      ema2Period: parseInt(searchParams.get('ema2Period') || '13'),
-      ema3Period: parseInt(searchParams.get('ema3Period') || '21'),
-      emaLookbackBars: parseInt(searchParams.get('emaLookbackBars') || '3'),
+      oversoldThreshold: body.oversoldThreshold ?? 20,
+      overboughtThreshold: body.overboughtThreshold ?? 80,
+      topMarkets: body.topMarkets ?? 20,
+      stochasticEnabled: body.stochasticEnabled ?? false,
+      stochasticVariants: {
+        fast9: {
+          enabled: body.stochasticVariants?.fast9?.enabled ?? false,
+          period: body.stochasticVariants?.fast9?.period ?? 9,
+          smoothK: body.stochasticVariants?.fast9?.smoothK ?? 1,
+          smoothD: body.stochasticVariants?.fast9?.smoothD ?? 3,
+        },
+        fast14: {
+          enabled: body.stochasticVariants?.fast14?.enabled ?? false,
+          period: body.stochasticVariants?.fast14?.period ?? 14,
+          smoothK: body.stochasticVariants?.fast14?.smoothK ?? 1,
+          smoothD: body.stochasticVariants?.fast14?.smoothD ?? 3,
+        },
+        fast40: {
+          enabled: body.stochasticVariants?.fast40?.enabled ?? false,
+          period: body.stochasticVariants?.fast40?.period ?? 40,
+          smoothK: body.stochasticVariants?.fast40?.smoothK ?? 1,
+          smoothD: body.stochasticVariants?.fast40?.smoothD ?? 4,
+        },
+        full60: {
+          enabled: body.stochasticVariants?.full60?.enabled ?? false,
+          period: body.stochasticVariants?.full60?.period ?? 60,
+          smoothK: body.stochasticVariants?.full60?.smoothK ?? 10,
+          smoothD: body.stochasticVariants?.full60?.smoothD ?? 10,
+        },
+      },
+      emaAlignmentEnabled: body.emaAlignmentEnabled ?? false,
+      emaTimeframes: body.emaTimeframes ?? ['1m', '5m', '15m'],
+      ema1Period: body.ema1Period ?? 5,
+      ema2Period: body.ema2Period ?? 13,
+      ema3Period: body.ema3Period ?? 21,
+      emaLookbackBars: body.emaLookbackBars ?? 3,
+      channelEnabled: body.channelEnabled ?? false,
+      channelTimeframes: body.channelTimeframes ?? ['1m', '5m'],
+      channelMinTouches: body.channelMinTouches ?? 3,
+      channelPivotStrength: body.channelPivotStrength ?? 3,
+      channelLookbackBars: body.channelLookbackBars ?? 50,
     };
 
     console.log('🔍 Scanner started:', {
       stochasticEnabled: params.stochasticEnabled,
+      stochasticVariants: Object.entries(params.stochasticVariants).filter(([_, v]) => v.enabled).map(([k]) => k),
       emaAlignmentEnabled: params.emaAlignmentEnabled,
-      timeframes: params.timeframes,
+      channelEnabled: params.channelEnabled,
       emaTimeframes: params.emaTimeframes,
+      channelTimeframes: params.channelTimeframes,
       topMarkets: params.topMarkets,
     });
 
@@ -172,18 +215,13 @@ export async function GET(request: NextRequest) {
           const stochastics: StochasticValue[] = [];
           let allOversold = true;
           let allOverbought = true;
+          let enabledVariantsCount = 0;
 
-          for (const timeframe of params.timeframes) {
-            const timeframeMinutes = getTimeframeMinutes(timeframe);
-            const aggregatedCandles = aggregateCandles(candles1m, timeframeMinutes);
+          for (const [variantName, config] of Object.entries(params.stochasticVariants)) {
+            if (!config.enabled) continue;
+            enabledVariantsCount++;
 
-            if (aggregatedCandles.length === 0) {
-              allOversold = false;
-              allOverbought = false;
-              break;
-            }
-
-            const stochData = calculateStochastic(aggregatedCandles, params.period, params.smoothK, params.smoothD);
+            const stochData = calculateStochastic(candles1m, config.period, config.smoothK, config.smoothD);
 
             if (stochData.length === 0) {
               allOversold = false;
@@ -193,32 +231,32 @@ export async function GET(request: NextRequest) {
 
             const latestStoch = stochData[stochData.length - 1];
 
-            if (latestStoch.k > params.oversoldThreshold || latestStoch.d > params.oversoldThreshold) {
+            if (latestStoch.d > params.oversoldThreshold) {
               allOversold = false;
             }
 
-            if (latestStoch.k < params.overboughtThreshold || latestStoch.d < params.overboughtThreshold) {
+            if (latestStoch.d < params.overboughtThreshold) {
               allOverbought = false;
             }
 
             stochastics.push({
               k: latestStoch.k,
               d: latestStoch.d,
-              timeframe,
+              timeframe: '1m',
             });
           }
 
-          if (allOversold || allOverbought) {
+          if (enabledVariantsCount > 0 && (allOversold || allOverbought)) {
             const signalType = allOversold ? 'bullish' : 'bearish';
-            const avgK = stochastics.reduce((sum, s) => sum + s.k, 0) / stochastics.length;
+            const avgD = stochastics.reduce((sum, s) => sum + s.d, 0) / stochastics.length;
 
             let description = '';
             if (allOversold) {
-              const intensity = avgK < 10 ? 'Extreme' : avgK < 15 ? 'Strong' : 'Moderate';
-              description = `${intensity} oversold - Stochastics bottomed across ${stochastics.length} timeframe${stochastics.length > 1 ? 's' : ''} (avg K:${avgK.toFixed(1)})`;
+              const intensity = avgD < 10 ? 'Extreme' : avgD < 15 ? 'Strong' : 'Moderate';
+              description = `${intensity} oversold - All stochastic variants bottomed (avg D:${avgD.toFixed(1)})`;
             } else {
-              const intensity = avgK > 90 ? 'Extreme' : avgK > 85 ? 'Strong' : 'Moderate';
-              description = `${intensity} overbought - Stochastics topped across ${stochastics.length} timeframe${stochastics.length > 1 ? 's' : ''} (avg K:${avgK.toFixed(1)})`;
+              const intensity = avgD > 90 ? 'Extreme' : avgD > 85 ? 'Strong' : 'Moderate';
+              description = `${intensity} overbought - All stochastic variants topped (avg D:${avgD.toFixed(1)})`;
             }
 
             console.log(`  ✅ ${symbol}: STOCHASTIC MATCH! ${description}`);
@@ -230,7 +268,7 @@ export async function GET(request: NextRequest) {
               description,
               scanType: 'stochastic' as const,
             });
-          } else {
+          } else if (enabledVariantsCount > 0) {
             filteredOutCount++;
           }
         }
@@ -290,6 +328,76 @@ export async function GET(request: NextRequest) {
               signalType: alignmentType,
               description,
               scanType: 'emaAlignment' as const,
+            });
+          }
+        }
+
+        if (params.channelEnabled) {
+          const channels: ChannelValue[] = [];
+          let bestChannel = null;
+
+          for (const timeframe of params.channelTimeframes) {
+            const timeframeMinutes = getTimeframeMinutes(timeframe);
+            const aggregatedCandles = aggregateCandles(candles1m, timeframeMinutes);
+
+            if (aggregatedCandles.length === 0) {
+              break;
+            }
+
+            const detectedChannels = detectChannels(aggregatedCandles, {
+              pivotStrength: params.channelPivotStrength,
+              lookbackBars: params.channelLookbackBars,
+              minTouches: params.channelMinTouches,
+            });
+
+            if (detectedChannels.length > 0) {
+              const channel = detectedChannels[0];
+              const currentPrice = aggregatedCandles[aggregatedCandles.length - 1].close;
+              const lastIndex = aggregatedCandles.length - 1;
+
+              const upperPrice = channel.upperLine.slope * lastIndex + channel.upperLine.intercept;
+              const lowerPrice = channel.lowerLine.slope * lastIndex + channel.lowerLine.intercept;
+
+              const distanceToUpper = ((upperPrice - currentPrice) / currentPrice) * 100;
+              const distanceToLower = ((currentPrice - lowerPrice) / currentPrice) * 100;
+
+              channels.push({
+                type: channel.type,
+                upperPrice,
+                lowerPrice,
+                currentPrice,
+                distanceToUpper,
+                distanceToLower,
+                angle: channel.angle,
+                touches: channel.touches,
+                strength: channel.strength,
+                timeframe,
+              });
+
+              if (!bestChannel || channel.strength > bestChannel.strength) {
+                bestChannel = channel;
+              }
+            }
+          }
+
+          if (channels.length > 0 && bestChannel) {
+            const channelTypeLabel =
+              bestChannel.type === 'ascending'
+                ? 'Ascending'
+                : bestChannel.type === 'descending'
+                  ? 'Descending'
+                  : 'Horizontal';
+            const signalType = bestChannel.type === 'ascending' ? 'bullish' : 'bearish';
+            const description = `${channelTypeLabel} channel detected across ${channels.length} timeframe${channels.length > 1 ? 's' : ''} (${bestChannel.touches} touches, ${bestChannel.angle.toFixed(1)}°)`;
+
+            console.log(`  ✅ ${symbol}: CHANNEL MATCH! ${description}`);
+            results.push({
+              symbol,
+              channels,
+              matchedAt: Date.now(),
+              signalType,
+              description,
+              scanType: 'channel' as const,
             });
           }
         }

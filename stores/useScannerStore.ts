@@ -42,7 +42,7 @@ export const useScannerStore = create<ScannerStore>((set, get) => ({
       const settings = useSettingsStore.getState().settings.scanner;
       const indicatorSettings = useSettingsStore.getState().settings.indicators;
 
-      if (!settings.stochasticScanner.enabled && !settings.emaAlignmentScanner.enabled) {
+      if (!settings.stochasticScanner.enabled && !settings.emaAlignmentScanner.enabled && !settings.channelScanner.enabled) {
         set({
           status: {
             ...get().status,
@@ -53,24 +53,59 @@ export const useScannerStore = create<ScannerStore>((set, get) => ({
         return;
       }
 
-      const params = new URLSearchParams({
-        stochasticEnabled: settings.stochasticScanner.enabled.toString(),
-        timeframes: settings.stochasticScanner.timeframes.join(','),
-        oversoldThreshold: settings.stochasticScanner.oversoldThreshold.toString(),
-        overboughtThreshold: settings.stochasticScanner.overboughtThreshold.toString(),
-        period: settings.stochasticScanner.period.toString(),
-        smoothK: settings.stochasticScanner.smoothK.toString(),
-        smoothD: settings.stochasticScanner.smoothD.toString(),
-        topMarkets: settings.topMarkets.toString(),
-        emaAlignmentEnabled: settings.emaAlignmentScanner.enabled.toString(),
-        emaTimeframes: settings.emaAlignmentScanner.timeframes.join(','),
-        ema1Period: indicatorSettings.ema.ema1.period.toString(),
-        ema2Period: indicatorSettings.ema.ema2.period.toString(),
-        ema3Period: indicatorSettings.ema.ema3.period.toString(),
-        emaLookbackBars: settings.emaAlignmentScanner.lookbackBars.toString(),
-      });
+      const stochVariants = indicatorSettings.stochastic.variants;
 
-      const response = await fetch(`/api/scanner?${params}`);
+      const body = {
+        stochasticEnabled: settings.stochasticScanner.enabled,
+        oversoldThreshold: settings.stochasticScanner.oversoldThreshold,
+        overboughtThreshold: settings.stochasticScanner.overboughtThreshold,
+        stochasticVariants: {
+          fast9: {
+            enabled: stochVariants.fast9.enabled,
+            period: stochVariants.fast9.period,
+            smoothK: stochVariants.fast9.smoothK,
+            smoothD: stochVariants.fast9.smoothD,
+          },
+          fast14: {
+            enabled: stochVariants.fast14.enabled,
+            period: stochVariants.fast14.period,
+            smoothK: stochVariants.fast14.smoothK,
+            smoothD: stochVariants.fast14.smoothD,
+          },
+          fast40: {
+            enabled: stochVariants.fast40.enabled,
+            period: stochVariants.fast40.period,
+            smoothK: stochVariants.fast40.smoothK,
+            smoothD: stochVariants.fast40.smoothD,
+          },
+          full60: {
+            enabled: stochVariants.full60.enabled,
+            period: stochVariants.full60.period,
+            smoothK: stochVariants.full60.smoothK,
+            smoothD: stochVariants.full60.smoothD,
+          },
+        },
+        topMarkets: settings.topMarkets,
+        emaAlignmentEnabled: settings.emaAlignmentScanner.enabled,
+        emaTimeframes: settings.emaAlignmentScanner.timeframes,
+        ema1Period: indicatorSettings.ema.ema1.period,
+        ema2Period: indicatorSettings.ema.ema2.period,
+        ema3Period: indicatorSettings.ema.ema3.period,
+        emaLookbackBars: settings.emaAlignmentScanner.lookbackBars,
+        channelEnabled: settings.channelScanner.enabled,
+        channelTimeframes: settings.channelScanner.timeframes,
+        channelMinTouches: settings.channelScanner.minTouches,
+        channelPivotStrength: settings.channelScanner.pivotStrength,
+        channelLookbackBars: settings.channelScanner.lookbackBars,
+      };
+
+      const response = await fetch('/api/scanner', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      });
 
       if (!response.ok) {
         throw new Error('Failed to fetch scanner results');

@@ -61,14 +61,8 @@ export default function IndicatorSignals({ coin }: IndicatorSignalsProps) {
   useEffect(() => {
     const subscriptions: Array<{ coin: string; interval: string }> = [];
 
-    if (stochasticSettings.showMultiTimeframe) {
-      Object.entries(stochasticSettings.timeframes).forEach(([tf, settings]) => {
-        if (settings.enabled) {
-          subscribeToCandles(coin, tf as any);
-          subscriptions.push({ coin, interval: tf });
-        }
-      });
-    }
+    subscribeToCandles(coin, '1m');
+    subscriptions.push({ coin, interval: '1m' });
 
     if (macdSettings.showMultiTimeframe) {
       Object.entries(macdSettings.timeframes).forEach(([tf, settings]) => {
@@ -79,9 +73,6 @@ export default function IndicatorSignals({ coin }: IndicatorSignalsProps) {
       });
     }
 
-    subscribeToCandles(coin, '1m');
-    subscriptions.push({ coin, interval: '1m' });
-
     return () => {
       subscriptions.forEach((sub) => unsubscribeFromCandles(sub.coin, sub.interval as any));
     };
@@ -89,28 +80,26 @@ export default function IndicatorSignals({ coin }: IndicatorSignalsProps) {
     coin,
     subscribeToCandles,
     unsubscribeFromCandles,
-    stochasticSettings.showMultiTimeframe,
-    stochasticSettings.timeframes,
     macdSettings.showMultiTimeframe,
     macdSettings.timeframes,
   ]);
 
   const stochasticStats = useMemo(() => {
-    if (!stochasticSettings.showMultiTimeframe) return [];
+    if (!stochasticSettings.showMultiVariant) return [];
 
     const stats: Array<{
-      timeframe: string;
+      variant: string;
       k: number;
       d: number;
       zone: StochasticZone;
       trend: TrendDirection;
     }> = [];
 
-    Object.entries(stochasticSettings.timeframes).forEach(([tf, settings]) => {
-      if (!settings.enabled) return;
+    const candleData = candles[`${coin}-1m`];
+    if (!candleData || candleData.length === 0) return [];
 
-      const candleData = candles[`${coin}-${tf}`];
-      if (!candleData || candleData.length === 0) return;
+    Object.entries(stochasticSettings.variants).forEach(([variantName, settings]) => {
+      if (!settings.enabled) return;
 
       const stochData = calculateStochastic(
         candleData,
@@ -130,7 +119,7 @@ export default function IndicatorSignals({ coin }: IndicatorSignalsProps) {
       const trend = getStochasticTrend(latest.k, latest.d);
 
       stats.push({
-        timeframe: tf,
+        variant: variantName,
         k: latest.k,
         d: latest.d,
         zone,
@@ -240,7 +229,7 @@ export default function IndicatorSignals({ coin }: IndicatorSignalsProps) {
         {/* Stochastic Section - Columns 1-2 */}
         {stochasticStats.length > 0 && (
           <div className="col-span-2">
-            <div className="text-primary-muted uppercase tracking-wider font-bold mb-0.5">STOCHASTIC</div>
+            <div className="text-primary-muted uppercase tracking-wider font-bold mb-0.5">STOCHASTIC (1m)</div>
             <div className="flex items-center gap-2 flex-wrap">
               {stochasticStats.map((stat, idx) => {
                 const zoneColor =
@@ -250,10 +239,16 @@ export default function IndicatorSignals({ coin }: IndicatorSignalsProps) {
                     ? 'text-bullish'
                     : 'text-primary-muted';
 
+                const variantLabel =
+                  stat.variant === 'fast9' ? 'F9' :
+                  stat.variant === 'fast14' ? 'F14' :
+                  stat.variant === 'fast40' ? 'F40' :
+                  stat.variant === 'full60' ? 'FL60' : stat.variant;
+
                 return (
-                  <div key={stat.timeframe} className="flex items-center gap-0.5">
+                  <div key={stat.variant} className="flex items-center gap-0.5">
                     {idx > 0 && <span className="text-primary-muted/40 mr-1">|</span>}
-                    <span className="text-primary-muted">{stat.timeframe}</span>
+                    <span className="text-primary-muted">{variantLabel}</span>
                     <TrendArrow direction={stat.trend} />
                     <span className={zoneColor}>
                       {formatNumber(stat.k, 0)}/{formatNumber(stat.d, 0)}

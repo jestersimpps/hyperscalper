@@ -285,7 +285,7 @@ export default function SymbolView({ coin }: SymbolViewProps) {
 
   return (
     <div className="h-full flex flex-col bg-bg-primary">
-      <div className="flex flex-col h-full max-w-full mx-auto p-2">
+      <div className="flex flex-col h-full w-full p-2">
         {/* Header */}
         <TerminalHeader coin={coin} />
 

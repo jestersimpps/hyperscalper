@@ -208,136 +208,50 @@ export default function SettingsPanel() {
                         </div>
 
                         {settings.scanner.stochasticScanner.enabled && (
-                          <>
-                            <div className="p-3 bg-bg-secondary border border-frame rounded space-y-3">
-                              <div className="text-primary font-mono text-xs font-bold mb-2">TIMEFRAMES TO SCAN</div>
-                              <div className="grid grid-cols-2 gap-2">
-                                {(['1m', '5m', '15m', '1h'] as const).map((tf) => (
-                                  <label key={tf} className="flex items-center gap-2 cursor-pointer">
-                                    <input
-                                      type="checkbox"
-                                      checked={settings.scanner.stochasticScanner.timeframes.includes(tf)}
-                                      onChange={(e) => {
-                                        const newTimeframes = e.target.checked
-                                          ? [...settings.scanner.stochasticScanner.timeframes, tf]
-                                          : settings.scanner.stochasticScanner.timeframes.filter((t) => t !== tf);
-                                        updateScannerSettings({
-                                          stochasticScanner: {
-                                            ...settings.scanner.stochasticScanner,
-                                            timeframes: newTimeframes,
-                                          },
-                                        });
-                                      }}
-                                      className="w-4 h-4 accent-primary cursor-pointer"
-                                    />
-                                    <span className="text-primary-muted font-mono text-xs">{tf.toUpperCase()}</span>
-                                  </label>
-                                ))}
+                          <div className="p-3 bg-bg-secondary border border-frame rounded">
+                            <div className="text-primary font-mono text-xs font-bold mb-3">THRESHOLDS</div>
+                            <div className="grid grid-cols-2 gap-3 text-xs">
+                              <div>
+                                <label className="text-primary-muted font-mono block mb-1">OVERSOLD</label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max="50"
+                                  value={settings.scanner.stochasticScanner.oversoldThreshold}
+                                  onChange={(e) =>
+                                    updateScannerSettings({
+                                      stochasticScanner: {
+                                        ...settings.scanner.stochasticScanner,
+                                        oversoldThreshold: Number(e.target.value),
+                                      },
+                                    })
+                                  }
+                                  className="w-full bg-bg-primary border border-frame text-primary px-2 py-1 rounded font-mono text-xs"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-primary-muted font-mono block mb-1">OVERBOUGHT</label>
+                                <input
+                                  type="number"
+                                  min="50"
+                                  max="100"
+                                  value={settings.scanner.stochasticScanner.overboughtThreshold}
+                                  onChange={(e) =>
+                                    updateScannerSettings({
+                                      stochasticScanner: {
+                                        ...settings.scanner.stochasticScanner,
+                                        overboughtThreshold: Number(e.target.value),
+                                      },
+                                    })
+                                  }
+                                  className="w-full bg-bg-primary border border-frame text-primary px-2 py-1 rounded font-mono text-xs"
+                                />
                               </div>
                             </div>
-
-                            <div className="p-3 bg-bg-secondary border border-frame rounded">
-                              <div className="text-primary font-mono text-xs font-bold mb-3">THRESHOLDS</div>
-                              <div className="grid grid-cols-2 gap-3 text-xs">
-                                <div>
-                                  <label className="text-primary-muted font-mono block mb-1">OVERSOLD</label>
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    max="50"
-                                    value={settings.scanner.stochasticScanner.oversoldThreshold}
-                                    onChange={(e) =>
-                                      updateScannerSettings({
-                                        stochasticScanner: {
-                                          ...settings.scanner.stochasticScanner,
-                                          oversoldThreshold: Number(e.target.value),
-                                        },
-                                      })
-                                    }
-                                    className="w-full bg-bg-primary border border-frame text-primary px-2 py-1 rounded font-mono text-xs"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="text-primary-muted font-mono block mb-1">OVERBOUGHT</label>
-                                  <input
-                                    type="number"
-                                    min="50"
-                                    max="100"
-                                    value={settings.scanner.stochasticScanner.overboughtThreshold}
-                                    onChange={(e) =>
-                                      updateScannerSettings({
-                                        stochasticScanner: {
-                                          ...settings.scanner.stochasticScanner,
-                                          overboughtThreshold: Number(e.target.value),
-                                        },
-                                      })
-                                    }
-                                    className="w-full bg-bg-primary border border-frame text-primary px-2 py-1 rounded font-mono text-xs"
-                                  />
-                                </div>
-                              </div>
+                            <div className="mt-3 text-primary-muted font-mono text-[10px]">
+                              Uses stochastic variants from Indicator Settings (Fast9, Fast14, Fast40, Full60)
                             </div>
-
-                            <div className="p-3 bg-bg-secondary border border-frame rounded">
-                              <div className="text-primary font-mono text-xs font-bold mb-3">STOCHASTIC PARAMETERS</div>
-                              <div className="grid grid-cols-3 gap-3 text-xs">
-                                <div>
-                                  <label className="text-primary-muted font-mono block mb-1">PERIOD</label>
-                                  <input
-                                    type="number"
-                                    min="5"
-                                    max="21"
-                                    value={settings.scanner.stochasticScanner.period}
-                                    onChange={(e) =>
-                                      updateScannerSettings({
-                                        stochasticScanner: {
-                                          ...settings.scanner.stochasticScanner,
-                                          period: Number(e.target.value),
-                                        },
-                                      })
-                                    }
-                                    className="w-full bg-bg-primary border border-frame text-primary px-2 py-1 rounded font-mono text-xs"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="text-primary-muted font-mono block mb-1">SMOOTH K</label>
-                                  <input
-                                    type="number"
-                                    min="1"
-                                    max="5"
-                                    value={settings.scanner.stochasticScanner.smoothK}
-                                    onChange={(e) =>
-                                      updateScannerSettings({
-                                        stochasticScanner: {
-                                          ...settings.scanner.stochasticScanner,
-                                          smoothK: Number(e.target.value),
-                                        },
-                                      })
-                                    }
-                                    className="w-full bg-bg-primary border border-frame text-primary px-2 py-1 rounded font-mono text-xs"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="text-primary-muted font-mono block mb-1">SMOOTH D</label>
-                                  <input
-                                    type="number"
-                                    min="1"
-                                    max="5"
-                                    value={settings.scanner.stochasticScanner.smoothD}
-                                    onChange={(e) =>
-                                      updateScannerSettings({
-                                        stochasticScanner: {
-                                          ...settings.scanner.stochasticScanner,
-                                          smoothD: Number(e.target.value),
-                                        },
-                                      })
-                                    }
-                                    className="w-full bg-bg-primary border border-frame text-primary px-2 py-1 rounded font-mono text-xs"
-                                  />
-                                </div>
-                              </div>
-                            </div>
-                          </>
+                          </div>
                         )}
                       </div>
                     )}
@@ -466,35 +380,40 @@ export default function SettingsPanel() {
                     {/* Global Toggle */}
                     <div className="p-3 bg-bg-secondary border border-frame rounded">
                       <label className="flex items-center justify-between cursor-pointer">
-                        <span className="text-primary-muted text-xs font-mono">SHOW MULTI-TIMEFRAME STOCHASTICS</span>
+                        <span className="text-primary-muted text-xs font-mono">SHOW STOCHASTIC VARIANTS (1M)</span>
                         <input
                           type="checkbox"
-                          checked={settings.indicators.stochastic.showMultiTimeframe}
-                          onChange={(e) => updateStochasticSettings({ showMultiTimeframe: e.target.checked })}
+                          checked={settings.indicators.stochastic.showMultiVariant}
+                          onChange={(e) => updateStochasticSettings({ showMultiVariant: e.target.checked })}
                           className="w-4 h-4 accent-primary cursor-pointer"
                         />
                       </label>
                     </div>
 
-                    {/* Timeframe Configuration */}
+                    {/* Variant Configuration */}
                     <div className="space-y-2">
-                      <div className="text-primary text-xs font-mono mb-2">█ TIMEFRAME CONFIGURATION</div>
+                      <div className="text-primary text-xs font-mono mb-2">█ VARIANT CONFIGURATION</div>
 
-                      {(Object.keys(settings.indicators.stochastic.timeframes) as Array<keyof typeof settings.indicators.stochastic.timeframes>).map((timeframe) => {
-                        const config = settings.indicators.stochastic.timeframes[timeframe];
+                      {(Object.keys(settings.indicators.stochastic.variants) as Array<keyof typeof settings.indicators.stochastic.variants>).map((variant) => {
+                        const config = settings.indicators.stochastic.variants[variant];
+                        const variantLabel =
+                          variant === 'fast9' ? 'FAST 9' :
+                          variant === 'fast14' ? 'FAST 14' :
+                          variant === 'fast40' ? 'FAST 40' :
+                          variant === 'full60' ? 'FULL 60' : variant.toUpperCase();
                         return (
-                          <div key={timeframe} className="p-3 bg-bg-secondary border border-frame rounded">
+                          <div key={variant} className="p-3 bg-bg-secondary border border-frame rounded">
                             <div className="flex items-center justify-between mb-3">
-                              <span className="text-primary font-mono text-xs font-bold">{timeframe.toUpperCase()}</span>
+                              <span className="text-primary font-mono text-xs font-bold">{variantLabel}</span>
                               <label className="flex items-center cursor-pointer">
                                 <input
                                   type="checkbox"
                                   checked={config.enabled}
                                   onChange={(e) => {
                                     updateStochasticSettings({
-                                      timeframes: {
-                                        ...settings.indicators.stochastic.timeframes,
-                                        [timeframe]: { ...config, enabled: e.target.checked },
+                                      variants: {
+                                        ...settings.indicators.stochastic.variants,
+                                        [variant]: { ...config, enabled: e.target.checked },
                                       },
                                     });
                                   }}
@@ -510,13 +429,13 @@ export default function SettingsPanel() {
                                   <input
                                     type="number"
                                     min="5"
-                                    max="21"
+                                    max="100"
                                     value={config.period}
                                     onChange={(e) => {
                                       updateStochasticSettings({
-                                        timeframes: {
-                                          ...settings.indicators.stochastic.timeframes,
-                                          [timeframe]: { ...config, period: Number(e.target.value) },
+                                        variants: {
+                                          ...settings.indicators.stochastic.variants,
+                                          [variant]: { ...config, period: Number(e.target.value) },
                                         },
                                       });
                                     }}
@@ -528,13 +447,13 @@ export default function SettingsPanel() {
                                   <input
                                     type="number"
                                     min="1"
-                                    max="5"
+                                    max="20"
                                     value={config.smoothK}
                                     onChange={(e) => {
                                       updateStochasticSettings({
-                                        timeframes: {
-                                          ...settings.indicators.stochastic.timeframes,
-                                          [timeframe]: { ...config, smoothK: Number(e.target.value) },
+                                        variants: {
+                                          ...settings.indicators.stochastic.variants,
+                                          [variant]: { ...config, smoothK: Number(e.target.value) },
                                         },
                                       });
                                     }}
@@ -546,13 +465,13 @@ export default function SettingsPanel() {
                                   <input
                                     type="number"
                                     min="1"
-                                    max="5"
+                                    max="20"
                                     value={config.smoothD}
                                     onChange={(e) => {
                                       updateStochasticSettings({
-                                        timeframes: {
-                                          ...settings.indicators.stochastic.timeframes,
-                                          [timeframe]: { ...config, smoothD: Number(e.target.value) },
+                                        variants: {
+                                          ...settings.indicators.stochastic.variants,
+                                          [variant]: { ...config, smoothD: Number(e.target.value) },
                                         },
                                       });
                                     }}

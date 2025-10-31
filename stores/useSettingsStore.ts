@@ -30,33 +30,33 @@ const mergeSettings = (storedSettings: any): AppSettings => {
     return {
       indicators: {
         stochastic: {
-          showMultiTimeframe: storedSettings.indicators?.stochastic?.showMultiTimeframe ?? DEFAULT_SETTINGS.indicators.stochastic.showMultiTimeframe,
+          showMultiVariant: storedSettings.indicators?.stochastic?.showMultiVariant ?? storedSettings.indicators?.stochastic?.showMultiTimeframe ?? DEFAULT_SETTINGS.indicators.stochastic.showMultiVariant,
           overboughtLevel: storedSettings.indicators?.stochastic?.overboughtLevel ?? DEFAULT_SETTINGS.indicators.stochastic.overboughtLevel,
           oversoldLevel: storedSettings.indicators?.stochastic?.oversoldLevel ?? DEFAULT_SETTINGS.indicators.stochastic.oversoldLevel,
-          timeframes: {
-            '1m': {
-              enabled: storedSettings.indicators?.stochastic?.timeframes?.['1m']?.enabled ?? DEFAULT_SETTINGS.indicators.stochastic.timeframes['1m'].enabled,
-              period: storedSettings.indicators?.stochastic?.timeframes?.['1m']?.period ?? DEFAULT_SETTINGS.indicators.stochastic.timeframes['1m'].period,
-              smoothK: storedSettings.indicators?.stochastic?.timeframes?.['1m']?.smoothK ?? DEFAULT_SETTINGS.indicators.stochastic.timeframes['1m'].smoothK,
-              smoothD: storedSettings.indicators?.stochastic?.timeframes?.['1m']?.smoothD ?? DEFAULT_SETTINGS.indicators.stochastic.timeframes['1m'].smoothD,
+          variants: {
+            fast9: {
+              enabled: storedSettings.indicators?.stochastic?.variants?.fast9?.enabled ?? DEFAULT_SETTINGS.indicators.stochastic.variants.fast9.enabled,
+              period: storedSettings.indicators?.stochastic?.variants?.fast9?.period ?? DEFAULT_SETTINGS.indicators.stochastic.variants.fast9.period,
+              smoothK: storedSettings.indicators?.stochastic?.variants?.fast9?.smoothK ?? DEFAULT_SETTINGS.indicators.stochastic.variants.fast9.smoothK,
+              smoothD: storedSettings.indicators?.stochastic?.variants?.fast9?.smoothD ?? DEFAULT_SETTINGS.indicators.stochastic.variants.fast9.smoothD,
             },
-            '5m': {
-              enabled: storedSettings.indicators?.stochastic?.timeframes?.['5m']?.enabled ?? DEFAULT_SETTINGS.indicators.stochastic.timeframes['5m'].enabled,
-              period: storedSettings.indicators?.stochastic?.timeframes?.['5m']?.period ?? DEFAULT_SETTINGS.indicators.stochastic.timeframes['5m'].period,
-              smoothK: storedSettings.indicators?.stochastic?.timeframes?.['5m']?.smoothK ?? DEFAULT_SETTINGS.indicators.stochastic.timeframes['5m'].smoothK,
-              smoothD: storedSettings.indicators?.stochastic?.timeframes?.['5m']?.smoothD ?? DEFAULT_SETTINGS.indicators.stochastic.timeframes['5m'].smoothD,
+            fast14: {
+              enabled: storedSettings.indicators?.stochastic?.variants?.fast14?.enabled ?? DEFAULT_SETTINGS.indicators.stochastic.variants.fast14.enabled,
+              period: storedSettings.indicators?.stochastic?.variants?.fast14?.period ?? DEFAULT_SETTINGS.indicators.stochastic.variants.fast14.period,
+              smoothK: storedSettings.indicators?.stochastic?.variants?.fast14?.smoothK ?? DEFAULT_SETTINGS.indicators.stochastic.variants.fast14.smoothK,
+              smoothD: storedSettings.indicators?.stochastic?.variants?.fast14?.smoothD ?? DEFAULT_SETTINGS.indicators.stochastic.variants.fast14.smoothD,
             },
-            '15m': {
-              enabled: storedSettings.indicators?.stochastic?.timeframes?.['15m']?.enabled ?? DEFAULT_SETTINGS.indicators.stochastic.timeframes['15m'].enabled,
-              period: storedSettings.indicators?.stochastic?.timeframes?.['15m']?.period ?? DEFAULT_SETTINGS.indicators.stochastic.timeframes['15m'].period,
-              smoothK: storedSettings.indicators?.stochastic?.timeframes?.['15m']?.smoothK ?? DEFAULT_SETTINGS.indicators.stochastic.timeframes['15m'].smoothK,
-              smoothD: storedSettings.indicators?.stochastic?.timeframes?.['15m']?.smoothD ?? DEFAULT_SETTINGS.indicators.stochastic.timeframes['15m'].smoothD,
+            fast40: {
+              enabled: storedSettings.indicators?.stochastic?.variants?.fast40?.enabled ?? DEFAULT_SETTINGS.indicators.stochastic.variants.fast40.enabled,
+              period: storedSettings.indicators?.stochastic?.variants?.fast40?.period ?? DEFAULT_SETTINGS.indicators.stochastic.variants.fast40.period,
+              smoothK: storedSettings.indicators?.stochastic?.variants?.fast40?.smoothK ?? DEFAULT_SETTINGS.indicators.stochastic.variants.fast40.smoothK,
+              smoothD: storedSettings.indicators?.stochastic?.variants?.fast40?.smoothD ?? DEFAULT_SETTINGS.indicators.stochastic.variants.fast40.smoothD,
             },
-            '1h': {
-              enabled: storedSettings.indicators?.stochastic?.timeframes?.['1h']?.enabled ?? DEFAULT_SETTINGS.indicators.stochastic.timeframes['1h'].enabled,
-              period: storedSettings.indicators?.stochastic?.timeframes?.['1h']?.period ?? DEFAULT_SETTINGS.indicators.stochastic.timeframes['1h'].period,
-              smoothK: storedSettings.indicators?.stochastic?.timeframes?.['1h']?.smoothK ?? DEFAULT_SETTINGS.indicators.stochastic.timeframes['1h'].smoothK,
-              smoothD: storedSettings.indicators?.stochastic?.timeframes?.['1h']?.smoothD ?? DEFAULT_SETTINGS.indicators.stochastic.timeframes['1h'].smoothD,
+            full60: {
+              enabled: storedSettings.indicators?.stochastic?.variants?.full60?.enabled ?? DEFAULT_SETTINGS.indicators.stochastic.variants.full60.enabled,
+              period: storedSettings.indicators?.stochastic?.variants?.full60?.period ?? DEFAULT_SETTINGS.indicators.stochastic.variants.full60.period,
+              smoothK: storedSettings.indicators?.stochastic?.variants?.full60?.smoothK ?? DEFAULT_SETTINGS.indicators.stochastic.variants.full60.smoothK,
+              smoothD: storedSettings.indicators?.stochastic?.variants?.full60?.smoothD ?? DEFAULT_SETTINGS.indicators.stochastic.variants.full60.smoothD,
             },
           },
         },
@@ -140,17 +140,20 @@ const mergeSettings = (storedSettings: any): AppSettings => {
         playSound: storedSettings.scanner?.playSound ?? DEFAULT_SETTINGS.scanner.playSound,
         stochasticScanner: {
           enabled: storedSettings.scanner?.stochasticScanner?.enabled ?? DEFAULT_SETTINGS.scanner.stochasticScanner.enabled,
-          timeframes: storedSettings.scanner?.stochasticScanner?.timeframes ?? DEFAULT_SETTINGS.scanner.stochasticScanner.timeframes,
           oversoldThreshold: storedSettings.scanner?.stochasticScanner?.oversoldThreshold ?? DEFAULT_SETTINGS.scanner.stochasticScanner.oversoldThreshold,
           overboughtThreshold: storedSettings.scanner?.stochasticScanner?.overboughtThreshold ?? DEFAULT_SETTINGS.scanner.stochasticScanner.overboughtThreshold,
-          period: storedSettings.scanner?.stochasticScanner?.period ?? DEFAULT_SETTINGS.scanner.stochasticScanner.period,
-          smoothK: storedSettings.scanner?.stochasticScanner?.smoothK ?? DEFAULT_SETTINGS.scanner.stochasticScanner.smoothK,
-          smoothD: storedSettings.scanner?.stochasticScanner?.smoothD ?? DEFAULT_SETTINGS.scanner.stochasticScanner.smoothD,
         },
         emaAlignmentScanner: {
           enabled: storedSettings.scanner?.emaAlignmentScanner?.enabled ?? DEFAULT_SETTINGS.scanner.emaAlignmentScanner.enabled,
           timeframes: storedSettings.scanner?.emaAlignmentScanner?.timeframes ?? DEFAULT_SETTINGS.scanner.emaAlignmentScanner.timeframes,
           lookbackBars: storedSettings.scanner?.emaAlignmentScanner?.lookbackBars ?? DEFAULT_SETTINGS.scanner.emaAlignmentScanner.lookbackBars,
+        },
+        channelScanner: {
+          enabled: storedSettings.scanner?.channelScanner?.enabled ?? DEFAULT_SETTINGS.scanner.channelScanner.enabled,
+          timeframes: storedSettings.scanner?.channelScanner?.timeframes ?? DEFAULT_SETTINGS.scanner.channelScanner.timeframes,
+          minTouches: storedSettings.scanner?.channelScanner?.minTouches ?? DEFAULT_SETTINGS.scanner.channelScanner.minTouches,
+          pivotStrength: storedSettings.scanner?.channelScanner?.pivotStrength ?? DEFAULT_SETTINGS.scanner.channelScanner.pivotStrength,
+          lookbackBars: storedSettings.scanner?.channelScanner?.lookbackBars ?? DEFAULT_SETTINGS.scanner.channelScanner.lookbackBars,
         },
       },
       orders: {
