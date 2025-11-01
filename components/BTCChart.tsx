@@ -34,6 +34,7 @@ export default function BTCChart() {
           candleData={candles}
           isExternalData={true}
           onPriceUpdate={setCurrentPrice}
+          syncZoom={true}
         />
       </div>
     </div>

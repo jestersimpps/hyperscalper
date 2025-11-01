@@ -7,6 +7,7 @@ import type { Order } from '@/models/Order';
 import { useCandleStore } from '@/stores/useCandleStore';
 import { useSettingsStore } from '@/stores/useSettingsStore';
 import { useSymbolMetaStore } from '@/stores/useSymbolMetaStore';
+import { useChartSyncStore } from '@/stores/useChartSyncStore';
 import { getThemeColors } from '@/lib/theme-utils';
 import {
   calculateEMA,
@@ -30,6 +31,7 @@ interface ScalpingChartProps {
   macdCandleData?: Record<TimeInterval, CandleData[]>;
   position?: Position | null;
   orders?: Order[];
+  syncZoom?: boolean;
 }
 
 interface CrossoverMarker {
@@ -116,7 +118,7 @@ function detectCrossovers(ema1: number[], ema2: number[], ema3: number[] | null,
 }
 
 
-export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartReady, candleData, isExternalData = false, macdCandleData, position, orders }: ScalpingChartProps) {
+export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartReady, candleData, isExternalData = false, macdCandleData, position, orders, syncZoom = false }: ScalpingChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<any>(null);
   const candleSeriesRef = useRef<any>(null);
@@ -438,6 +440,48 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
       }
     };
   }, [enabledMacdTimeframes.join(','), macdSettings.showMultiTimeframe, stochasticSettings.showMultiVariant, Object.entries(stochasticSettings.variants).filter(([_, v]) => v.enabled).map(([k]) => k).join(',')]);
+
+  useEffect(() => {
+    if (!syncZoom || !chartRef.current) return;
+
+    const chart = chartRef.current;
+    const timeScale = chart.timeScale();
+    const { visibleTimeRange, setVisibleTimeRange } = useChartSyncStore.getState();
+    let isSyncing = false;
+
+    const handleVisibleRangeChange = () => {
+      if (isSyncing) return;
+
+      const range = timeScale.getVisibleRange();
+      if (range) {
+        isSyncing = true;
+        setVisibleTimeRange({ from: range.from as number, to: range.to as number });
+        setTimeout(() => { isSyncing = false; }, 100);
+      }
+    };
+
+    const unsubscribeTimeScale = timeScale.subscribeVisibleTimeRangeChange(handleVisibleRangeChange);
+
+    const unsubscribeStore = useChartSyncStore.subscribe((state) => {
+      if (isSyncing || !state.visibleTimeRange) return;
+
+      isSyncing = true;
+      try {
+        timeScale.setVisibleRange({
+          from: state.visibleTimeRange.from as any,
+          to: state.visibleTimeRange.to as any,
+        });
+      } catch (e) {
+        console.warn('Failed to sync time range:', e);
+      }
+      setTimeout(() => { isSyncing = false; }, 100);
+    });
+
+    return () => {
+      unsubscribeTimeScale();
+      unsubscribeStore();
+    };
+  }, [syncZoom, chartReady]);
 
   useEffect(() => {
     if (!chartReady || isExternalData) return;
