@@ -598,3 +598,88 @@ export function detectDivergence(
 
   return divergences;
 }
+
+export interface TrendlinePoint {
+  time: number;
+  value: number;
+}
+
+export interface Trendlines {
+  supportLine: TrendlinePoint[];
+  resistanceLine: TrendlinePoint[];
+}
+
+export function calculateTrendlines(candles: FullCandleData[]): Trendlines {
+  const candlesForCalculation = candles.slice(0, -10);
+
+  if (candlesForCalculation.length < 20) {
+    return { supportLine: [], resistanceLine: [] };
+  }
+
+  const batchSize = 20;
+  const batches: FullCandleData[][] = [];
+
+  for (let i = 0; i < candlesForCalculation.length; i += batchSize) {
+    const batch = candlesForCalculation.slice(i, i + batchSize);
+    if (batch.length === batchSize) {
+      batches.push(batch);
+    }
+  }
+
+  if (batches.length < 2) {
+    return { supportLine: [], resistanceLine: [] };
+  }
+
+  const lowestLows: { time: number; price: number }[] = [];
+  const highestHighs: { time: number; price: number }[] = [];
+
+  batches.forEach((batch) => {
+    let lowestCandle = batch[0];
+    let highestCandle = batch[0];
+
+    batch.forEach(candle => {
+      if (candle.low < lowestCandle.low) lowestCandle = candle;
+      if (candle.high > highestCandle.high) highestCandle = candle;
+    });
+
+    lowestLows.push({
+      time: lowestCandle.time,
+      price: lowestCandle.low,
+    });
+
+    highestHighs.push({
+      time: highestCandle.time,
+      price: highestCandle.high,
+    });
+  });
+
+  const supportLine = calculateLinearRegression(lowestLows);
+  const resistanceLine = calculateLinearRegression(highestHighs);
+
+  return { supportLine, resistanceLine };
+}
+
+function calculateLinearRegression(points: { time: number; price: number }[]): TrendlinePoint[] {
+  if (points.length < 2) return [];
+
+  const n = points.length;
+  let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+
+  points.forEach(point => {
+    sumX += point.time;
+    sumY += point.price;
+    sumXY += point.time * point.price;
+    sumX2 += point.time * point.time;
+  });
+
+  const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+  const intercept = (sumY - slope * sumX) / n;
+
+  const firstTime = points[0].time;
+  const lastTime = points[points.length - 1].time;
+
+  return [
+    { time: firstTime / 1000, value: slope * firstTime + intercept },
+    { time: lastTime / 1000, value: slope * lastTime + intercept }
+  ];
+}
