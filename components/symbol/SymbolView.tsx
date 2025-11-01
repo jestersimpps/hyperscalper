@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import ScalpingChart from '@/components/ScalpingChart';
 import MarketStats from '@/components/MarketStats';
-import OrderBook from '@/components/OrderBook';
+import PriceTape from '@/components/PriceTape';
 import TerminalHeader from '@/components/layout/TerminalHeader';
 import TradeVolumeTimeline from '@/components/TradeVolumeTimeline';
 import IndicatorSignals from '@/components/IndicatorSignals';
@@ -316,7 +316,7 @@ export default function SymbolView({ coin }: SymbolViewProps) {
             {/* Two Column Layout for Position/OrderBook and Volume/Trades */}
             <div className="flex gap-2 flex-1 min-h-0">
               {/* Left Column - Position and Order Book */}
-              <div className="flex-shrink-0 w-80 flex flex-col gap-2">
+              <div className="flex-1 min-w-[500px] flex flex-col gap-2">
                 {/* Position Info */}
               <div className="terminal-border p-1.5">
                 <div className="text-[10px] text-primary-muted mb-1.5 uppercase tracking-wider">█ POSITION</div>
@@ -425,15 +425,14 @@ export default function SymbolView({ coin }: SymbolViewProps) {
                 </div>
               </div>
 
-              {/* Order Book */}
-              <div className="terminal-border p-1.5 flex-1 overflow-hidden">
-                <div className="text-[10px] text-primary-muted mb-1.5 uppercase tracking-wider">█ ORDER BOOK</div>
-                <OrderBook coin={coin} />
+              {/* Price Tape */}
+              <div className="flex-1 overflow-hidden">
+                <PriceTape coin={coin} position={position} orders={orders} />
               </div>
             </div>
 
             {/* Right Column - Recent Trades */}
-            <div className="flex-1 min-w-[200px] flex flex-col gap-2">
+            <div className="flex-1 min-w-[500px] flex flex-col gap-2">
               {/* Volume Flow Timeline */}
               <div className="terminal-border p-1.5">
                 <div className="text-[10px] text-primary-muted mb-1.5 uppercase tracking-wider">█ VOLUME FLOW</div>
