@@ -15,6 +15,7 @@ import type {
 import { EventClient, WebSocketTransport } from '@nktkas/hyperliquid';
 import type { Candle, Book, Trade } from '@nktkas/hyperliquid';
 import { useSymbolMetaStore } from '@/stores/useSymbolMetaStore';
+import { formatPrice, formatSize } from '@/lib/format-utils';
 
 interface Subscription {
   id: string;
@@ -24,17 +25,13 @@ interface Subscription {
   unsubscribeFn: () => void;
 }
 
-const formatPrice = (value: number, decimals: number): string => {
-  return parseFloat(value.toFixed(decimals)).toString();
-};
-
 const formatOrderBookLevel = (level: Omit<OrderBookLevel, 'priceFormatted' | 'sizeFormatted' | 'totalFormatted'>, coin: string): OrderBookLevel => {
   const decimals = useSymbolMetaStore.getState().getDecimals(coin);
   return {
     ...level,
     priceFormatted: formatPrice(level.price, decimals.price),
-    sizeFormatted: level.size.toFixed(decimals.size),
-    totalFormatted: level.total.toFixed(decimals.size),
+    sizeFormatted: formatSize(level.size, decimals.size),
+    totalFormatted: formatSize(level.total, decimals.size),
   };
 };
 

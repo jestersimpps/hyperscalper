@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, use, useMemo } from 'react';
+import { useState, use, useMemo, useEffect } from 'react';
 import ScalpingChart from '@/components/ScalpingChart';
 import { useSymbolMetaStore } from '@/stores/useSymbolMetaStore';
-import { useLocalCandleSubscription } from '@/hooks/useLocalCandleSubscription';
+import { useCandleStore } from '@/stores/useCandleStore';
+import { getStandardTimeWindow } from '@/lib/time-utils';
 import type { TimeInterval, CandleData } from '@/types';
 
 interface ChartPopupPageProps {
@@ -20,28 +21,44 @@ export default function ChartPopupPage({ params }: ChartPopupPageProps) {
   const getDecimals = useSymbolMetaStore((state) => state.getDecimals);
   const decimals = useMemo(() => getDecimals(coin), [getDecimals, coin]);
 
-  const mainChartData = useLocalCandleSubscription({ coin, interval: selectedTimeframe });
-  const stoch1mData = useLocalCandleSubscription({ coin, interval: '1m' });
-  const stoch5mData = useLocalCandleSubscription({ coin, interval: '5m' });
-  const stoch15mData = useLocalCandleSubscription({ coin, interval: '15m' });
+  const fetchCandles = useCandleStore((state) => state.fetchCandles);
+  const subscribeToCandles = useCandleStore((state) => state.subscribeToCandles);
+  const unsubscribeFromCandles = useCandleStore((state) => state.unsubscribeFromCandles);
 
-  const macd1mData = useLocalCandleSubscription({ coin, interval: '1m' });
-  const macd5mData = useLocalCandleSubscription({ coin, interval: '5m' });
-  const macd15mData = useLocalCandleSubscription({ coin, interval: '15m' });
+  const mainChartData = useCandleStore((state) => state.candles[`${coin}-${selectedTimeframe}`] || []);
+  const candles1m = useCandleStore((state) => state.candles[`${coin}-1m`] || []);
+  const candles5m = useCandleStore((state) => state.candles[`${coin}-5m`] || []);
+  const candles15m = useCandleStore((state) => state.candles[`${coin}-15m`] || []);
+
+  useEffect(() => {
+    const { startTime, endTime } = getStandardTimeWindow();
+    const intervals: TimeInterval[] = ['1m', '5m', '15m'];
+
+    intervals.forEach((interval) => {
+      fetchCandles(coin, interval, startTime, endTime);
+      subscribeToCandles(coin, interval);
+    });
+
+    return () => {
+      intervals.forEach((interval) => {
+        unsubscribeFromCandles(coin, interval);
+      });
+    };
+  }, [coin, fetchCandles, subscribeToCandles, unsubscribeFromCandles]);
 
   const stochasticCandleData: Record<TimeInterval, CandleData[]> = useMemo(() => ({
-    '1m': stoch1mData.candles,
-    '5m': stoch5mData.candles,
-    '15m': stoch15mData.candles,
+    '1m': candles1m,
+    '5m': candles5m,
+    '15m': candles15m,
     '1h': [],
-  }), [stoch1mData.candles, stoch5mData.candles, stoch15mData.candles]);
+  }), [candles1m, candles5m, candles15m]);
 
   const macdCandleData: Record<TimeInterval, CandleData[]> = useMemo(() => ({
-    '1m': macd1mData.candles,
-    '5m': macd5mData.candles,
-    '15m': macd15mData.candles,
+    '1m': candles1m,
+    '5m': candles5m,
+    '15m': candles15m,
     '1h': [],
-  }), [macd1mData.candles, macd5mData.candles, macd15mData.candles]);
+  }), [candles1m, candles5m, candles15m]);
 
   return (
     <div className="min-h-screen w-screen bg-bg-primary overflow-hidden">
@@ -80,7 +97,7 @@ export default function ChartPopupPage({ params }: ChartPopupPageProps) {
           <ScalpingChart
             coin={coin}
             interval={selectedTimeframe}
-            candleData={mainChartData.candles}
+            candleData={mainChartData}
             isExternalData={true}
             onPriceUpdate={setCurrentPrice}
             macdCandleData={macdCandleData}

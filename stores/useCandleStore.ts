@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { CandleData, TimeInterval } from '@/types';
 import type { ExchangeWebSocketService } from '@/lib/websocket/exchange-websocket.interface';
-import { useSymbolMetaStore } from './useSymbolMetaStore';
+import { formatCandle } from '@/lib/format-utils';
 
 interface CandleStore {
   candles: Record<string, CandleData[]>;
@@ -17,22 +17,6 @@ interface CandleStore {
 }
 
 const getCandleKey = (coin: string, interval: string): string => `${coin}-${interval}`;
-
-const formatPrice = (value: number, decimals: number): string => {
-  return parseFloat(value.toFixed(decimals)).toString();
-};
-
-const formatCandle = (candle: Omit<CandleData, 'openFormatted' | 'highFormatted' | 'lowFormatted' | 'closeFormatted' | 'volumeFormatted'>, coin: string): CandleData => {
-  const decimals = useSymbolMetaStore.getState().getDecimals(coin);
-  return {
-    ...candle,
-    openFormatted: formatPrice(candle.open, decimals.price),
-    highFormatted: formatPrice(candle.high, decimals.price),
-    lowFormatted: formatPrice(candle.low, decimals.price),
-    closeFormatted: formatPrice(candle.close, decimals.price),
-    volumeFormatted: candle.volume.toFixed(decimals.size),
-  };
-};
 
 export const useCandleStore = create<CandleStore>((set, get) => ({
   candles: {},

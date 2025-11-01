@@ -1,9 +1,10 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useScannerStore } from '@/stores/useScannerStore';
 import { useSettingsStore } from '@/stores/useSettingsStore';
+import { useTopSymbolsStore } from '@/stores/useTopSymbolsStore';
 
 interface SidepanelProps {
   selectedSymbol: string;
@@ -12,12 +13,15 @@ interface SidepanelProps {
 
 export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelProps) {
   const router = useRouter();
-  const defaultSymbols = ['BTC', 'PUMP'];
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   const { results, status, runScan, startAutoScanWithDelay, stopAutoScan } = useScannerStore();
   const { settings, pinSymbol, unpinSymbol } = useSettingsStore();
+  const topSymbols = useTopSymbolsStore((state) => state.symbols);
+  const isLoadingTopSymbols = useTopSymbolsStore((state) => state.isLoading);
+  const startAutoRefresh = useTopSymbolsStore((state) => state.startAutoRefresh);
+  const stopAutoRefresh = useTopSymbolsStore((state) => state.stopAutoRefresh);
   const pinnedSymbols = settings.pinnedSymbols;
-  const allSymbols = [...new Set([...pinnedSymbols, ...defaultSymbols])];
 
   useEffect(() => {
     if (settings.scanner.enabled) {
@@ -30,6 +34,14 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
       stopAutoScan();
     };
   }, [settings.scanner.enabled, settings.scanner.scanInterval, startAutoScanWithDelay, stopAutoScan]);
+
+  useEffect(() => {
+    startAutoRefresh();
+
+    return () => {
+      stopAutoRefresh();
+    };
+  }, [startAutoRefresh, stopAutoRefresh]);
 
   const formatTimeSince = (timestamp: number | null) => {
     if (!timestamp) return 'Never';
@@ -145,12 +157,87 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
         </div>
       </div>
 
-      <div className="space-y-1">
-        {allSymbols.map((symbol) => {
-          const isPinned = pinnedSymbols.includes(symbol);
-          const isDefault = defaultSymbols.includes(symbol);
+      {/* Top Symbols Dropdown Selector */}
+      <div className="mb-3">
+        <button
+          onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+          className="w-full terminal-border p-2 hover:bg-primary/5 transition-colors"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-primary-muted text-xs font-mono">ADD FROM TOP 20 BY VOLUME</span>
+            <span className="text-primary text-xs">{isDropdownOpen ? '▼' : '▶'}</span>
+          </div>
+        </button>
 
-          return (
+        {isDropdownOpen && (
+          <div className="mt-1 terminal-border bg-bg-primary max-h-60 overflow-y-auto scrollbar-thin scrollbar-thumb-primary-dark scrollbar-track-transparent">
+            {isLoadingTopSymbols ? (
+              <div className="p-3 text-center text-primary-muted text-xs font-mono">
+                Loading...
+              </div>
+            ) : (
+              <div className="divide-y divide-frame">
+                {topSymbols.map((symbolData) => {
+                  const isPinned = pinnedSymbols.includes(symbolData.name);
+                  const volumeInMillions = (symbolData.volume / 1000000).toFixed(1);
+
+                  return (
+                    <div
+                      key={symbolData.name}
+                      className="flex items-center hover:bg-primary/5 transition-colors"
+                    >
+                      <button
+                        onClick={() => {
+                          if (onSymbolSelect) {
+                            onSymbolSelect(symbolData.name);
+                          } else {
+                            router.push(`/${symbolData.name}`);
+                          }
+                        }}
+                        className="flex-1 text-left p-2"
+                      >
+                        <div className="flex justify-between items-center">
+                          <span className="text-primary text-xs font-mono font-bold">
+                            {symbolData.name}
+                          </span>
+                          <span className="text-primary-muted text-xs font-mono">
+                            ${volumeInMillions}M
+                          </span>
+                        </div>
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (isPinned) {
+                            unpinSymbol(symbolData.name);
+                          } else {
+                            pinSymbol(symbolData.name);
+                          }
+                        }}
+                        className="p-2 text-primary-muted hover:text-primary transition-colors"
+                        title={isPinned ? 'Unpin symbol' : 'Pin symbol'}
+                      >
+                        <span className="text-sm font-bold">{isPinned ? '−' : '+'}</span>
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Pinned Symbols List */}
+      <div className="space-y-1">
+        {pinnedSymbols.length === 0 ? (
+          <div className="terminal-border p-3 text-center">
+            <span className="text-primary-muted text-xs font-mono">
+              No pinned symbols. Use + to add symbols.
+            </span>
+          </div>
+        ) : (
+          pinnedSymbols.map((symbol) => (
             <div
               key={symbol}
               className={`terminal-border transition-colors ${
@@ -171,29 +258,22 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                   className="flex-1 text-left p-2"
                 >
                   <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-1">
-                      <span className="text-primary font-bold">{symbol}/USD</span>
-                      {isPinned && !isDefault && (
-                        <span className="text-primary-muted text-xs">📌</span>
-                      )}
-                    </div>
+                    <span className="text-primary font-bold">{symbol}/USD</span>
                     {selectedSymbol === symbol && (
                       <span className="text-primary text-xs">█</span>
                     )}
                   </div>
                 </button>
-                {isPinned && !isDefault && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      unpinSymbol(symbol);
-                    }}
-                    className="p-2 text-primary-muted hover:text-bearish transition-colors"
-                    title="Unpin symbol"
-                  >
-                    <span className="text-sm font-bold">−</span>
-                  </button>
-                )}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    unpinSymbol(symbol);
+                  }}
+                  className="p-2 text-primary-muted hover:text-bearish transition-colors"
+                  title="Unpin symbol"
+                >
+                  <span className="text-sm font-bold">−</span>
+                </button>
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -206,8 +286,8 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                 </button>
               </div>
             </div>
-          );
-        })}
+          ))
+        )}
       </div>
     </div>
   );

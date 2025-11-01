@@ -1,96 +1,64 @@
 'use client';
 
-import { useEffect, useState, useRef, useMemo } from 'react';
-import { useWebSocketService } from '@/lib/websocket';
-import type { OrderBookData, OrderBookLevel } from '@/lib/websocket/exchange-websocket.interface';
+import { useEffect, useRef, useMemo } from 'react';
+import type { OrderBookLevel } from '@/lib/websocket/exchange-websocket.interface';
 import { useSymbolMetaStore } from '@/stores/useSymbolMetaStore';
+import { useOrderBookStore } from '@/stores/useOrderBookStore';
 
 interface OrderBookProps {
   coin: string;
 }
 
 export default function OrderBook({ coin }: OrderBookProps) {
-  const [orderBook, setOrderBook] = useState<OrderBookData | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const prevPricesRef = useRef<Map<number, 'up' | 'down'>>(new Map());
+  const prevOrderBookRef = useRef<any>(null);
+
+  const orderBook = useOrderBookStore((state) => state.orderBooks[coin]);
+  const isLoading = useOrderBookStore((state) => state.loading[coin] ?? true);
+  const fetchOrderBook = useOrderBookStore((state) => state.fetchOrderBook);
+  const subscribeToOrderBook = useOrderBookStore((state) => state.subscribeToOrderBook);
+  const unsubscribeFromOrderBook = useOrderBookStore((state) => state.unsubscribeFromOrderBook);
 
   const decimals = useMemo(() => {
     return useSymbolMetaStore.getState().getDecimals(coin);
   }, [coin]);
 
   useEffect(() => {
-    let mounted = true;
-
-    const fetchInitialBook = async () => {
-      try {
-        const response = await fetch(`/api/orderbook?coin=${coin}`);
-        const data: OrderBookData = await response.json();
-        if (mounted && data && data.bids && data.asks) {
-          setOrderBook(data);
-          setIsLoading(false);
-        }
-      } catch (error) {
-        console.error('Error fetching initial order book:', error);
-        if (mounted) {
-          setIsLoading(false);
-        }
-      }
-    };
-
-    fetchInitialBook();
+    fetchOrderBook(coin);
+    subscribeToOrderBook(coin);
 
     return () => {
-      mounted = false;
+      unsubscribeFromOrderBook(coin);
     };
-  }, [coin]);
+  }, [coin, fetchOrderBook, subscribeToOrderBook, unsubscribeFromOrderBook]);
 
   useEffect(() => {
-    if (isLoading) return;
+    if (orderBook && prevOrderBookRef.current) {
+      const newPrices = new Map<number, 'up' | 'down'>();
 
-    const { service: wsService, trackSubscription } = useWebSocketService('hyperliquid', false);
-    const untrackSubscription = trackSubscription();
-
-    const subscriptionId = wsService.subscribeToOrderBook(
-      { coin },
-      (data) => {
-        if (!data || !data.bids || !data.asks) {
-          console.warn('Invalid order book data received');
-          return;
+      orderBook.asks?.forEach((ask, idx) => {
+        const oldAsk = prevOrderBookRef.current.asks?.[idx];
+        if (oldAsk && ask.price === oldAsk.price) {
+          if (ask.size > oldAsk.size) newPrices.set(ask.price, 'up');
+          else if (ask.size < oldAsk.size) newPrices.set(ask.price, 'down');
         }
+      });
 
-        setOrderBook((prevOrderBook) => {
-          if (prevOrderBook) {
-            const newPrices = new Map<number, 'up' | 'down'>();
+      orderBook.bids?.forEach((bid, idx) => {
+        const oldBid = prevOrderBookRef.current.bids?.[idx];
+        if (oldBid && bid.price === oldBid.price) {
+          if (bid.size > oldBid.size) newPrices.set(bid.price, 'up');
+          else if (bid.size < oldBid.size) newPrices.set(bid.price, 'down');
+        }
+      });
 
-            data.asks?.forEach((ask, idx) => {
-              const oldAsk = prevOrderBook.asks?.[idx];
-              if (oldAsk && ask.price === oldAsk.price) {
-                if (ask.size > oldAsk.size) newPrices.set(ask.price, 'up');
-                else if (ask.size < oldAsk.size) newPrices.set(ask.price, 'down');
-              }
-            });
+      prevPricesRef.current = newPrices;
+    }
 
-            data.bids?.forEach((bid, idx) => {
-              const oldBid = prevOrderBook.bids?.[idx];
-              if (oldBid && bid.price === oldBid.price) {
-                if (bid.size > oldBid.size) newPrices.set(bid.price, 'up');
-                else if (bid.size < oldBid.size) newPrices.set(bid.price, 'down');
-              }
-            });
-
-            prevPricesRef.current = newPrices;
-          }
-
-          return data;
-        });
-      }
-    );
-
-    return () => {
-      wsService.unsubscribe(subscriptionId);
-      untrackSubscription();
-    };
-  }, [coin, isLoading]);
+    if (orderBook) {
+      prevOrderBookRef.current = orderBook;
+    }
+  }, [orderBook]);
 
   const getFlashClass = (price: number): string => {
     const flash = prevPricesRef.current.get(price);
