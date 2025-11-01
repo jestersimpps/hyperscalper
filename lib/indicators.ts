@@ -609,6 +609,180 @@ export interface Trendlines {
   resistanceLine: TrendlinePoint[];
 }
 
+interface PivotPoint {
+  time: number;
+  price: number;
+  index: number;
+}
+
+interface LineEquation {
+  slope: number;
+  intercept: number;
+}
+
+interface ScoredLine {
+  equation: LineEquation;
+  score: number;
+  touches: number;
+  violations: number;
+}
+
+function findPivotLows(candles: FullCandleData[], window: number = 3): PivotPoint[] {
+  const pivots: PivotPoint[] = [];
+  const halfWindow = Math.floor(window / 2);
+
+  for (let i = halfWindow; i < candles.length - halfWindow; i++) {
+    const candle = candles[i];
+    let isPivot = true;
+
+    for (let j = i - halfWindow; j <= i + halfWindow; j++) {
+      if (j !== i && candles[j].low <= candle.low) {
+        isPivot = false;
+        break;
+      }
+    }
+
+    if (isPivot) {
+      pivots.push({
+        time: candle.time,
+        price: candle.low,
+        index: i
+      });
+    }
+  }
+
+  return pivots;
+}
+
+function findPivotHighs(candles: FullCandleData[], window: number = 3): PivotPoint[] {
+  const pivots: PivotPoint[] = [];
+  const halfWindow = Math.floor(window / 2);
+
+  for (let i = halfWindow; i < candles.length - halfWindow; i++) {
+    const candle = candles[i];
+    let isPivot = true;
+
+    for (let j = i - halfWindow; j <= i + halfWindow; j++) {
+      if (j !== i && candles[j].high >= candle.high) {
+        isPivot = false;
+        break;
+      }
+    }
+
+    if (isPivot) {
+      pivots.push({
+        time: candle.time,
+        price: candle.high,
+        index: i
+      });
+    }
+  }
+
+  return pivots;
+}
+
+function calculateLineEquation(p1: PivotPoint, p2: PivotPoint): LineEquation {
+  const slope = (p2.price - p1.price) / (p2.time - p1.time);
+  const intercept = p1.price - slope * p1.time;
+  return { slope, intercept };
+}
+
+function getLineValue(line: LineEquation, time: number): number {
+  return line.slope * time + line.intercept;
+}
+
+function validateSupportLine(line: LineEquation, candles: FullCandleData[], threshold: number): { violations: number; touches: number } {
+  let violations = 0;
+  let touches = 0;
+
+  candles.forEach(candle => {
+    const lineValue = getLineValue(line, candle.time);
+    const deviation = (candle.low - lineValue) / lineValue;
+
+    if (candle.low < lineValue * (1 - threshold)) {
+      violations++;
+    } else if (Math.abs(deviation) < threshold) {
+      touches++;
+    }
+  });
+
+  return { violations, touches };
+}
+
+function validateResistanceLine(line: LineEquation, candles: FullCandleData[], threshold: number): { violations: number; touches: number } {
+  let violations = 0;
+  let touches = 0;
+
+  candles.forEach(candle => {
+    const lineValue = getLineValue(line, candle.time);
+    const deviation = (lineValue - candle.high) / lineValue;
+
+    if (candle.high > lineValue * (1 + threshold)) {
+      violations++;
+    } else if (Math.abs(deviation) < threshold) {
+      touches++;
+    }
+  });
+
+  return { violations, touches };
+}
+
+function scoreTrendline(touches: number, violations: number, slope: number): number {
+  let score = touches * 10;
+  score -= violations * 100;
+  score += Math.abs(slope) * 5;
+  return score;
+}
+
+function findBestEnvelopeLine(
+  pivots: PivotPoint[],
+  candles: FullCandleData[],
+  isSupport: boolean,
+  threshold: number = 0.001
+): TrendlinePoint[] {
+  if (pivots.length < 2) return [];
+
+  let bestLine: ScoredLine | null = null;
+
+  const maxCombinations = Math.min(50, (pivots.length * (pivots.length - 1)) / 2);
+  let combinationsTried = 0;
+
+  for (let i = 0; i < pivots.length - 1 && combinationsTried < maxCombinations; i++) {
+    for (let j = i + 1; j < pivots.length && combinationsTried < maxCombinations; j++) {
+      const line = calculateLineEquation(pivots[i], pivots[j]);
+
+      const validation = isSupport
+        ? validateSupportLine(line, candles, threshold)
+        : validateResistanceLine(line, candles, threshold);
+
+      const score = scoreTrendline(validation.touches, validation.violations, line.slope);
+
+      if (!bestLine || score > bestLine.score) {
+        bestLine = {
+          equation: line,
+          score,
+          touches: validation.touches,
+          violations: validation.violations
+        };
+      }
+
+      combinationsTried++;
+    }
+  }
+
+  if (!bestLine || bestLine.violations > 5) {
+    return [];
+  }
+
+  const firstTime = candles[0].time;
+  const lastTime = candles[candles.length - 1].time;
+
+  return [
+    { time: firstTime / 1000, value: getLineValue(bestLine.equation, firstTime) },
+    { time: lastTime / 1000, value: getLineValue(bestLine.equation, lastTime) }
+  ];
+}
+
 export function calculateTrendlines(candles: FullCandleData[]): Trendlines {
   const candlesForCalculation = candles.slice(0, -10);
 
@@ -616,70 +790,15 @@ export function calculateTrendlines(candles: FullCandleData[]): Trendlines {
     return { supportLine: [], resistanceLine: [] };
   }
 
-  const batchSize = 20;
-  const batches: FullCandleData[][] = [];
+  const pivotLows = findPivotLows(candlesForCalculation, 3);
+  const pivotHighs = findPivotHighs(candlesForCalculation, 3);
 
-  for (let i = 0; i < candlesForCalculation.length; i += batchSize) {
-    const batch = candlesForCalculation.slice(i, i + batchSize);
-    if (batch.length === batchSize) {
-      batches.push(batch);
-    }
-  }
-
-  if (batches.length < 2) {
+  if (pivotLows.length < 3 || pivotHighs.length < 3) {
     return { supportLine: [], resistanceLine: [] };
   }
 
-  const lowestLows: { time: number; price: number }[] = [];
-  const highestHighs: { time: number; price: number }[] = [];
-
-  batches.forEach((batch) => {
-    let lowestCandle = batch[0];
-    let highestCandle = batch[0];
-
-    batch.forEach(candle => {
-      if (candle.low < lowestCandle.low) lowestCandle = candle;
-      if (candle.high > highestCandle.high) highestCandle = candle;
-    });
-
-    lowestLows.push({
-      time: lowestCandle.time,
-      price: lowestCandle.low,
-    });
-
-    highestHighs.push({
-      time: highestCandle.time,
-      price: highestCandle.high,
-    });
-  });
-
-  const supportLine = calculateLinearRegression(lowestLows);
-  const resistanceLine = calculateLinearRegression(highestHighs);
+  const supportLine = findBestEnvelopeLine(pivotLows, candlesForCalculation, true);
+  const resistanceLine = findBestEnvelopeLine(pivotHighs, candlesForCalculation, false);
 
   return { supportLine, resistanceLine };
-}
-
-function calculateLinearRegression(points: { time: number; price: number }[]): TrendlinePoint[] {
-  if (points.length < 2) return [];
-
-  const n = points.length;
-  let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
-
-  points.forEach(point => {
-    sumX += point.time;
-    sumY += point.price;
-    sumXY += point.time * point.price;
-    sumX2 += point.time * point.time;
-  });
-
-  const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
-  const intercept = (sumY - slope * sumX) / n;
-
-  const firstTime = points[0].time;
-  const lastTime = points[points.length - 1].time;
-
-  return [
-    { time: firstTime / 1000, value: slope * firstTime + intercept },
-    { time: lastTime / 1000, value: slope * lastTime + intercept }
-  ];
 }
