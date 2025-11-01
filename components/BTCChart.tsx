@@ -23,17 +23,19 @@ export default function BTCChart() {
   }, []);
 
   return (
-    <div className="h-[300px]">
-      <div className="text-[10px] text-primary-muted mb-2 uppercase tracking-wider">
+    <div className="h-full flex flex-col">
+      <div className="text-[10px] text-primary-muted mb-1 uppercase tracking-wider">
         █ BTC/USD {currentPrice > 0 && `$${currentPrice.toFixed(2)}`}
       </div>
-      <ScalpingChart
-        coin="BTC"
-        interval="1m"
-        candleData={candles}
-        isExternalData={true}
-        onPriceUpdate={setCurrentPrice}
-      />
+      <div className="flex-1 min-h-0">
+        <ScalpingChart
+          coin="BTC"
+          interval="1m"
+          candleData={candles}
+          isExternalData={true}
+          onPriceUpdate={setCurrentPrice}
+        />
+      </div>
     </div>
   );
 }
