@@ -960,13 +960,13 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
   };
 
   return (
-    <div className="relative flex flex-col flex-1 min-h-0">
+    <div className="relative flex flex-col h-full w-full">
       {isLoading && (
         <div className="absolute inset-0 flex items-center justify-center bg-bg-primary bg-opacity-90 z-10">
           <div className="text-primary">Loading chart...</div>
         </div>
       )}
-      <div ref={chartContainerRef} className="flex-1" />
+      <div ref={chartContainerRef} className="flex-1 min-h-0" />
       <div className="mt-1 flex gap-3 text-xs flex-wrap">
         {emaSettings.ema1.enabled && (
           <div className="flex items-center gap-1">
