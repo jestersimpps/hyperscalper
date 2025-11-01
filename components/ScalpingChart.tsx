@@ -442,12 +442,31 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
   }, [enabledMacdTimeframes.join(','), macdSettings.showMultiTimeframe, stochasticSettings.showMultiVariant, Object.entries(stochasticSettings.variants).filter(([_, v]) => v.enabled).map(([k]) => k).join(',')]);
 
   useEffect(() => {
-    if (!syncZoom || !chartRef.current) return;
+    if (!syncZoom || !chartRef.current || !chartReady) return;
 
     const chart = chartRef.current;
     const timeScale = chart.timeScale();
     const { visibleTimeRange, setVisibleTimeRange } = useChartSyncStore.getState();
     let isSyncing = false;
+
+    // Initial alignment: if there's already a synced range, apply it; otherwise, set initial range
+    if (visibleTimeRange) {
+      try {
+        timeScale.setVisibleRange({
+          from: visibleTimeRange.from as any,
+          to: visibleTimeRange.to as any,
+        });
+      } catch (e) {
+        console.warn('Failed to apply initial synced range:', e);
+      }
+    } else {
+      // Set initial range for other charts to sync to
+      timeScale.scrollToRealTime();
+      const range = timeScale.getVisibleRange();
+      if (range) {
+        setVisibleTimeRange({ from: range.from as number, to: range.to as number });
+      }
+    }
 
     const handleVisibleRangeChange = () => {
       if (isSyncing) return;
