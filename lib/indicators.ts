@@ -697,11 +697,11 @@ function validateSupportLine(line: LineEquation, candles: FullCandleData[], thre
 
   candles.forEach(candle => {
     const lineValue = getLineValue(line, candle.time);
-    const deviation = (candle.low - lineValue) / lineValue;
 
-    if (candle.low < lineValue * (1 - threshold)) {
+    // Support line MUST be below all candles
+    if (candle.low < lineValue) {
       violations++;
-    } else if (Math.abs(deviation) < threshold) {
+    } else if (Math.abs(candle.low - lineValue) / lineValue < threshold) {
       touches++;
     }
   });
@@ -715,11 +715,11 @@ function validateResistanceLine(line: LineEquation, candles: FullCandleData[], t
 
   candles.forEach(candle => {
     const lineValue = getLineValue(line, candle.time);
-    const deviation = (lineValue - candle.high) / lineValue;
 
-    if (candle.high > lineValue * (1 + threshold)) {
+    // Resistance line MUST be above all candles
+    if (candle.high > lineValue) {
       violations++;
-    } else if (Math.abs(deviation) < threshold) {
+    } else if (Math.abs(candle.high - lineValue) / lineValue < threshold) {
       touches++;
     }
   });
@@ -742,35 +742,71 @@ function findBestEnvelopeLine(
 ): TrendlinePoint[] {
   if (pivots.length < 2) return [];
 
+  // Step 1: Find the two most extreme pivots
+  const sortedPivots = [...pivots].sort((a, b) =>
+    isSupport ? a.price - b.price : b.price - a.price
+  );
+
+  const extreme1 = sortedPivots[0];
+  const extreme2 = sortedPivots[1];
+
+  // Step 2: Start with a line through the two most extreme points
+  let baseLine = calculateLineEquation(extreme1, extreme2);
+
+  // Step 3: Iteratively rotate the line to touch more pivot points
   let bestLine: ScoredLine | null = null;
 
-  const maxCombinations = Math.min(50, (pivots.length * (pivots.length - 1)) / 2);
-  let combinationsTried = 0;
+  // Try different rotation angles by testing lines through extreme1 and each other pivot
+  for (const pivot of pivots) {
+    if (pivot.index === extreme1.index) continue;
 
-  for (let i = 0; i < pivots.length - 1 && combinationsTried < maxCombinations; i++) {
-    for (let j = i + 1; j < pivots.length && combinationsTried < maxCombinations; j++) {
-      const line = calculateLineEquation(pivots[i], pivots[j]);
+    const line = calculateLineEquation(extreme1, pivot);
 
-      const validation = isSupport
-        ? validateSupportLine(line, candles, threshold)
-        : validateResistanceLine(line, candles, threshold);
+    const validation = isSupport
+      ? validateSupportLine(line, candles, threshold)
+      : validateResistanceLine(line, candles, threshold);
 
-      const score = scoreTrendline(validation.touches, validation.violations, line.slope);
+    // Only consider lines with ZERO violations
+    if (validation.violations > 0) continue;
 
-      if (!bestLine || score > bestLine.score) {
-        bestLine = {
-          equation: line,
-          score,
-          touches: validation.touches,
-          violations: validation.violations
-        };
-      }
+    const score = scoreTrendline(validation.touches, validation.violations, line.slope);
 
-      combinationsTried++;
+    if (!bestLine || score > bestLine.score) {
+      bestLine = {
+        equation: line,
+        score,
+        touches: validation.touches,
+        violations: validation.violations
+      };
     }
   }
 
-  if (!bestLine || bestLine.violations > 5) {
+  // Also try lines through extreme2 and each other pivot
+  for (const pivot of pivots) {
+    if (pivot.index === extreme2.index) continue;
+
+    const line = calculateLineEquation(extreme2, pivot);
+
+    const validation = isSupport
+      ? validateSupportLine(line, candles, threshold)
+      : validateResistanceLine(line, candles, threshold);
+
+    // Only consider lines with ZERO violations
+    if (validation.violations > 0) continue;
+
+    const score = scoreTrendline(validation.touches, validation.violations, line.slope);
+
+    if (!bestLine || score > bestLine.score) {
+      bestLine = {
+        equation: line,
+        score,
+        touches: validation.touches,
+        violations: validation.violations
+      };
+    }
+  }
+
+  if (!bestLine) {
     return [];
   }
 
