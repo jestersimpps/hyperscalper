@@ -391,7 +391,6 @@ export default function SymbolView({ coin }: SymbolViewProps) {
                   onPriceUpdate={setCurrentPrice}
                   position={position}
                   orders={orders}
-                  syncZoom={true}
                 />
               </div>
             </div>
