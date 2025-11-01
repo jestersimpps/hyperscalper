@@ -12,10 +12,12 @@ interface SidepanelProps {
 
 export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelProps) {
   const router = useRouter();
-  const symbols = ['BTC', 'PUMP'];
+  const defaultSymbols = ['BTC', 'PUMP'];
 
   const { results, status, runScan, startAutoScanWithDelay, stopAutoScan } = useScannerStore();
-  const { settings } = useSettingsStore();
+  const { settings, pinSymbol, unpinSymbol } = useSettingsStore();
+  const pinnedSymbols = settings.pinnedSymbols;
+  const allSymbols = [...new Set([...pinnedSymbols, ...defaultSymbols])];
 
   useEffect(() => {
     if (settings.scanner.enabled) {
@@ -93,22 +95,40 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                   displayText = `${result.symbol}/USD ema ${signal}`;
                 }
 
+                const isPinned = pinnedSymbols.includes(result.symbol);
+
                 return (
                   <div key={`${result.symbol}-${result.scanType}-${index}`} className={`terminal-border ${bgColor} ${borderColor}`}>
-                    <button
-                      onClick={() => {
-                        if (onSymbolSelect) {
-                          onSymbolSelect(result.symbol);
-                        } else {
-                          router.push(`/${result.symbol}`);
-                        }
-                      }}
-                      className="w-full text-left p-2"
-                    >
-                      <div className={`text-xs font-mono ${textColor}`}>
-                        {displayText}
-                      </div>
-                    </button>
+                    <div className="flex items-center">
+                      <button
+                        onClick={() => {
+                          if (onSymbolSelect) {
+                            onSymbolSelect(result.symbol);
+                          } else {
+                            router.push(`/${result.symbol}`);
+                          }
+                        }}
+                        className="flex-1 text-left p-2"
+                      >
+                        <div className={`text-xs font-mono ${textColor}`}>
+                          {displayText}
+                        </div>
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (isPinned) {
+                            unpinSymbol(result.symbol);
+                          } else {
+                            pinSymbol(result.symbol);
+                          }
+                        }}
+                        className="p-2 text-primary-muted hover:text-primary transition-colors"
+                        title={isPinned ? "Unpin symbol" : "Pin symbol"}
+                      >
+                        <span className="text-sm font-bold">{isPinned ? '−' : '+'}</span>
+                      </button>
+                    </div>
                   </div>
                 );
               })}
@@ -126,46 +146,68 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
       </div>
 
       <div className="space-y-1">
-        {symbols.map((symbol) => (
-          <div
-            key={symbol}
-            className={`terminal-border transition-colors ${
-              selectedSymbol === symbol
-                ? 'bg-primary/10 border-primary'
-                : 'hover:bg-primary/5'
-            }`}
-          >
-            <div className="flex items-center">
-              <button
-                onClick={() => {
-                  if (onSymbolSelect) {
-                    onSymbolSelect(symbol);
-                  } else {
-                    router.push(`/${symbol}`);
-                  }
-                }}
-                className="flex-1 text-left p-2"
-              >
-                <div className="flex justify-between items-center">
-                  <span className="text-primary font-bold">{symbol}/USD</span>
-                  {selectedSymbol === symbol && (
-                    <span className="text-primary text-xs">█</span>
-                  )}
-                </div>
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  window.open(`/chart-popup/${symbol}`, '_blank', 'width=1200,height=800');
-                }}
-                className="p-2 text-primary-muted hover:text-primary transition-colors"
-                title="Open in new window"
-              >
-                <span className="text-sm">⧉</span>
-              </button>
+        {allSymbols.map((symbol) => {
+          const isPinned = pinnedSymbols.includes(symbol);
+          const isDefault = defaultSymbols.includes(symbol);
+
+          return (
+            <div
+              key={symbol}
+              className={`terminal-border transition-colors ${
+                selectedSymbol === symbol
+                  ? 'bg-primary/10 border-primary'
+                  : 'hover:bg-primary/5'
+              }`}
+            >
+              <div className="flex items-center">
+                <button
+                  onClick={() => {
+                    if (onSymbolSelect) {
+                      onSymbolSelect(symbol);
+                    } else {
+                      router.push(`/${symbol}`);
+                    }
+                  }}
+                  className="flex-1 text-left p-2"
+                >
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-1">
+                      <span className="text-primary font-bold">{symbol}/USD</span>
+                      {isPinned && !isDefault && (
+                        <span className="text-primary-muted text-xs">📌</span>
+                      )}
+                    </div>
+                    {selectedSymbol === symbol && (
+                      <span className="text-primary text-xs">█</span>
+                    )}
+                  </div>
+                </button>
+                {isPinned && !isDefault && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      unpinSymbol(symbol);
+                    }}
+                    className="p-2 text-primary-muted hover:text-bearish transition-colors"
+                    title="Unpin symbol"
+                  >
+                    <span className="text-sm font-bold">−</span>
+                  </button>
+                )}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    window.open(`/chart-popup/${symbol}`, '_blank', 'width=1200,height=800');
+                  }}
+                  className="p-2 text-primary-muted hover:text-primary transition-colors"
+                  title="Open in new window"
+                >
+                  <span className="text-sm">⧉</span>
+                </button>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

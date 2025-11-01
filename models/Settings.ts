@@ -7,6 +7,8 @@ export interface StochasticVariantConfig {
 
 export interface StochasticSettings {
   showMultiVariant: boolean;
+  showDivergence: boolean;
+  divergenceVariant: 'fast9' | 'fast14' | 'fast40' | 'full60';
   overboughtLevel: number;
   oversoldLevel: number;
   variants: {
@@ -99,6 +101,7 @@ export interface AppSettings {
   scanner: ScannerSettings;
   orders: OrderSettings;
   theme: ThemeSettings;
+  pinnedSymbols: string[];
 }
 
 export const DEFAULT_STOCHASTIC_FAST9: StochasticVariantConfig = {
@@ -140,6 +143,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   indicators: {
     stochastic: {
       showMultiVariant: true,
+      showDivergence: false,
+      divergenceVariant: 'fast14',
       overboughtLevel: 80,
       oversoldLevel: 20,
       variants: {
@@ -196,4 +201,5 @@ export const DEFAULT_SETTINGS: AppSettings = {
     selected: 'hyper',
     playTradeSound: false,
   },
+  pinnedSymbols: [],
 };

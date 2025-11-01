@@ -390,6 +390,35 @@ export default function SettingsPanel() {
                       </label>
                     </div>
 
+                    {/* Divergence Settings */}
+                    <div className="p-3 bg-bg-secondary border border-frame rounded space-y-3">
+                      <label className="flex items-center justify-between cursor-pointer">
+                        <span className="text-primary-muted text-xs font-mono">SHOW DIVERGENCE LINES</span>
+                        <input
+                          type="checkbox"
+                          checked={settings.indicators.stochastic.showDivergence}
+                          onChange={(e) => updateStochasticSettings({ showDivergence: e.target.checked })}
+                          className="w-4 h-4 accent-primary cursor-pointer"
+                        />
+                      </label>
+
+                      {settings.indicators.stochastic.showDivergence && (
+                        <div>
+                          <label className="text-primary-muted font-mono block mb-1 text-xs">DIVERGENCE VARIANT</label>
+                          <select
+                            value={settings.indicators.stochastic.divergenceVariant}
+                            onChange={(e) => updateStochasticSettings({ divergenceVariant: e.target.value as any })}
+                            className="w-full bg-bg-primary border border-frame text-primary px-2 py-1 rounded font-mono text-xs"
+                          >
+                            <option value="fast9">FAST 9</option>
+                            <option value="fast14">FAST 14</option>
+                            <option value="fast40">FAST 40</option>
+                            <option value="full60">FULL 60</option>
+                          </select>
+                        </div>
+                      )}
+                    </div>
+
                     {/* Variant Configuration */}
                     <div className="space-y-2">
                       <div className="text-primary text-xs font-mono mb-2">█ VARIANT CONFIGURATION</div>

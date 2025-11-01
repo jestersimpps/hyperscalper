@@ -18,6 +18,8 @@ interface SettingsStore {
   updateScannerSettings: (settings: Partial<ScannerSettings>) => void;
   updateOrderSettings: (settings: Partial<OrderSettings>) => void;
   updateThemeSettings: (settings: Partial<ThemeSettings>) => void;
+  pinSymbol: (symbol: string) => void;
+  unpinSymbol: (symbol: string) => void;
   resetSettings: () => void;
 }
 
@@ -165,6 +167,7 @@ const mergeSettings = (storedSettings: any): AppSettings => {
         selected: storedSettings.theme?.selected ?? DEFAULT_SETTINGS.theme.selected,
         playTradeSound: storedSettings.theme?.playTradeSound ?? DEFAULT_SETTINGS.theme.playTradeSound,
       },
+      pinnedSymbols: storedSettings.pinnedSymbols ?? DEFAULT_SETTINGS.pinnedSymbols,
     };
   } catch (error) {
     console.error('Error merging settings, using defaults:', error);
@@ -249,6 +252,25 @@ export const useSettingsStore = create<SettingsStore>()(
               ...state.settings.theme,
               ...updates,
             },
+          },
+        })),
+      pinSymbol: (symbol) =>
+        set((state) => {
+          if (state.settings.pinnedSymbols.includes(symbol)) {
+            return state;
+          }
+          return {
+            settings: {
+              ...state.settings,
+              pinnedSymbols: [...state.settings.pinnedSymbols, symbol],
+            },
+          };
+        }),
+      unpinSymbol: (symbol) =>
+        set((state) => ({
+          settings: {
+            ...state.settings,
+            pinnedSymbols: state.settings.pinnedSymbols.filter((s) => s !== symbol),
           },
         })),
       resetSettings: () => set({ settings: DEFAULT_SETTINGS }),

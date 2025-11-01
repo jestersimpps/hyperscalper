@@ -8,7 +8,16 @@ import { useCandleStore } from '@/stores/useCandleStore';
 import { useSettingsStore } from '@/stores/useSettingsStore';
 import { useSymbolMetaStore } from '@/stores/useSymbolMetaStore';
 import { getThemeColors } from '@/lib/theme-utils';
-import { calculateEMA, calculateMACD, calculateStochastic, type StochasticData } from '@/lib/indicators';
+import {
+  calculateEMA,
+  calculateMACD,
+  calculateStochastic,
+  detectPivots,
+  detectStochasticPivots,
+  detectDivergence,
+  type StochasticData,
+  type DivergencePoint,
+} from '@/lib/indicators';
 import { getStandardTimeWindow } from '@/lib/time-utils';
 
 interface ScalpingChartProps {
@@ -120,6 +129,8 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
   const macdHistogramSeriesRef = useRef<any>(null);
   const stochSeriesRefsRef = useRef<Record<string, { d: any }>>({});
   const macdSeriesRefsRef = useRef<Record<string, { line: any; signal: any; histogram: any }>>({});
+  const divergencePriceSeriesRef = useRef<any[]>([]);
+  const divergenceStochSeriesRef = useRef<any[]>([]);
   const positionLineRef = useRef<any>(null);
   const orderLinesRef = useRef<any[]>([]);
   const [chartReady, setChartReady] = useState(false);
@@ -680,6 +691,100 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
         })));
       }
     });
+  }, [chartReady, candles, interval, allMacdCandles, stochasticSettings, coin, isExternalData]);
+
+  // Divergence detection and line drawing
+  useEffect(() => {
+    if (!chartReady || !chartRef.current) return;
+    if (!stochasticSettings.showMultiVariant || !stochasticSettings.showDivergence) return;
+
+    const stochCandles = interval === '1m' ? candles : (isExternalData ? allMacdCandles['1m'] : useCandleStore.getState().candles[`${coin}-1m`]);
+    if (!stochCandles || stochCandles.length < 50) return;
+
+    divergencePriceSeriesRef.current.forEach((series) => {
+      try {
+        chartRef.current?.removeSeries(series);
+      } catch (e) {}
+    });
+    divergencePriceSeriesRef.current = [];
+
+    divergenceStochSeriesRef.current.forEach((series) => {
+      try {
+        chartRef.current?.removeSeries(series);
+      } catch (e) {}
+    });
+    divergenceStochSeriesRef.current = [];
+
+    const variantToUse = stochasticSettings.divergenceVariant || 'fast14';
+    const variantConfig = stochasticSettings.variants[variantToUse];
+
+    if (!variantConfig || !variantConfig.enabled) return;
+
+    const stochData = calculateStochastic(stochCandles, variantConfig.period, variantConfig.smoothK, variantConfig.smoothD);
+    if (stochData.length === 0) return;
+
+    const pricePivots = detectPivots(stochCandles, 3);
+    const stochPivots = detectStochasticPivots(stochData, stochCandles, 3);
+    const divergences = detectDivergence(pricePivots, stochPivots, stochCandles);
+
+    const colors = getThemeColors();
+    const colorMap = {
+      'bullish': colors.statusBullish,
+      'bearish': colors.statusBearish,
+      'hidden-bullish': colors.accentBlue,
+      'hidden-bearish': colors.accentRose,
+    };
+
+    divergences.forEach((div) => {
+      const priceSeries = chartRef.current?.addLineSeries({
+        color: colorMap[div.type],
+        lineWidth: 2,
+        lineStyle: 2,
+        lastValueVisible: false,
+        priceLineVisible: false,
+      });
+
+      if (priceSeries) {
+        priceSeries.setData([
+          { time: (div.startTime / 1000) as any, value: div.startPriceValue },
+          { time: (div.endTime / 1000) as any, value: div.endPriceValue },
+        ]);
+        divergencePriceSeriesRef.current.push(priceSeries);
+      }
+
+      const stochSeries = chartRef.current?.addLineSeries({
+        color: colorMap[div.type],
+        lineWidth: 2,
+        lineStyle: 2,
+        priceScaleId: 'stoch',
+        lastValueVisible: false,
+        priceLineVisible: false,
+      });
+
+      if (stochSeries) {
+        stochSeries.setData([
+          { time: (div.startTime / 1000) as any, value: div.startStochValue },
+          { time: (div.endTime / 1000) as any, value: div.endStochValue },
+        ]);
+        divergenceStochSeriesRef.current.push(stochSeries);
+      }
+    });
+
+    return () => {
+      divergencePriceSeriesRef.current.forEach((series) => {
+        try {
+          chartRef.current?.removeSeries(series);
+        } catch (e) {}
+      });
+      divergencePriceSeriesRef.current = [];
+
+      divergenceStochSeriesRef.current.forEach((series) => {
+        try {
+          chartRef.current?.removeSeries(series);
+        } catch (e) {}
+      });
+      divergenceStochSeriesRef.current = [];
+    };
   }, [chartReady, candles, interval, allMacdCandles, stochasticSettings, coin, isExternalData]);
 
   // Position price line overlay

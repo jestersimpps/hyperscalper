@@ -19,6 +19,23 @@ export interface Channel {
   endIndex: number;
 }
 
+export interface StochasticPivot {
+  index: number;
+  value: number;
+  type: 'high' | 'low';
+  time: number;
+}
+
+export interface DivergencePoint {
+  type: 'bullish' | 'bearish' | 'hidden-bullish' | 'hidden-bearish';
+  startTime: number;
+  endTime: number;
+  startPriceValue: number;
+  endPriceValue: number;
+  startStochValue: number;
+  endStochValue: number;
+}
+
 export function calculateEMA(data: number[], period: number): number[] {
   const k = 2 / (period + 1);
   const emaArray: number[] = [];
@@ -445,4 +462,139 @@ export function calculateVolumeFlow(trades: Trade[], periodSeconds: number = 60)
     sellVolume,
     trend: netVolume >= 0 ? 'up' : 'down',
   };
+}
+
+export function detectStochasticPivots(
+  stochData: Array<{ k: number; d: number }>,
+  candles: FullCandleData[],
+  pivotStrength: number = 3
+): StochasticPivot[] {
+  const pivots: StochasticPivot[] = [];
+
+  if (stochData.length < pivotStrength * 2 + 1 || candles.length !== stochData.length) {
+    return pivots;
+  }
+
+  for (let i = pivotStrength; i < stochData.length - pivotStrength; i++) {
+    const currentStoch = stochData[i];
+
+    let isPivotHigh = true;
+    for (let j = 1; j <= pivotStrength; j++) {
+      if (stochData[i - j].d >= currentStoch.d || stochData[i + j].d >= currentStoch.d) {
+        isPivotHigh = false;
+        break;
+      }
+    }
+
+    if (isPivotHigh) {
+      pivots.push({
+        index: i,
+        value: currentStoch.d,
+        type: 'high',
+        time: candles[i].time,
+      });
+    }
+
+    let isPivotLow = true;
+    for (let j = 1; j <= pivotStrength; j++) {
+      if (stochData[i - j].d <= currentStoch.d || stochData[i + j].d <= currentStoch.d) {
+        isPivotLow = false;
+        break;
+      }
+    }
+
+    if (isPivotLow) {
+      pivots.push({
+        index: i,
+        value: currentStoch.d,
+        type: 'low',
+        time: candles[i].time,
+      });
+    }
+  }
+
+  return pivots;
+}
+
+export function detectDivergence(
+  pricePivots: Pivot[],
+  stochPivots: StochasticPivot[],
+  candles: FullCandleData[]
+): DivergencePoint[] {
+  const divergences: DivergencePoint[] = [];
+
+  const highs = pricePivots.filter(p => p.type === 'high').sort((a, b) => a.index - b.index);
+  const lows = pricePivots.filter(p => p.type === 'low').sort((a, b) => a.index - b.index);
+  const stochHighs = stochPivots.filter(p => p.type === 'high').sort((a, b) => a.index - b.index);
+  const stochLows = stochPivots.filter(p => p.type === 'low').sort((a, b) => a.index - b.index);
+
+  for (let i = 1; i < highs.length; i++) {
+    const prevHigh = highs[i - 1];
+    const currHigh = highs[i];
+
+    const prevStochHigh = stochHighs.find(sh => Math.abs(sh.index - prevHigh.index) <= 2);
+    const currStochHigh = stochHighs.find(sh => Math.abs(sh.index - currHigh.index) <= 2);
+
+    if (prevStochHigh && currStochHigh) {
+      if (currHigh.price > prevHigh.price && currStochHigh.value < prevStochHigh.value) {
+        divergences.push({
+          type: 'bearish',
+          startTime: prevHigh.time,
+          endTime: currHigh.time,
+          startPriceValue: prevHigh.price,
+          endPriceValue: currHigh.price,
+          startStochValue: prevStochHigh.value,
+          endStochValue: currStochHigh.value,
+        });
+      }
+
+      if (currHigh.price < prevHigh.price && currStochHigh.value > prevStochHigh.value) {
+        divergences.push({
+          type: 'hidden-bearish',
+          startTime: prevHigh.time,
+          endTime: currHigh.time,
+          startPriceValue: prevHigh.price,
+          endPriceValue: currHigh.price,
+          startStochValue: prevStochHigh.value,
+          endStochValue: currStochHigh.value,
+        });
+      }
+    }
+  }
+
+  for (let i = 1; i < lows.length; i++) {
+    const prevLow = lows[i - 1];
+    const currLow = lows[i];
+
+    const prevStochLow = stochLows.find(sl => Math.abs(sl.index - prevLow.index) <= 2);
+    const currStochLow = stochLows.find(sl => Math.abs(sl.index - currLow.index) <= 2);
+
+    if (prevStochLow && currStochLow) {
+      if (currLow.price < prevLow.price && currStochLow.value > prevStochLow.value) {
+        divergences.push({
+          type: 'bullish',
+          startTime: prevLow.time,
+          endTime: currLow.time,
+          startPriceValue: prevLow.price,
+          endPriceValue: currLow.price,
+          startStochValue: prevStochLow.value,
+          endStochValue: currStochLow.value,
+        });
+      }
+
+      if (currLow.price > prevLow.price && currStochLow.value < prevStochLow.value) {
+        divergences.push({
+          type: 'hidden-bullish',
+          startTime: prevLow.time,
+          endTime: currLow.time,
+          startPriceValue: prevLow.price,
+          endPriceValue: currLow.price,
+          startStochValue: prevStochLow.value,
+          endStochValue: currStochLow.value,
+        });
+      }
+    }
+  }
+
+  return divergences;
 }
