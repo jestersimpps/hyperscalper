@@ -376,11 +376,6 @@ export default function SymbolView({ coin }: SymbolViewProps) {
         <div className="flex gap-2 overflow-x-auto flex-1 min-h-0">
           {/* Left Side - Charts */}
           <div className="flex-1 min-w-[500px] flex flex-col gap-2">
-            {/* BTC Chart Area */}
-            <div className="terminal-border p-1.5 flex-1 min-h-0">
-              <BTCChart />
-            </div>
-
             {/* Scalping Chart Area */}
             <div className="terminal-border p-1.5 flex-[2] min-h-0 flex flex-col">
               <div className="text-[10px] text-primary-muted mb-1 uppercase tracking-wider">█ SCALPING CHART</div>
@@ -393,6 +388,11 @@ export default function SymbolView({ coin }: SymbolViewProps) {
                   orders={orders}
                 />
               </div>
+            </div>
+
+            {/* BTC Chart Area */}
+            <div className="terminal-border p-1.5 flex-1 min-h-0">
+              <BTCChart />
             </div>
           </div>
 
