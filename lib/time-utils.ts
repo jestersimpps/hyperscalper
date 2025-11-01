@@ -18,5 +18,5 @@ export function getCandleTimeWindow(interval: TimeInterval, candleCount: number 
 }
 
 export function getStandardTimeWindow(): { startTime: number; endTime: number } {
-  return getCandleTimeWindow('1m', 5000);
+  return getCandleTimeWindow('1m', 100);
 }
