@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import ScalpingChart from '@/components/ScalpingChart';
+import BTCChart from '@/components/BTCChart';
 import MarketStats from '@/components/MarketStats';
 import PriceTape from '@/components/PriceTape';
 import TerminalHeader from '@/components/layout/TerminalHeader';
@@ -375,6 +376,12 @@ export default function SymbolView({ coin }: SymbolViewProps) {
         <div className="flex gap-2 overflow-x-auto flex-1 min-h-0">
           {/* Left Side - Charts */}
           <div className="flex-1 min-w-[500px] flex flex-col gap-2">
+            {/* BTC Chart */}
+            <div className="terminal-border p-1.5 h-[300px]">
+              <BTCChart />
+            </div>
+
+            {/* Main Scalping Chart */}
             <div className="terminal-border p-1.5 flex-1 flex flex-col min-h-0">
               <div className="text-[10px] text-primary-muted mb-1 uppercase tracking-wider">█ SCALPING CHART</div>
               <ScalpingChart
