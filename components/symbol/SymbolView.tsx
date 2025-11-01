@@ -10,11 +10,13 @@ import IndicatorSignals from '@/components/IndicatorSignals';
 import { useTradesStore } from '@/stores/useTradesStore';
 import { usePositionStore } from '@/stores/usePositionStore';
 import { useOrderStore } from '@/stores/useOrderStore';
+import { useCandleStore } from '@/stores/useCandleStore';
 import { playNotificationSound } from '@/lib/sound-utils';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { KeyBinding } from '@/lib/keyboard-utils';
 import { useSettingsStore } from '@/stores/useSettingsStore';
 import { useSymbolMetaStore } from '@/stores/useSymbolMetaStore';
+import { calculateAverageCandleHeight } from '@/lib/trading-utils';
 
 interface SymbolViewProps {
   coin: string;
@@ -31,6 +33,7 @@ export default function SymbolView({ coin }: SymbolViewProps) {
   const tradeSoundTimeoutsRef = useRef<NodeJS.Timeout[]>([]);
   const isPanelOpen = useSettingsStore((state) => state.isPanelOpen);
   const playTradeSound = useSettingsStore((state) => state.settings.theme.playTradeSound);
+  const orderSettings = useSettingsStore((state) => state.settings.orders);
 
   const position = usePositionStore((state) => state.positions[coin]);
   const subscribeToPosition = usePositionStore((state) => state.subscribeToPosition);
@@ -39,6 +42,9 @@ export default function SymbolView({ coin }: SymbolViewProps) {
   const orders = useOrderStore((state) => state.orders[coin]) || [];
   const subscribeToOrders = useOrderStore((state) => state.subscribeToOrders);
   const unsubscribeFromOrders = useOrderStore((state) => state.unsubscribeFromOrders);
+
+  const candleKey = `${coin}-1m`;
+  const candles = useCandleStore((state) => state.candles[candleKey]) || [];
 
   const getDecimals = useSymbolMetaStore((state) => state.getDecimals);
   const decimals = useMemo(() => getDecimals(coin), [getDecimals, coin]);
@@ -125,92 +131,168 @@ export default function SymbolView({ coin }: SymbolViewProps) {
   const handleBuyCloud = useCallback(async () => {
     playNotificationSound('bullish', 'cloud');
     try {
+      if (candles.length < 5) {
+        console.error('Insufficient candle data for buy cloud');
+        return;
+      }
+
+      const priceInterval = calculateAverageCandleHeight(candles);
+      const latestCandle = candles[candles.length - 1];
+      const currentPriceValue = latestCandle.close;
+
       const response = await fetch('/api/trade/buy-cloud', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbol: coin }),
+        body: JSON.stringify({
+          symbol: coin,
+          currentPrice: currentPriceValue,
+          priceInterval,
+          percentage: orderSettings.cloudPercentage
+        }),
       });
       const data = await response.json();
       console.log('Buy Cloud response:', data);
     } catch (error) {
       console.error('Error executing buy cloud:', error);
     }
-  }, [coin]);
+  }, [coin, candles, orderSettings.cloudPercentage]);
 
   const handleSellCloud = useCallback(async () => {
     playNotificationSound('bearish', 'cloud');
     try {
+      if (candles.length < 5) {
+        console.error('Insufficient candle data for sell cloud');
+        return;
+      }
+
+      const priceInterval = calculateAverageCandleHeight(candles);
+      const latestCandle = candles[candles.length - 1];
+      const currentPriceValue = latestCandle.close;
+
       const response = await fetch('/api/trade/sell-cloud', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbol: coin }),
+        body: JSON.stringify({
+          symbol: coin,
+          currentPrice: currentPriceValue,
+          priceInterval,
+          percentage: orderSettings.cloudPercentage
+        }),
       });
       const data = await response.json();
       console.log('Sell Cloud response:', data);
     } catch (error) {
       console.error('Error executing sell cloud:', error);
     }
-  }, [coin]);
+  }, [coin, candles, orderSettings.cloudPercentage]);
 
   const handleSmLong = useCallback(async () => {
     playNotificationSound('bullish', 'standard');
     try {
+      if (candles.length === 0) {
+        console.error('Insufficient candle data for sm long');
+        return;
+      }
+
+      const latestCandle = candles[candles.length - 1];
+      const currentPriceValue = latestCandle.close;
+
       const response = await fetch('/api/trade/sm-long', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbol: coin }),
+        body: JSON.stringify({
+          symbol: coin,
+          currentPrice: currentPriceValue,
+          percentage: orderSettings.smallPercentage
+        }),
       });
       const data = await response.json();
       console.log('SM Long response:', data);
     } catch (error) {
       console.error('Error executing sm long:', error);
     }
-  }, [coin]);
+  }, [coin, candles, orderSettings.smallPercentage]);
 
   const handleSmShort = useCallback(async () => {
     playNotificationSound('bearish', 'standard');
     try {
+      if (candles.length === 0) {
+        console.error('Insufficient candle data for sm short');
+        return;
+      }
+
+      const latestCandle = candles[candles.length - 1];
+      const currentPriceValue = latestCandle.close;
+
       const response = await fetch('/api/trade/sm-short', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbol: coin }),
+        body: JSON.stringify({
+          symbol: coin,
+          currentPrice: currentPriceValue,
+          percentage: orderSettings.smallPercentage
+        }),
       });
       const data = await response.json();
       console.log('SM Short response:', data);
     } catch (error) {
       console.error('Error executing sm short:', error);
     }
-  }, [coin]);
+  }, [coin, candles, orderSettings.smallPercentage]);
 
   const handleBigLong = useCallback(async () => {
     playNotificationSound('bullish', 'big');
     try {
+      if (candles.length === 0) {
+        console.error('Insufficient candle data for big long');
+        return;
+      }
+
+      const latestCandle = candles[candles.length - 1];
+      const currentPriceValue = latestCandle.close;
+
       const response = await fetch('/api/trade/big-long', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbol: coin }),
+        body: JSON.stringify({
+          symbol: coin,
+          currentPrice: currentPriceValue,
+          percentage: orderSettings.bigPercentage
+        }),
       });
       const data = await response.json();
       console.log('Big Long response:', data);
     } catch (error) {
       console.error('Error executing big long:', error);
     }
-  }, [coin]);
+  }, [coin, candles, orderSettings.bigPercentage]);
 
   const handleBigShort = useCallback(async () => {
     playNotificationSound('bearish', 'big');
     try {
+      if (candles.length === 0) {
+        console.error('Insufficient candle data for big short');
+        return;
+      }
+
+      const latestCandle = candles[candles.length - 1];
+      const currentPriceValue = latestCandle.close;
+
       const response = await fetch('/api/trade/big-short', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbol: coin }),
+        body: JSON.stringify({
+          symbol: coin,
+          currentPrice: currentPriceValue,
+          percentage: orderSettings.bigPercentage
+        }),
       });
       const data = await response.json();
       console.log('Big Short response:', data);
     } catch (error) {
       console.error('Error executing big short:', error);
     }
-  }, [coin]);
+  }, [coin, candles, orderSettings.bigPercentage]);
 
   const handleClose25 = useCallback(async () => {
     try {

@@ -1,32 +1,53 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { BigLongRequest, TradeResponse, POSITION_SIZES } from '@/models/TradeRequest';
+import { getHyperliquidService } from '@/lib/services/hyperliquid.service';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export async function POST(request: NextRequest): Promise<NextResponse<TradeResponse>> {
+export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     const body = await request.json();
-    const { symbol } = body;
+    const { symbol, currentPrice, percentage } = body;
 
-    const tradeData: BigLongRequest = {
-      symbol,
-      type: 'big-long',
-      size: POSITION_SIZES.BIG,
-      timestamp: Date.now(),
-    };
+    if (!symbol || !currentPrice || !percentage) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Missing required parameters: symbol, currentPrice, percentage',
+        },
+        { status: 400 }
+      );
+    }
 
-    console.log('Executing BIG LONG for', symbol, 'with size', POSITION_SIZES.BIG);
-    console.log('Trade data:', tradeData);
+    const hlService = getHyperliquidService();
+
+    const accountBalance = await hlService.getAccountBalance();
+    const accountValue = parseFloat(accountBalance.accountValue);
+    const positionSize = (accountValue * percentage) / 100;
+
+    const formattedPrice = await hlService.formatPrice(currentPrice, symbol);
+    const coinSize = positionSize / currentPrice;
+    const formattedSize = await hlService.formatSize(coinSize, symbol);
+
+    const orderResult = await hlService.placeLimitOrder({
+      coin: symbol,
+      isBuy: true,
+      price: formattedPrice,
+      size: formattedSize,
+      reduceOnly: false,
+    });
 
     return NextResponse.json({
       success: true,
       message: `Big Long order placed for ${symbol}`,
       data: {
-        symbol: tradeData.symbol,
-        type: tradeData.type,
-        size: tradeData.size,
-        timestamp: tradeData.timestamp,
+        symbol,
+        currentPrice,
+        percentage,
+        positionSize,
+        formattedPrice,
+        formattedSize,
+        orderResult,
       },
     });
   } catch (error) {

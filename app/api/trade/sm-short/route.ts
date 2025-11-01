@@ -1,32 +1,53 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { SmShortRequest, TradeResponse, POSITION_SIZES } from '@/models/TradeRequest';
+import { getHyperliquidService } from '@/lib/services/hyperliquid.service';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export async function POST(request: NextRequest): Promise<NextResponse<TradeResponse>> {
+export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     const body = await request.json();
-    const { symbol } = body;
+    const { symbol, currentPrice, percentage } = body;
 
-    const tradeData: SmShortRequest = {
-      symbol,
-      type: 'sm-short',
-      size: POSITION_SIZES.SM,
-      timestamp: Date.now(),
-    };
+    if (!symbol || !currentPrice || !percentage) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Missing required parameters: symbol, currentPrice, percentage',
+        },
+        { status: 400 }
+      );
+    }
 
-    console.log('Executing SM SHORT for', symbol, 'with size', POSITION_SIZES.SM);
-    console.log('Trade data:', tradeData);
+    const hlService = getHyperliquidService();
+
+    const accountBalance = await hlService.getAccountBalance();
+    const accountValue = parseFloat(accountBalance.accountValue);
+    const positionSize = (accountValue * percentage) / 100;
+
+    const formattedPrice = await hlService.formatPrice(currentPrice, symbol);
+    const coinSize = positionSize / currentPrice;
+    const formattedSize = await hlService.formatSize(coinSize, symbol);
+
+    const orderResult = await hlService.placeLimitOrder({
+      coin: symbol,
+      isBuy: false,
+      price: formattedPrice,
+      size: formattedSize,
+      reduceOnly: false,
+    });
 
     return NextResponse.json({
       success: true,
       message: `Small Short order placed for ${symbol}`,
       data: {
-        symbol: tradeData.symbol,
-        type: tradeData.type,
-        size: tradeData.size,
-        timestamp: tradeData.timestamp,
+        symbol,
+        currentPrice,
+        percentage,
+        positionSize,
+        formattedPrice,
+        formattedSize,
+        orderResult,
       },
     });
   } catch (error) {

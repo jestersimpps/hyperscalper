@@ -131,6 +131,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
   const macdSeriesRefsRef = useRef<Record<string, { line: any; signal: any; histogram: any }>>({});
   const divergencePriceSeriesRef = useRef<any[]>([]);
   const divergenceStochSeriesRef = useRef<any[]>([]);
+  const stochReferenceLinesRef = useRef<any[]>([]);
   const positionLineRef = useRef<any>(null);
   const orderLinesRef = useRef<any[]>([]);
   const [chartReady, setChartReady] = useState(false);
@@ -316,8 +317,8 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
 
             dSeries.priceScale().applyOptions({
               scaleMargins: {
-                top: 0.65,
-                bottom: 0.25,
+                top: 0.70,
+                bottom: 0.20,
               },
             });
 
@@ -692,6 +693,59 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
       }
     });
   }, [chartReady, candles, interval, allMacdCandles, stochasticSettings, coin, isExternalData]);
+
+  // Stochastic reference lines (0 and 100)
+  useEffect(() => {
+    if (!chartReady || Object.keys(stochSeriesRefsRef.current).length === 0) return;
+    if (!stochasticSettings.showMultiVariant) return;
+
+    stochReferenceLinesRef.current.forEach((line) => {
+      try {
+        const firstSeries = Object.values(stochSeriesRefsRef.current)[0]?.d;
+        if (firstSeries) {
+          firstSeries.removePriceLine(line);
+        }
+      } catch (e) {}
+    });
+    stochReferenceLinesRef.current = [];
+
+    const firstSeries = Object.values(stochSeriesRefsRef.current)[0]?.d;
+    if (firstSeries) {
+      const colors = getThemeColors();
+
+      const line0 = firstSeries.createPriceLine({
+        price: 0,
+        color: colors.primaryMuted,
+        lineWidth: 2,
+        lineStyle: 1,
+        axisLabelVisible: false,
+        title: '',
+      });
+
+      const line100 = firstSeries.createPriceLine({
+        price: 100,
+        color: colors.primaryMuted,
+        lineWidth: 2,
+        lineStyle: 1,
+        axisLabelVisible: false,
+        title: '',
+      });
+
+      stochReferenceLinesRef.current.push(line0, line100);
+    }
+
+    return () => {
+      stochReferenceLinesRef.current.forEach((line) => {
+        try {
+          const firstSeries = Object.values(stochSeriesRefsRef.current)[0]?.d;
+          if (firstSeries) {
+            firstSeries.removePriceLine(line);
+          }
+        } catch (e) {}
+      });
+      stochReferenceLinesRef.current = [];
+    };
+  }, [chartReady, stochasticSettings.showMultiVariant, Object.entries(stochasticSettings.variants).filter(([_, v]) => v.enabled).map(([k]) => k).join(',')]);
 
   // Divergence detection and line drawing
   useEffect(() => {
