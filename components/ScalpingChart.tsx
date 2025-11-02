@@ -135,8 +135,8 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
   const divergencePriceSeriesRef = useRef<any[]>([]);
   const divergenceStochSeriesRef = useRef<any[]>([]);
   const stochReferenceLinesRef = useRef<any[]>([]);
-  const supportLineSeriesRef = useRef<any>(null);
-  const resistanceLineSeriesRef = useRef<any>(null);
+  const supportLineSeriesRef = useRef<any[]>([]);
+  const resistanceLineSeriesRef = useRef<any[]>([]);
   const positionLineRef = useRef<any>(null);
   const orderLinesRef = useRef<any[]>([]);
   const [chartReady, setChartReady] = useState(false);
@@ -907,66 +907,71 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
     };
   }, [chartReady, candles, interval, allMacdCandles, stochasticSettings, coin, isExternalData]);
 
-  // Trendline calculation and drawing
+  // Trendline calculation and drawing - only recalculate when new candle arrives
   useEffect(() => {
     if (!chartReady || !chartRef.current || candles.length < 30) return;
 
-    if (supportLineSeriesRef.current) {
+    supportLineSeriesRef.current.forEach((series) => {
       try {
-        chartRef.current.removeSeries(supportLineSeriesRef.current);
+        chartRef.current?.removeSeries(series);
       } catch (e) {}
-      supportLineSeriesRef.current = null;
-    }
+    });
+    supportLineSeriesRef.current = [];
 
-    if (resistanceLineSeriesRef.current) {
+    resistanceLineSeriesRef.current.forEach((series) => {
       try {
-        chartRef.current.removeSeries(resistanceLineSeriesRef.current);
+        chartRef.current?.removeSeries(series);
       } catch (e) {}
-      resistanceLineSeriesRef.current = null;
-    }
+    });
+    resistanceLineSeriesRef.current = [];
 
     const { supportLine, resistanceLine } = calculateTrendlines(candles);
+    const colors = getThemeColors();
 
-    if (supportLine.length >= 2 && resistanceLine.length >= 2) {
-      const colors = getThemeColors();
+    supportLine.forEach((line) => {
+      if (line.points.length >= 2) {
+        const supportSeries = chartRef.current!.addLineSeries({
+          color: colors.statusBullish,
+          lineWidth: 2,
+          lineStyle: line.lineStyle,
+          lastValueVisible: false,
+          priceLineVisible: false,
+        });
+        supportSeries.setData(line.points);
+        supportLineSeriesRef.current.push(supportSeries);
+      }
+    });
 
-      const supportSeries = chartRef.current.addLineSeries({
-        color: colors.statusBullish,
-        lineWidth: 2,
-        lineStyle: 0,
-        lastValueVisible: false,
-        priceLineVisible: false,
-      });
-      supportSeries.setData(supportLine);
-      supportLineSeriesRef.current = supportSeries;
-
-      const resistanceSeries = chartRef.current.addLineSeries({
-        color: colors.statusBearish,
-        lineWidth: 2,
-        lineStyle: 0,
-        lastValueVisible: false,
-        priceLineVisible: false,
-      });
-      resistanceSeries.setData(resistanceLine);
-      resistanceLineSeriesRef.current = resistanceSeries;
-    }
+    resistanceLine.forEach((line) => {
+      if (line.points.length >= 2) {
+        const resistanceSeries = chartRef.current!.addLineSeries({
+          color: colors.statusBearish,
+          lineWidth: 2,
+          lineStyle: line.lineStyle,
+          lastValueVisible: false,
+          priceLineVisible: false,
+        });
+        resistanceSeries.setData(line.points);
+        resistanceLineSeriesRef.current.push(resistanceSeries);
+      }
+    });
 
     return () => {
-      if (supportLineSeriesRef.current) {
+      supportLineSeriesRef.current.forEach((series) => {
         try {
-          chartRef.current?.removeSeries(supportLineSeriesRef.current);
+          chartRef.current?.removeSeries(series);
         } catch (e) {}
-        supportLineSeriesRef.current = null;
-      }
+      });
+      supportLineSeriesRef.current = [];
 
-      if (resistanceLineSeriesRef.current) {
+      resistanceLineSeriesRef.current.forEach((series) => {
         try {
-          chartRef.current?.removeSeries(resistanceLineSeriesRef.current);
+          chartRef.current?.removeSeries(series);
         } catch (e) {}
-        resistanceLineSeriesRef.current = null;
-      }
+      });
+      resistanceLineSeriesRef.current = [];
     };
-  }, [chartReady, candles]);
+  }, [chartReady, candles.length]);
 
   // Position price line overlay
   useEffect(() => {

@@ -604,9 +604,14 @@ export interface TrendlinePoint {
   value: number;
 }
 
+export interface TrendlineWithStyle {
+  points: TrendlinePoint[];
+  lineStyle: number;
+}
+
 export interface Trendlines {
-  supportLine: TrendlinePoint[];
-  resistanceLine: TrendlinePoint[];
+  supportLine: TrendlineWithStyle[];
+  resistanceLine: TrendlineWithStyle[];
 }
 
 interface PivotPoint {
@@ -625,6 +630,17 @@ interface ScoredLine {
   score: number;
   touches: number;
   violations: number;
+}
+
+interface Point {
+  x: number;
+  y: number;
+}
+
+interface Line {
+  start: Point;
+  end: Point;
+  strength: number;
 }
 
 function findPivotLows(candles: FullCandleData[], window: number = 3): PivotPoint[] {
@@ -697,11 +713,12 @@ function validateSupportLine(line: LineEquation, candles: FullCandleData[], thre
 
   candles.forEach(candle => {
     const lineValue = getLineValue(line, candle.time);
+    const diff = Math.abs(candle.low - lineValue) / lineValue;
 
-    // Support line MUST be below all candles
-    if (candle.low < lineValue) {
+    // Support line should be below candles (0.2% tolerance for minor wicks)
+    if (candle.low < lineValue * 0.998) {
       violations++;
-    } else if (Math.abs(candle.low - lineValue) / lineValue < threshold) {
+    } else if (diff < threshold) {
       touches++;
     }
   });
@@ -715,11 +732,12 @@ function validateResistanceLine(line: LineEquation, candles: FullCandleData[], t
 
   candles.forEach(candle => {
     const lineValue = getLineValue(line, candle.time);
+    const diff = Math.abs(candle.high - lineValue) / lineValue;
 
-    // Resistance line MUST be above all candles
-    if (candle.high > lineValue) {
+    // Resistance line should be above candles (0.2% tolerance for minor wicks)
+    if (candle.high > lineValue * 1.002) {
       violations++;
-    } else if (Math.abs(candle.high - lineValue) / lineValue < threshold) {
+    } else if (diff < threshold) {
       touches++;
     }
   });
@@ -738,73 +756,46 @@ function findBestEnvelopeLine(
   pivots: PivotPoint[],
   candles: FullCandleData[],
   isSupport: boolean,
-  threshold: number = 0.001
+  threshold: number = 0.003
 ): TrendlinePoint[] {
   if (pivots.length < 2) return [];
 
-  // Step 1: Find the two most extreme pivots
-  const sortedPivots = [...pivots].sort((a, b) =>
-    isSupport ? a.price - b.price : b.price - a.price
-  );
-
-  const extreme1 = sortedPivots[0];
-  const extreme2 = sortedPivots[1];
-
-  // Step 2: Start with a line through the two most extreme points
-  let baseLine = calculateLineEquation(extreme1, extreme2);
-
-  // Step 3: Iteratively rotate the line to touch more pivot points
   let bestLine: ScoredLine | null = null;
+  let candidatesChecked = 0;
+  let validCandidates = 0;
 
-  // Try different rotation angles by testing lines through extreme1 and each other pivot
-  for (const pivot of pivots) {
-    if (pivot.index === extreme1.index) continue;
+  // Test all combinations of pivot pairs to find the line with most touches
+  const maxCombinations = Math.min(200, (pivots.length * (pivots.length - 1)) / 2);
 
-    const line = calculateLineEquation(extreme1, pivot);
+  for (let i = 0; i < pivots.length - 1 && candidatesChecked < maxCombinations; i++) {
+    for (let j = i + 1; j < pivots.length && candidatesChecked < maxCombinations; j++) {
+      const line = calculateLineEquation(pivots[i], pivots[j]);
 
-    const validation = isSupport
-      ? validateSupportLine(line, candles, threshold)
-      : validateResistanceLine(line, candles, threshold);
+      const validation = isSupport
+        ? validateSupportLine(line, candles, threshold)
+        : validateResistanceLine(line, candles, threshold);
 
-    // Only consider lines with ZERO violations
-    if (validation.violations > 0) continue;
+      candidatesChecked++;
 
-    const score = scoreTrendline(validation.touches, validation.violations, line.slope);
+      // Only consider lines with ZERO violations
+      if (validation.violations > 0) continue;
 
-    if (!bestLine || score > bestLine.score) {
-      bestLine = {
-        equation: line,
-        score,
-        touches: validation.touches,
-        violations: validation.violations
-      };
+      validCandidates++;
+
+      const score = scoreTrendline(validation.touches, validation.violations, line.slope);
+
+      if (!bestLine || score > bestLine.score) {
+        bestLine = {
+          equation: line,
+          score,
+          touches: validation.touches,
+          violations: validation.violations
+        };
+      }
     }
   }
 
-  // Also try lines through extreme2 and each other pivot
-  for (const pivot of pivots) {
-    if (pivot.index === extreme2.index) continue;
-
-    const line = calculateLineEquation(extreme2, pivot);
-
-    const validation = isSupport
-      ? validateSupportLine(line, candles, threshold)
-      : validateResistanceLine(line, candles, threshold);
-
-    // Only consider lines with ZERO violations
-    if (validation.violations > 0) continue;
-
-    const score = scoreTrendline(validation.touches, validation.violations, line.slope);
-
-    if (!bestLine || score > bestLine.score) {
-      bestLine = {
-        equation: line,
-        score,
-        touches: validation.touches,
-        violations: validation.violations
-      };
-    }
-  }
+  console.log(`[${isSupport ? 'Support' : 'Resistance'}] Checked ${candidatesChecked} candidates, ${validCandidates} valid (zero violations), best: ${bestLine ? `${bestLine.touches} touches` : 'none'}`);
 
   if (!bestLine) {
     return [];
@@ -819,22 +810,405 @@ function findBestEnvelopeLine(
   ];
 }
 
+function getExtremeLines(
+  historicalPrices: FullCandleData[],
+  endTime: number
+): {
+  supportLine: { x: number; y: number }[];
+  resistanceLine: { x: number; y: number }[];
+  supportSlope: number;
+  resistanceSlope: number;
+  highestPriceCandle: FullCandleData;
+  secondHighestPriceCandle: FullCandleData | null;
+  lowestPriceCandle: FullCandleData;
+  secondLowestPriceCandle: FullCandleData | null;
+} {
+  let candles = [...historicalPrices];
+  candles.splice(candles.length - 3, 3);
+
+  const highestPrice = Math.max(...candles.map(x => x.high));
+  const lowestPrice = Math.min(...candles.map(x => x.low));
+  const highestPriceMapper = (x: FullCandleData) => x.high === highestPrice;
+  const lowestPriceMapper = (x: FullCandleData) => x.low === lowestPrice;
+  const highestPriceCandle: FullCandleData = candles.find(highestPriceMapper)!;
+  const highestPriceCandleIndex = candles.findIndex(highestPriceMapper);
+  const lowestPriceCandle: FullCandleData = candles.find(lowestPriceMapper)!;
+  const lowestPriceCandleIndex = candles.findIndex(lowestPriceMapper);
+  const beginTime = historicalPrices[0].time;
+  const isResistanceFrontToBack = highestPriceCandleIndex < candles.length - 1 - highestPriceCandleIndex;
+  const isSupportFrontToBack = lowestPriceCandleIndex < candles.length - 1 - lowestPriceCandleIndex;
+
+  // back to front
+
+  let backToFrontResistanceSlope = -10e99;
+  let backToFrontSecondHighestPriceCandle = null;
+  for (let index = candles.length - 1; index > highestPriceCandleIndex; index--) {
+    const currentCandle = candles[index];
+    const currentResistanceSlope = (currentCandle.high - highestPriceCandle.high) / (currentCandle.time - highestPriceCandle.time);
+    if (currentResistanceSlope > backToFrontResistanceSlope) {
+      backToFrontResistanceSlope = currentResistanceSlope;
+      backToFrontSecondHighestPriceCandle = currentCandle;
+    }
+  }
+
+  let backToFrontSupportSlope = 10e99;
+  let backToFrontSecondLowestPriceCandle = null;
+  for (let index = candles.length - 1; index > lowestPriceCandleIndex; index--) {
+    const currentCandle = candles[index];
+    const currentSupportSlope = (currentCandle.low - lowestPriceCandle.low) / (currentCandle.time - lowestPriceCandle.time);
+    if (currentSupportSlope < backToFrontSupportSlope) {
+      backToFrontSupportSlope = currentSupportSlope;
+      backToFrontSecondLowestPriceCandle = currentCandle;
+    }
+  }
+
+  // front to back
+
+  let frontToBackResistanceSlope = -10e99;
+  let frontToBackSecondHighestPriceCandle = null;
+  for (let index = 0; index < highestPriceCandleIndex; index++) {
+    const currentCandle = candles[index];
+    const currentResistanceSlope = (currentCandle.high - highestPriceCandle.high) / (currentCandle.time - highestPriceCandle.time);
+    if (currentResistanceSlope > frontToBackResistanceSlope) {
+      frontToBackResistanceSlope = currentResistanceSlope;
+      frontToBackSecondHighestPriceCandle = currentCandle;
+    }
+  }
+
+  let frontToBackSupportSlope = 10e99;
+  let frontToBackSecondLowestPriceCandle = null;
+  for (let index = 0; index < lowestPriceCandleIndex; index++) {
+    const currentCandle = candles[index];
+    const currentSupportSlope = (currentCandle.low - lowestPriceCandle.low) / (currentCandle.time - lowestPriceCandle.time);
+    if (currentSupportSlope < frontToBackSupportSlope) {
+      frontToBackSupportSlope = currentSupportSlope;
+      frontToBackSecondLowestPriceCandle = currentCandle;
+    }
+  }
+
+  let supportLine: { x: number; y: number }[] | null = null;
+  let resistanceLine: { x: number; y: number }[] | null = null;
+  let resistanceSlope: number | null = null;
+  let supportSlope: number | null = null;
+  let secondLowestPriceCandle = null;
+  let secondHighestPriceCandle = null;
+  const backToFrontResistanceIntercept = highestPriceCandle.high - backToFrontResistanceSlope * (highestPriceCandle.time - beginTime);
+  const backToFrontSupportIntercept = lowestPriceCandle.low - backToFrontSupportSlope * (lowestPriceCandle.time - beginTime);
+  const frontToBackResistanceIntercept = highestPriceCandle.high - frontToBackResistanceSlope * (highestPriceCandle.time - beginTime);
+  const frontToBackSupportIntercept = lowestPriceCandle.low - frontToBackSupportSlope * (lowestPriceCandle.time - beginTime);
+
+  if (isResistanceFrontToBack) {
+    resistanceLine = [
+      { x: beginTime, y: frontToBackResistanceIntercept },
+      {
+        x: endTime,
+        y: frontToBackResistanceSlope * (endTime - beginTime) + frontToBackResistanceIntercept
+      }
+    ];
+    resistanceSlope = frontToBackResistanceSlope;
+    secondHighestPriceCandle = frontToBackSecondHighestPriceCandle;
+  } else {
+    resistanceLine = [
+      {
+        x: highestPriceCandle.time,
+        y: backToFrontResistanceSlope * (highestPriceCandle.time - beginTime) + backToFrontResistanceIntercept
+      },
+      {
+        x: endTime,
+        y: backToFrontResistanceSlope * (endTime - beginTime) + backToFrontResistanceIntercept
+      }
+    ];
+    resistanceSlope = backToFrontResistanceSlope;
+    secondHighestPriceCandle = backToFrontSecondHighestPriceCandle;
+  }
+
+  if (isSupportFrontToBack) {
+    supportLine = [
+      { x: beginTime, y: frontToBackSupportIntercept },
+      { x: endTime, y: frontToBackSupportSlope * (endTime - beginTime) + frontToBackSupportIntercept }
+    ];
+    supportSlope = frontToBackSupportSlope;
+    secondLowestPriceCandle = frontToBackSecondLowestPriceCandle;
+  } else {
+    supportLine = [
+      {
+        x: lowestPriceCandle.time,
+        y: backToFrontSupportSlope * (lowestPriceCandle.time - beginTime) + backToFrontSupportIntercept
+      },
+      { x: endTime, y: backToFrontSupportSlope * (endTime - beginTime) + backToFrontSupportIntercept }
+    ];
+    supportSlope = backToFrontSupportSlope;
+    secondLowestPriceCandle = backToFrontSecondLowestPriceCandle;
+  }
+
+  return {
+    supportLine: supportLine!,
+    resistanceLine: resistanceLine!,
+    supportSlope: supportSlope!,
+    resistanceSlope: resistanceSlope!,
+    highestPriceCandle,
+    secondHighestPriceCandle,
+    lowestPriceCandle,
+    secondLowestPriceCandle
+  };
+}
+
+function validateTrendline(
+  line: { x: number; y: number }[],
+  candles: FullCandleData[],
+  isSupport: boolean,
+  tolerance: number = 0.001
+): { violations: number; violationRate: number } {
+  let violations = 0;
+
+  candles.forEach(candle => {
+    const timeRatio = (candle.time - line[0].x) / (line[1].x - line[0].x);
+    const lineValue = line[0].y + timeRatio * (line[1].y - line[0].y);
+
+    if (isSupport) {
+      // Support line MUST stay below candle lows (strict envelope)
+      if (candle.low < lineValue) {
+        violations++;
+      }
+    } else {
+      // Resistance line MUST stay above candle highs (strict envelope)
+      if (candle.high > lineValue) {
+        violations++;
+      }
+    }
+  });
+
+  return {
+    violations,
+    violationRate: violations / candles.length
+  };
+}
+
+function getExtremeSupportResistanceLines(
+  historicalPrices: FullCandleData[]
+): {
+  support: {
+    line: Point[];
+    slope: number;
+    lowestPriceCandle: FullCandleData;
+    secondLowestPriceCandle: FullCandleData | null;
+  }[];
+  resistance: {
+    line: Point[];
+    slope: number;
+    highestPriceCandle: FullCandleData;
+    secondHighestPriceCandle: FullCandleData | null;
+  }[];
+} {
+  const endTime = historicalPrices[historicalPrices.length - 1].time;
+  let output = {
+    support: [] as any[],
+    resistance: [] as any[]
+  };
+  let candles = [...historicalPrices];
+  const fullWidthLines = getExtremeLines(candles, endTime);
+
+  output.support.push({
+    line: fullWidthLines.supportLine,
+    slope: fullWidthLines.supportSlope,
+    lowestPriceCandle: fullWidthLines.lowestPriceCandle,
+    secondLowestPriceCandle: fullWidthLines.secondLowestPriceCandle
+  });
+  output.resistance.push({
+    line: fullWidthLines.resistanceLine,
+    slope: fullWidthLines.resistanceSlope,
+    highestPriceCandle: fullWidthLines.highestPriceCandle,
+    secondHighestPriceCandle: fullWidthLines.secondHighestPriceCandle
+  });
+
+  return output;
+}
+
+interface ScoredLine {
+  line: TrendlinePoint[];
+  score: number;
+  period: number;
+  violations: number;
+  deviation: number;
+  slope: number;
+  touches: number;
+  pivots: PivotPoint[];
+}
+
+interface LineEquationWithPivots {
+  slope: number;
+  intercept: number;
+  startPivot: PivotPoint;
+  endPivot: PivotPoint;
+}
+
+function calculateLineThroughPivots(p1: PivotPoint, p2: PivotPoint): LineEquationWithPivots {
+  const slope = (p2.price - p1.price) / (p2.time - p1.time);
+  const intercept = p1.price - slope * p1.time;
+  return { slope, intercept, startPivot: p1, endPivot: p2 };
+}
+
+function countPivotTouches(
+  line: LineEquationWithPivots,
+  pivots: PivotPoint[],
+  tolerance: number = 0.01
+): { touches: number; touchedPivots: PivotPoint[] } {
+  let touches = 0;
+  const touchedPivots: PivotPoint[] = [];
+
+  for (const pivot of pivots) {
+    const lineValue = line.slope * pivot.time + line.intercept;
+    const diff = Math.abs(pivot.price - lineValue) / pivot.price;
+    if (diff < tolerance) {
+      touches++;
+      touchedPivots.push(pivot);
+    }
+  }
+
+  return { touches, touchedPivots };
+}
+
+function findBestTrendlineForPeriod(
+  pivots: PivotPoint[],
+  candles: FullCandleData[],
+  isSupport: boolean,
+  period: number,
+  lastPrice: number,
+  actualEndTime: number
+): ScoredLine | null {
+  if (pivots.length < 3) return null;
+
+  const recentCandles = candles.slice(-20);
+  const avgCandleHeight = recentCandles.reduce((sum, c) => sum + (c.high - c.low), 0) / recentCandles.length;
+  const maxDistanceFromPrice = avgCandleHeight * 10;
+
+  let bestLine: ScoredLine | null = null;
+
+  const maxCombinations = Math.min(100, (pivots.length * (pivots.length - 1)) / 2);
+  let combinationsTested = 0;
+
+  for (let i = 0; i < pivots.length - 1 && combinationsTested < maxCombinations; i++) {
+    for (let j = i + 1; j < pivots.length && combinationsTested < maxCombinations; j++) {
+      const lineEq = calculateLineThroughPivots(pivots[i], pivots[j]);
+      combinationsTested++;
+
+      const { touches, touchedPivots } = countPivotTouches(lineEq, pivots, 0.003);
+
+      if (touches < 3) continue;
+
+      const startTime = candles[0].time;
+      const endTime = candles[candles.length - 1].time;
+      const startValue = lineEq.slope * startTime + lineEq.intercept;
+      const endValue = lineEq.slope * endTime + lineEq.intercept;
+
+      const line = [
+        { x: startTime, y: startValue },
+        { x: endTime, y: endValue }
+      ];
+
+      const validation = validateTrendline(line, candles, isSupport, 0.001);
+
+      if (validation.violationRate > 0.02) continue;
+
+      const deviation = Math.abs(endValue - lastPrice) / lastPrice;
+
+      if (deviation > 0.05) continue;
+
+      const absoluteDistance = Math.abs(endValue - lastPrice);
+
+      if (absoluteDistance > maxDistanceFromPrice) continue;
+
+      const score = touches * 1000 - deviation * 100;
+
+      const actualEndValue = lineEq.slope * actualEndTime + lineEq.intercept;
+
+      if (!bestLine || score > bestLine.score) {
+        bestLine = {
+          line: [
+            { time: startTime / 1000, value: startValue },
+            { time: actualEndTime / 1000, value: actualEndValue }
+          ],
+          score,
+          period,
+          violations: validation.violations,
+          deviation,
+          slope: lineEq.slope,
+          touches,
+          pivots: touchedPivots
+        };
+      }
+    }
+  }
+
+  return bestLine;
+}
+
 export function calculateTrendlines(candles: FullCandleData[]): Trendlines {
-  const candlesForCalculation = candles.slice(0, -10);
-
-  if (candlesForCalculation.length < 20) {
+  if (candles.length < 30) {
+    console.log('[Trendlines] Not enough candles:', candles.length);
     return { supportLine: [], resistanceLine: [] };
   }
 
-  const pivotLows = findPivotLows(candlesForCalculation, 3);
-  const pivotHighs = findPivotHighs(candlesForCalculation, 3);
+  const excludeLastCandles = 10;
+  const lastPrice = candles[candles.length - 1 - excludeLastCandles].close;
 
-  if (pivotLows.length < 3 || pivotHighs.length < 3) {
-    return { supportLine: [], resistanceLine: [] };
+  const minPeriod = 20;
+  const maxPeriod = candles.length - excludeLastCandles;
+  const step = 10;
+  const lookbackPeriods: number[] = [];
+  for (let period = minPeriod; period <= maxPeriod; period += step) {
+    lookbackPeriods.push(period);
   }
 
-  const supportLine = findBestEnvelopeLine(pivotLows, candlesForCalculation, true);
-  const resistanceLine = findBestEnvelopeLine(pivotHighs, candlesForCalculation, false);
+  const supportCandidates: ScoredLine[] = [];
+  const resistanceCandidates: ScoredLine[] = [];
 
-  return { supportLine, resistanceLine };
+  const actualEndTime = candles[candles.length - 1].time;
+
+  for (const period of lookbackPeriods) {
+    const candleSubset = candles.slice(-(period + excludeLastCandles), -excludeLastCandles);
+
+    if (candleSubset.length < 20) continue;
+
+    const pivotLows = findPivotLows(candleSubset, 3);
+    const pivotHighs = findPivotHighs(candleSubset, 3);
+
+    const supportLine = findBestTrendlineForPeriod(pivotLows, candleSubset, true, period, lastPrice, actualEndTime);
+    const resistanceLine = findBestTrendlineForPeriod(pivotHighs, candleSubset, false, period, lastPrice, actualEndTime);
+
+    if (supportLine) {
+      supportCandidates.push(supportLine);
+    }
+
+    if (resistanceLine) {
+      resistanceCandidates.push(resistanceLine);
+    }
+  }
+
+  supportCandidates.sort((a, b) => b.score - a.score);
+  resistanceCandidates.sort((a, b) => b.score - a.score);
+
+  const topSupport = supportCandidates.slice(0, 1);
+  const topResistance = resistanceCandidates.slice(0, 1);
+
+  console.log(`[Trendlines] Found ${supportCandidates.length} valid support, ${resistanceCandidates.length} valid resistance out of ${lookbackPeriods.length} periods`);
+  console.log('[Trendlines] Top Support:');
+  topSupport.forEach((s, i) => {
+    console.log(`  ${i + 1}. Period ${s.period}, Touches ${s.touches}, Score ${s.score.toFixed(0)}, Deviation ${(s.deviation * 100).toFixed(2)}%, Violations ${s.violations}`);
+  });
+  console.log('[Trendlines] Top Resistance:');
+  topResistance.forEach((r, i) => {
+    console.log(`  ${i + 1}. Period ${r.period}, Touches ${r.touches}, Score ${r.score.toFixed(0)}, Deviation ${(r.deviation * 100).toFixed(2)}%, Violations ${r.violations}`);
+  });
+
+  return {
+    supportLine: topSupport.map((s) => ({
+      points: s.line,
+      lineStyle: 0
+    })),
+    resistanceLine: topResistance.map((r) => ({
+      points: r.line,
+      lineStyle: 0
+    }))
+  };
 }
