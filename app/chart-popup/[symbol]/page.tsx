@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, use, useMemo, useEffect } from 'react';
+import { use, useState, useMemo, useEffect } from 'react';
 import ScalpingChart from '@/components/ScalpingChart';
 import { useSymbolMetaStore } from '@/stores/useSymbolMetaStore';
 import { useCandleStore } from '@/stores/useCandleStore';

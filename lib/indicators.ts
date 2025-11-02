@@ -1,4 +1,5 @@
 import type { CandleData as FullCandleData } from '@/types';
+import { createMemoizedFunction, createCandleBasedMemoization } from './memoization';
 
 export interface Pivot {
   index: number;
@@ -795,7 +796,6 @@ function findBestEnvelopeLine(
     }
   }
 
-  console.log(`[${isSupport ? 'Support' : 'Resistance'}] Checked ${candidatesChecked} candidates, ${validCandidates} valid (zero violations), best: ${bestLine ? `${bestLine.touches} touches` : 'none'}`);
 
   if (!bestLine) {
     return [];
@@ -1145,7 +1145,6 @@ function findBestTrendlineForPeriod(
 
 export function calculateTrendlines(candles: FullCandleData[]): Trendlines {
   if (candles.length < 30) {
-    console.log('[Trendlines] Not enough candles:', candles.length);
     return { supportLine: [], resistanceLine: [] };
   }
 
@@ -1191,16 +1190,6 @@ export function calculateTrendlines(candles: FullCandleData[]): Trendlines {
   const topSupport = supportCandidates.slice(0, 1);
   const topResistance = resistanceCandidates.slice(0, 1);
 
-  console.log(`[Trendlines] Found ${supportCandidates.length} valid support, ${resistanceCandidates.length} valid resistance out of ${lookbackPeriods.length} periods`);
-  console.log('[Trendlines] Top Support:');
-  topSupport.forEach((s, i) => {
-    console.log(`  ${i + 1}. Period ${s.period}, Touches ${s.touches}, Score ${s.score.toFixed(0)}, Deviation ${(s.deviation * 100).toFixed(2)}%, Violations ${s.violations}`);
-  });
-  console.log('[Trendlines] Top Resistance:');
-  topResistance.forEach((r, i) => {
-    console.log(`  ${i + 1}. Period ${r.period}, Touches ${r.touches}, Score ${r.score.toFixed(0)}, Deviation ${(r.deviation * 100).toFixed(2)}%, Violations ${r.violations}`);
-  });
-
   return {
     supportLine: topSupport.map((s) => ({
       points: s.line,
@@ -1212,3 +1201,39 @@ export function calculateTrendlines(candles: FullCandleData[]): Trendlines {
     }))
   };
 }
+
+export const calculateEMAMemoized = createMemoizedFunction(
+  calculateEMA,
+  (data: number[], period: number) => {
+    if (!data || data.length === 0) return 'empty';
+    const first = data[0];
+    const last = data[data.length - 1];
+    return `ema-${data.length}-${first}-${last}-${period}`;
+  },
+  100,
+  60000
+);
+
+export const calculateMACDMemoized = createMemoizedFunction(
+  calculateMACD,
+  (data: number[], fastPeriod: number, slowPeriod: number, signalPeriod: number) => {
+    if (!data || data.length === 0) return 'empty';
+    const first = data[0];
+    const last = data[data.length - 1];
+    return `macd-${data.length}-${first}-${last}-${fastPeriod}-${slowPeriod}-${signalPeriod}`;
+  },
+  100,
+  60000
+);
+
+export const calculateStochasticMemoized = createMemoizedFunction(
+  calculateStochastic,
+  (candles: CandleData[], period: number = 14, smoothK: number = 3, smoothD: number = 3) => {
+    if (!candles || candles.length === 0) return 'empty';
+    const first = candles[0];
+    const last = candles[candles.length - 1];
+    return `stoch-${candles.length}-${first.close}-${last.close}-${period}-${smoothK}-${smoothD}`;
+  },
+  100,
+  60000
+);

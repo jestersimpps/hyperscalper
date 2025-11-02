@@ -92,25 +92,23 @@ export const useCandleStore = create<CandleStore>((set, get) => ({
         { coin, interval },
         (candle) => {
           const state = get();
-          const existingCandles = state.candles[key] || [];
+          const existingCandles = state.candles[key];
 
-          if (existingCandles.length === 0) return;
+          if (!existingCandles || existingCandles.length === 0) return;
 
           const formattedCandle = formatCandle(candle, coin);
           const lastCandle = existingCandles[existingCandles.length - 1];
 
           if (candle.time === lastCandle.time) {
-            const updatedCandles = [...existingCandles];
+            const updatedCandles = existingCandles.slice();
             updatedCandles[updatedCandles.length - 1] = formattedCandle;
 
             set((state) => ({
               candles: { ...state.candles, [key]: updatedCandles },
             }));
           } else if (candle.time > lastCandle.time) {
-            const updatedCandles = [...existingCandles, formattedCandle];
-
             set((state) => ({
-              candles: { ...state.candles, [key]: updatedCandles },
+              candles: { ...state.candles, [key]: [...state.candles[key], formattedCandle] },
             }));
           }
         }

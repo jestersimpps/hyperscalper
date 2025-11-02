@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, memo } from 'react';
 import { useCandleStore } from '@/stores/useCandleStore';
 import { useSettingsStore } from '@/stores/useSettingsStore';
 import { useTradesStore } from '@/stores/useTradesStore';
@@ -9,6 +9,9 @@ import {
   calculateStochastic,
   calculateMACD,
   calculateEMA,
+  calculateStochasticMemoized,
+  calculateMACDMemoized,
+  calculateEMAMemoized,
   detectEmaAlignment,
   getStochasticZone,
   getStochasticTrend,
@@ -47,14 +50,19 @@ const formatVolume = (volume: number): string => {
   return volume.toFixed(2);
 };
 
-export default function IndicatorSignals({ coin }: IndicatorSignalsProps) {
+function IndicatorSignals({ coin }: IndicatorSignalsProps) {
   const stochasticSettings = useSettingsStore((state) => state.settings.indicators.stochastic);
   const emaSettings = useSettingsStore((state) => state.settings.indicators.ema);
   const macdSettings = useSettingsStore((state) => state.settings.indicators.macd);
 
   const subscribeToCandles = useCandleStore((state) => state.subscribeToCandles);
   const unsubscribeFromCandles = useCandleStore((state) => state.unsubscribeFromCandles);
-  const candles = useCandleStore((state) => state.candles);
+
+  const candles1m = useCandleStore((state) => state.candles[`${coin}-1m`]);
+  const candles5m = useCandleStore((state) => state.candles[`${coin}-5m`]);
+  const candles15m = useCandleStore((state) => state.candles[`${coin}-15m`]);
+  const candles1h = useCandleStore((state) => state.candles[`${coin}-1h`]);
+
   const tradesRecord = useTradesStore((state) => state.trades);
   const trades = useMemo(() => tradesRecord[coin] || [], [tradesRecord, coin]);
 
@@ -86,6 +94,7 @@ export default function IndicatorSignals({ coin }: IndicatorSignalsProps) {
 
   const stochasticStats = useMemo(() => {
     if (!stochasticSettings.showMultiVariant) return [];
+    if (!candles1m || candles1m.length === 0) return [];
 
     const stats: Array<{
       variant: string;
@@ -95,14 +104,11 @@ export default function IndicatorSignals({ coin }: IndicatorSignalsProps) {
       trend: TrendDirection;
     }> = [];
 
-    const candleData = candles[`${coin}-1m`];
-    if (!candleData || candleData.length === 0) return [];
-
     Object.entries(stochasticSettings.variants).forEach(([variantName, settings]) => {
       if (!settings.enabled) return;
 
-      const stochData = calculateStochastic(
-        candleData,
+      const stochData = calculateStochasticMemoized(
+        candles1m,
         settings.period,
         settings.smoothK,
         settings.smoothD
@@ -128,22 +134,21 @@ export default function IndicatorSignals({ coin }: IndicatorSignalsProps) {
     });
 
     return stats;
-  }, [coin, candles, stochasticSettings]);
+  }, [candles1m, stochasticSettings]);
 
   const emaSignal = useMemo(() => {
-    const candleData = candles[`${coin}-1m`];
-    if (!candleData || candleData.length === 0) return null;
+    if (!candles1m || candles1m.length === 0) return null;
 
     const ema1Period = emaSettings.ema1.enabled ? emaSettings.ema1.period : 5;
     const ema2Period = emaSettings.ema2.enabled ? emaSettings.ema2.period : 13;
     const ema3Period = emaSettings.ema3.enabled ? emaSettings.ema3.period : 21;
 
-    const alignment = detectEmaAlignment(candleData, ema1Period, ema2Period, ema3Period, 5);
+    const alignment = detectEmaAlignment(candles1m, ema1Period, ema2Period, ema3Period, 5);
 
-    const closes = candleData.map((c) => c.close);
-    const ema1Values = calculateEMA(closes, ema1Period);
-    const ema2Values = calculateEMA(closes, ema2Period);
-    const ema3Values = calculateEMA(closes, ema3Period);
+    const closes = candles1m.map((c) => c.close);
+    const ema1Values = calculateEMAMemoized(closes, ema1Period);
+    const ema2Values = calculateEMAMemoized(closes, ema2Period);
+    const ema3Values = calculateEMAMemoized(closes, ema3Period);
 
     if (ema1Values.length === 0 || ema2Values.length === 0 || ema3Values.length === 0) {
       return null;
@@ -170,7 +175,7 @@ export default function IndicatorSignals({ coin }: IndicatorSignalsProps) {
       ema2,
       ema3,
     };
-  }, [coin, candles, emaSettings]);
+  }, [candles1m, emaSettings]);
 
   const macdStats = useMemo(() => {
     if (!macdSettings.showMultiTimeframe) return [];
@@ -184,14 +189,21 @@ export default function IndicatorSignals({ coin }: IndicatorSignalsProps) {
       turnPoint: MacdTurnPoint;
     }> = [];
 
+    const candlesByTimeframe: Record<string, any[] | undefined> = {
+      '1m': candles1m,
+      '5m': candles5m,
+      '15m': candles15m,
+      '1h': candles1h,
+    };
+
     Object.entries(macdSettings.timeframes).forEach(([tf, settings]) => {
       if (!settings.enabled) return;
 
-      const candleData = candles[`${coin}-${tf}`];
+      const candleData = candlesByTimeframe[tf];
       if (!candleData || candleData.length === 0) return;
 
       const closes = candleData.map((c) => c.close);
-      const macdData = calculateMACD(closes, settings.fastPeriod, settings.slowPeriod, settings.signalPeriod);
+      const macdData = calculateMACDMemoized(closes, settings.fastPeriod, settings.slowPeriod, settings.signalPeriod);
 
       if (macdData.macd.length === 0) return;
 
@@ -210,7 +222,7 @@ export default function IndicatorSignals({ coin }: IndicatorSignalsProps) {
     });
 
     return stats;
-  }, [coin, candles, macdSettings]);
+  }, [candles1m, candles5m, candles15m, candles1h, macdSettings]);
 
   const volumeFlowData = useMemo(() => {
     const mappedTrades = trades.map((t: Trade) => ({
@@ -333,3 +345,5 @@ export default function IndicatorSignals({ coin }: IndicatorSignalsProps) {
     </div>
   );
 }
+
+export default memo(IndicatorSignals);
