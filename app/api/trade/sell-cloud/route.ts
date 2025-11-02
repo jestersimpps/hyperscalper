@@ -25,7 +25,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const priceLevels: number[] = [];
     for (let i = 1; i <= ORDER_COUNT; i++) {
-      const level = currentPrice + (priceInterval * i / ORDER_COUNT);
+      const level = currentPrice + (2 * priceInterval * i / ORDER_COUNT);
       priceLevels.push(level);
     }
 
@@ -33,46 +33,67 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const accountValue = parseFloat(accountBalance.accountValue);
     const cloudSize = (accountValue * percentage) / 100;
 
-    const placedOrders = [];
-    const errors = [];
-
+    const orderParams = [];
     for (const level of priceLevels) {
-      try {
-        const formattedPrice = await hlService.formatPrice(level, symbol);
-        const coinSize = cloudSize / level;
-        const formattedSize = await hlService.formatSize(coinSize, symbol);
+      const formattedPrice = await hlService.formatPrice(level, symbol);
+      const coinSize = cloudSize / level;
+      const formattedSize = await hlService.formatSize(coinSize, symbol);
 
-        const orderResult = await hlService.placeLimitOrder({
-          coin: symbol,
-          isBuy: false,
-          price: formattedPrice,
-          size: formattedSize,
-          reduceOnly: false,
-        });
-
-        placedOrders.push({
-          price: formattedPrice,
-          size: formattedSize,
-          result: orderResult,
-        });
-      } catch (error) {
-        errors.push({
-          price: level,
-          error: error instanceof Error ? error.message : 'Unknown error',
-        });
-      }
+      orderParams.push({
+        coin: symbol,
+        isBuy: false,
+        price: formattedPrice,
+        size: formattedSize,
+        reduceOnly: false,
+      });
     }
 
+    const result = await hlService.placeBatchLimitOrders(orderParams);
+
+    const totalCoinSize = orderParams.reduce((sum, order) => sum + parseFloat(order.size), 0);
+    const formattedTotalSize = await hlService.formatSize(totalCoinSize, symbol);
+
+    const stopLossPrice = currentPrice + (4 * priceInterval);
+    const formattedStopLoss = await hlService.formatPrice(stopLossPrice, symbol);
+
+    const TAKER_FEE_PERCENT = 0.1;
+    const takeProfitPrice = currentPrice * (1 - (1 + TAKER_FEE_PERCENT) / 100);
+    const formattedTakeProfit = await hlService.formatPrice(takeProfitPrice, symbol);
+
+    const stopLossResult = await hlService.placeStopLoss({
+      coin: symbol,
+      triggerPrice: formattedStopLoss,
+      size: formattedTotalSize,
+      isBuy: true,
+    });
+
+    const takeProfitResult = await hlService.placeTakeProfit({
+      coin: symbol,
+      triggerPrice: formattedTakeProfit,
+      size: formattedTotalSize,
+      isBuy: true,
+    });
+
     return NextResponse.json({
-      success: placedOrders.length > 0,
-      message: `Placed ${placedOrders.length} sell cloud orders for ${symbol}`,
+      success: true,
+      message: `Placed ${orderParams.length} sell cloud orders with SL/TP for ${symbol}`,
       data: {
         symbol,
         currentPrice,
         priceInterval,
         priceLevels,
-        placedOrders,
-        errors: errors.length > 0 ? errors : undefined,
+        orders: orderParams,
+        result,
+        stopLoss: {
+          price: formattedStopLoss,
+          size: formattedTotalSize,
+          result: stopLossResult,
+        },
+        takeProfit: {
+          price: formattedTakeProfit,
+          size: formattedTotalSize,
+          result: takeProfitResult,
+        },
       },
     });
   } catch (error) {

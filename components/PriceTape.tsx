@@ -228,7 +228,7 @@ export default function PriceTape({ coin, position, orders = [] }: PriceTapeProp
         };
       },
     });
-  }, [ordersKey, position?.entryPrice, candles]);
+  }, [coin, ordersKey, position?.entryPrice, candles]);
 
   useEffect(() => {
     if (!chartReadyRef.current || !lineSeriesRef.current) return;
@@ -251,7 +251,7 @@ export default function PriceTape({ coin, position, orders = [] }: PriceTapeProp
         price: formattedPrice,
         color: isLong ? colors.statusBullish : colors.statusBearish,
         lineWidth: 2,
-        lineStyle: 2,
+        lineStyle: 0,
         axisLabelVisible: true,
         title: `ENTRY ${position.side.toUpperCase()}`,
       });
@@ -266,7 +266,7 @@ export default function PriceTape({ coin, position, orders = [] }: PriceTapeProp
         positionLineRef.current = null;
       }
     };
-  }, [position?.entryPrice, position?.side, decimals.price]);
+  }, [coin, position?.entryPrice, position?.side, decimals.price]);
 
   useEffect(() => {
     if (!chartReadyRef.current || !lineSeriesRef.current) return;
@@ -285,8 +285,10 @@ export default function PriceTape({ coin, position, orders = [] }: PriceTapeProp
       const isBuy = order.side === 'buy';
       const formattedPrice = parseFloat(order.price.toFixed(decimals.price));
 
-      let lineStyle = 0;
-      if (order.orderType === 'stop' || order.orderType === 'tp') {
+      let lineStyle = 1;
+      if (order.orderType === 'stop') {
+        lineStyle = 3;
+      } else if (order.orderType === 'tp') {
         lineStyle = 1;
       } else if (order.orderType === 'trigger') {
         lineStyle = 3;
@@ -315,7 +317,7 @@ export default function PriceTape({ coin, position, orders = [] }: PriceTapeProp
       });
       orderLinesRef.current = [];
     };
-  }, [ordersKey, decimals.price]);
+  }, [coin, ordersKey, decimals.price]);
 
   return (
     <div className="relative w-full h-full min-h-[300px] terminal-border p-1.5">

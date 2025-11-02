@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import ScalpingChart from '@/components/ScalpingChart';
 import BTCChart from '@/components/BTCChart';
 import MarketStats from '@/components/MarketStats';
@@ -23,7 +23,7 @@ interface SymbolViewProps {
   coin: string;
 }
 
-export default function SymbolView({ coin }: SymbolViewProps) {
+function SymbolView({ coin }: SymbolViewProps) {
   const [currentPrice, setCurrentPrice] = useState(0);
   const [newTradeKeys, setNewTradeKeys] = useState<Set<string>>(new Set());
 
@@ -351,6 +351,20 @@ export default function SymbolView({ coin }: SymbolViewProps) {
     }
   }, [coin]);
 
+  const handleCancelAllOrders = useCallback(async () => {
+    try {
+      const response = await fetch('/api/orders/cancel-all', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ symbol: coin }),
+      });
+      const data = await response.json();
+      console.log('Cancel all orders response:', data);
+    } catch (error) {
+      console.error('Error cancelling all orders:', error);
+    }
+  }, [coin]);
+
   const keyBindings: KeyBinding[] = [
     { key: 'q', action: handleBuyCloud, description: 'Buy Cloud' },
     { key: 'w', action: handleSellCloud, description: 'Sell Cloud' },
@@ -512,6 +526,13 @@ export default function SymbolView({ coin }: SymbolViewProps) {
                       <span className="text-primary-muted/60 text-[10px] font-bold mr-1">4</span>
                       █ CLOSE 100%
                     </button>
+                    <button
+                      className="col-span-2 px-2 py-1.5 bg-accent-orange/10 border border-accent-orange/30 text-accent-orange hover:bg-accent-orange/20 hover:border-accent-orange/50 transition-all rounded-sm hover:shadow-[0_0_8px_rgba(255,165,0,0.3)]"
+                      onClick={handleCancelAllOrders}
+                      disabled={orders.length === 0}
+                    >
+                      ✕ CANCEL ALL ORDERS
+                    </button>
                   </div>
                 </div>
               </div>
@@ -608,3 +629,5 @@ export default function SymbolView({ coin }: SymbolViewProps) {
     </div>
   );
 }
+
+export default memo(SymbolView);

@@ -73,6 +73,7 @@ export interface IHyperliquidService {
   placeMarketBuy(coin: string, size: string): Promise<any>;
   placeMarketSell(coin: string, size: string): Promise<any>;
   placeLimitOrder(params: OrderParams): Promise<any>;
+  placeBatchLimitOrders(orders: OrderParams[]): Promise<any>;
   placeStopLoss(params: StopLossParams): Promise<any>;
   placeTakeProfit(params: TakeProfitParams): Promise<any>;
 
@@ -80,6 +81,8 @@ export interface IHyperliquidService {
   getOpenPositions(user?: string): Promise<any[]>;
   getAccountBalance(user?: string): Promise<AccountBalance>;
   getOpenOrders(user?: string): Promise<any[]>;
+  cancelOrder(coin: string, orderId: number): Promise<any>;
+  cancelAllOrders(coin: string): Promise<any>;
 
   openLong(params: LongParams): Promise<any>;
   openShort(params: ShortParams): Promise<any>;

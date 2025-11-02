@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import type { CandleData, TimeInterval } from '@/types';
 import type { Position } from '@/models/Position';
 import type { Order } from '@/models/Order';
@@ -13,6 +13,9 @@ import {
   calculateEMA,
   calculateMACD,
   calculateStochastic,
+  calculateEMAMemoized,
+  calculateMACDMemoized,
+  calculateStochasticMemoized,
   detectPivots,
   detectStochasticPivots,
   detectDivergence,
@@ -139,6 +142,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
   const resistanceLineSeriesRef = useRef<any[]>([]);
   const positionLineRef = useRef<any>(null);
   const orderLinesRef = useRef<any[]>([]);
+  const cachedTrendlinesRef = useRef<{ supportLine: any[]; resistanceLine: any[] }>({ supportLine: [], resistanceLine: [] });
   const [chartReady, setChartReady] = useState(false);
   const candlesBufferRef = useRef<CandleData[]>([]);
   const lastCandleTimeRef = useRef<number | null>(null);
@@ -547,6 +551,30 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
     lastCandleTimeRef.current = null;
   }, [interval]);
 
+  const closePrices = useMemo(() => candles.map(c => c.close), [candles]);
+
+  const ema1 = useMemo(() =>
+    emaSettings.ema1.enabled ? calculateEMAMemoized(closePrices, emaSettings.ema1.period) : [],
+    [closePrices, emaSettings.ema1.enabled, emaSettings.ema1.period]
+  );
+
+  const ema2 = useMemo(() =>
+    emaSettings.ema2.enabled ? calculateEMAMemoized(closePrices, emaSettings.ema2.period) : [],
+    [closePrices, emaSettings.ema2.enabled, emaSettings.ema2.period]
+  );
+
+  const ema3 = useMemo(() =>
+    emaSettings.ema3.enabled ? calculateEMAMemoized(closePrices, emaSettings.ema3.period) : [],
+    [closePrices, emaSettings.ema3.enabled, emaSettings.ema3.period]
+  );
+
+  const macdResult = useMemo(() => {
+    const macdIntervalConfig = macdSettings.timeframes?.[interval];
+    return (!macdSettings.showMultiTimeframe && macdIntervalConfig?.enabled)
+      ? calculateMACDMemoized(closePrices, macdIntervalConfig.fastPeriod, macdIntervalConfig.slowPeriod, macdIntervalConfig.signalPeriod)
+      : { macd: [], signal: [], histogram: [] };
+  }, [closePrices, macdSettings.showMultiTimeframe, macdSettings.timeframes, interval]);
+
   useEffect(() => {
     if (!chartReady || !candleSeriesRef.current || candles.length === 0) return;
 
@@ -566,16 +594,6 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
       value: c.volume,
       color: c.close >= c.open ? colors.statusBullish + '80' : colors.statusBearish + '80',
     }));
-
-    const closePrices = candles.map(c => c.close);
-    const ema1 = emaSettings.ema1.enabled ? calculateEMA(closePrices, emaSettings.ema1.period) : [];
-    const ema2 = emaSettings.ema2.enabled ? calculateEMA(closePrices, emaSettings.ema2.period) : [];
-    const ema3 = emaSettings.ema3.enabled ? calculateEMA(closePrices, emaSettings.ema3.period) : [];
-
-    const macdIntervalConfig = macdSettings.timeframes?.[interval];
-    const macdResult = (!macdSettings.showMultiTimeframe && macdIntervalConfig?.enabled)
-      ? calculateMACD(closePrices, macdIntervalConfig.fastPeriod, macdIntervalConfig.slowPeriod, macdIntervalConfig.signalPeriod)
-      : { macd: [], signal: [], histogram: [] };
 
     const lastCandle = candles[candles.length - 1];
     const isNewCandle = lastCandleTimeRef.current !== null && lastCandle.time !== lastCandleTimeRef.current;
@@ -691,7 +709,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
     if (onPriceUpdate) {
       onPriceUpdate(lastCandle.close);
     }
-  }, [candles, chartReady, onPriceUpdate, emaSettings, macdSettings]);
+  }, [candles, chartReady, onPriceUpdate, ema1, ema2, ema3, macdResult, emaSettings.ema1.enabled, emaSettings.ema2.enabled, emaSettings.ema3.enabled, macdSettings.enabled]);
 
 
   // MACD multi-timeframe data update
@@ -813,13 +831,37 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
     };
   }, [chartReady, stochasticSettings.showMultiVariant, Object.entries(stochasticSettings.variants).filter(([_, v]) => v.enabled).map(([k]) => k).join(',')]);
 
-  // Divergence detection and line drawing
-  useEffect(() => {
-    if (!chartReady || !chartRef.current) return;
-    if (!stochasticSettings.showMultiVariant || !stochasticSettings.showDivergence) return;
+  const divergenceData = useMemo(() => {
+    if (!stochasticSettings.showMultiVariant || !stochasticSettings.showDivergence) {
+      return { divergences: [], enabled: false };
+    }
 
     const stochCandles = interval === '1m' ? candles : (isExternalData ? allMacdCandles['1m'] : useCandleStore.getState().candles[`${coin}-1m`]);
-    if (!stochCandles || stochCandles.length < 50) return;
+    if (!stochCandles || stochCandles.length < 50) {
+      return { divergences: [], enabled: false };
+    }
+
+    const variantToUse = stochasticSettings.divergenceVariant || 'fast14';
+    const variantConfig = stochasticSettings.variants[variantToUse];
+
+    if (!variantConfig || !variantConfig.enabled) {
+      return { divergences: [], enabled: false };
+    }
+
+    const stochData = calculateStochasticMemoized(stochCandles, variantConfig.period, variantConfig.smoothK, variantConfig.smoothD);
+    if (stochData.length === 0) {
+      return { divergences: [], enabled: false };
+    }
+
+    const pricePivots = detectPivots(stochCandles, 3);
+    const stochPivots = detectStochasticPivots(stochData, stochCandles, 3);
+    const divergences = detectDivergence(pricePivots, stochPivots, stochCandles);
+
+    return { divergences, enabled: true };
+  }, [candles.length, interval, allMacdCandles, stochasticSettings.showMultiVariant, stochasticSettings.showDivergence, stochasticSettings.divergenceVariant, coin, isExternalData]);
+
+  useEffect(() => {
+    if (!chartReady || !chartRef.current || !divergenceData.enabled) return;
 
     divergencePriceSeriesRef.current.forEach((series) => {
       try {
@@ -835,18 +877,6 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
     });
     divergenceStochSeriesRef.current = [];
 
-    const variantToUse = stochasticSettings.divergenceVariant || 'fast14';
-    const variantConfig = stochasticSettings.variants[variantToUse];
-
-    if (!variantConfig || !variantConfig.enabled) return;
-
-    const stochData = calculateStochastic(stochCandles, variantConfig.period, variantConfig.smoothK, variantConfig.smoothD);
-    if (stochData.length === 0) return;
-
-    const pricePivots = detectPivots(stochCandles, 3);
-    const stochPivots = detectStochasticPivots(stochData, stochCandles, 3);
-    const divergences = detectDivergence(pricePivots, stochPivots, stochCandles);
-
     const colors = getThemeColors();
     const colorMap = {
       'bullish': colors.statusBullish,
@@ -855,7 +885,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
       'hidden-bearish': colors.accentRose,
     };
 
-    divergences.forEach((div) => {
+    divergenceData.divergences.forEach((div) => {
       const priceSeries = chartRef.current?.addLineSeries({
         color: colorMap[div.type],
         lineWidth: 2,
@@ -905,11 +935,25 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
       });
       divergenceStochSeriesRef.current = [];
     };
-  }, [chartReady, candles, interval, allMacdCandles, stochasticSettings, coin, isExternalData]);
+  }, [chartReady, divergenceData]);
 
-  // Trendline calculation and drawing - only recalculate when new candle arrives
+  const trendlines = useMemo(() => {
+    if (candles.length < 30) {
+      cachedTrendlinesRef.current = { supportLine: [], resistanceLine: [] };
+      return cachedTrendlinesRef.current;
+    }
+
+    if (candles.length % 5 !== 0) {
+      return cachedTrendlinesRef.current;
+    }
+
+    const newTrendlines = calculateTrendlines(candles);
+    cachedTrendlinesRef.current = newTrendlines;
+    return newTrendlines;
+  }, [candles]);
+
   useEffect(() => {
-    if (!chartReady || !chartRef.current || candles.length < 30) return;
+    if (!chartReady || !chartRef.current || trendlines.supportLine.length === 0) return;
 
     supportLineSeriesRef.current.forEach((series) => {
       try {
@@ -925,10 +969,9 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
     });
     resistanceLineSeriesRef.current = [];
 
-    const { supportLine, resistanceLine } = calculateTrendlines(candles);
     const colors = getThemeColors();
 
-    supportLine.forEach((line) => {
+    trendlines.supportLine.forEach((line) => {
       if (line.points.length >= 2) {
         const supportSeries = chartRef.current!.addLineSeries({
           color: colors.statusBullish,
@@ -942,7 +985,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
       }
     });
 
-    resistanceLine.forEach((line) => {
+    trendlines.resistanceLine.forEach((line) => {
       if (line.points.length >= 2) {
         const resistanceSeries = chartRef.current!.addLineSeries({
           color: colors.statusBearish,
@@ -971,7 +1014,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
       });
       resistanceLineSeriesRef.current = [];
     };
-  }, [chartReady, candles.length]);
+  }, [chartReady, trendlines]);
 
   // Position price line overlay
   useEffect(() => {
@@ -993,7 +1036,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
         price: position.entryPrice,
         color: isLong ? colors.statusBullish : colors.statusBearish,
         lineWidth: 2,
-        lineStyle: 2, // dashed
+        lineStyle: 0, // solid
         axisLabelVisible: true,
         title: `ENTRY ${position.side.toUpperCase()}`,
       });
@@ -1035,12 +1078,12 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
         const color = isBuy ? colors.statusBullish : colors.statusBearish;
 
         // Determine line style based on order type
-        let lineStyle = 0; // solid for regular limit orders
+        let lineStyle = 1; // dotted for regular limit orders
         let opacity = 1;
 
         if (order.orderType === 'stop') {
-          lineStyle = 1; // dotted for stop loss
-          opacity = 0.8;
+          lineStyle = 3; // large dashed for stop loss
+          opacity = 0.9;
         } else if (order.orderType === 'tp') {
           lineStyle = 1; // dotted for take profit
           opacity = 0.8;

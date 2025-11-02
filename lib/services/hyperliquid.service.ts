@@ -153,6 +153,30 @@ export class HyperliquidService implements IHyperliquidService {
     });
   }
 
+  async placeBatchLimitOrders(orders: OrderParams[]): Promise<any> {
+    this.ensureWalletClient();
+
+    if (orders.length === 0) {
+      throw new Error('No orders provided for batch placement');
+    }
+
+    const coinIndex = await this.getCoinIndex(orders[0].coin);
+
+    const formattedOrders = orders.map(order => ({
+      a: coinIndex,
+      b: order.isBuy,
+      p: order.price,
+      s: order.size,
+      r: order.reduceOnly || false,
+      t: { limit: { tif: 'Gtc' } }
+    }));
+
+    return await this.walletClient!.order({
+      orders: formattedOrders,
+      grouping: 'na'
+    });
+  }
+
   async placeStopLoss(params: StopLossParams): Promise<any> {
     this.ensureWalletClient();
     const triggerPrice = await this.formatPrice(parseFloat(params.triggerPrice), params.coin);
@@ -342,6 +366,35 @@ export class HyperliquidService implements IHyperliquidService {
     const orders = await this.publicClient.frontendOpenOrders({ user: address });
     console.log('[getOpenOrders] Raw frontendOpenOrders response:', JSON.stringify(orders, null, 2));
     return orders;
+  }
+
+  async cancelOrder(coin: string, orderId: number): Promise<any> {
+    this.ensureWalletClient();
+    const coinIndex = await this.getCoinIndex(coin);
+    return await this.walletClient!.cancel({
+      cancels: [{
+        a: coinIndex,
+        o: orderId
+      }]
+    });
+  }
+
+  async cancelAllOrders(coin: string): Promise<any> {
+    this.ensureWalletClient();
+    const orders = await this.getOpenOrders();
+    const coinOrders = orders.filter(order => order.coin === coin);
+
+    if (coinOrders.length === 0) {
+      return { status: 'ok', response: { type: 'default', data: { statuses: [] } } };
+    }
+
+    const coinIndex = await this.getCoinIndex(coin);
+    const cancels = coinOrders.map(order => ({
+      a: coinIndex,
+      o: order.oid
+    }));
+
+    return await this.walletClient!.cancel({ cancels });
   }
 
   async openLong(params: LongParams): Promise<any> {
