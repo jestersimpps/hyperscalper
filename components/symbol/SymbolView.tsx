@@ -8,6 +8,7 @@ import PriceTape from '@/components/PriceTape';
 import TerminalHeader from '@/components/layout/TerminalHeader';
 import TradeVolumeTimeline from '@/components/TradeVolumeTimeline';
 import IndicatorSignals from '@/components/IndicatorSignals';
+import RightTradingPanel from '@/components/symbol/RightTradingPanel';
 import { useTradesStore } from '@/stores/useTradesStore';
 import { usePositionStore } from '@/stores/usePositionStore';
 import { useOrderStore } from '@/stores/useOrderStore';
@@ -68,51 +69,39 @@ function SymbolView({ coin }: SymbolViewProps) {
 
     const newKeys = new Set<string>();
     const seenTimestamps = seenTimestampsRef.current;
-    const newTimestamps = new Set<number>();
+    const newTrades: typeof trades = [];
 
     trades.forEach((trade, index) => {
       if (!seenTimestamps.has(trade.time)) {
-        newTimestamps.add(trade.time);
+        const key = `${trade.time}-${index}`;
+        newKeys.add(key);
+        seenTimestamps.add(trade.time);
+        newTrades.push(trade);
       }
     });
 
-    if (newTimestamps.size > 0) {
-      trades.forEach((trade, index) => {
-        if (newTimestamps.has(trade.time)) {
-          newKeys.add(`${trade.time}-${index}`);
-          seenTimestamps.add(trade.time);
-        }
-      });
-
+    if (newKeys.size > 0) {
       setNewTradeKeys(newKeys);
 
-      // Play sound for new trades if enabled
-      if (playTradeSound) {
-        // Clear any pending trade sound timeouts
+      if (playTradeSound && newTrades.length > 0) {
         tradeSoundTimeoutsRef.current.forEach(timeout => clearTimeout(timeout));
         tradeSoundTimeoutsRef.current = [];
 
-        const newTrades = trades.filter(trade => newTimestamps.has(trade.time));
-        const newTradeCount = newTrades.length;
+        const MAX_SOUNDS = 3;
+        const soundsToPlay = Math.min(newTrades.length, MAX_SOUNDS);
+        const SOUND_DURATION = 300;
+        const delayBetweenSounds = soundsToPlay === 1 ? 0 : SOUND_DURATION / soundsToPlay;
 
-        if (newTradeCount > 0) {
-          // Duration of one standard sound in milliseconds
-          const SOUND_DURATION = 300;
+        for (let i = 0; i < soundsToPlay; i++) {
+          const trade = newTrades[i];
+          const delay = i * delayBetweenSounds;
+          const side = trade.side === 'buy' ? 'bullish' : 'bearish';
 
-          // Calculate delay between each sound to spread over SOUND_DURATION
-          const delayBetweenSounds = newTradeCount === 1 ? 0 : SOUND_DURATION / newTradeCount;
+          const timeout = setTimeout(() => {
+            playNotificationSound(side, 'standard');
+          }, delay);
 
-          // Play a sound for each individual trade, spread sequentially
-          newTrades.forEach((trade, index) => {
-            const delay = index * delayBetweenSounds;
-            const side = trade.side === 'buy' ? 'bullish' : 'bearish';
-
-            const timeout = setTimeout(() => {
-              playNotificationSound(side, 'standard');
-            }, delay);
-
-            tradeSoundTimeoutsRef.current.push(timeout);
-          });
+          tradeSoundTimeoutsRef.current.push(timeout);
         }
       }
 
@@ -122,7 +111,6 @@ function SymbolView({ coin }: SymbolViewProps) {
 
       return () => {
         clearTimeout(timer);
-        // Clean up trade sound timeouts on unmount
         tradeSoundTimeoutsRef.current.forEach(timeout => clearTimeout(timeout));
         tradeSoundTimeoutsRef.current = [];
       };
@@ -351,6 +339,21 @@ function SymbolView({ coin }: SymbolViewProps) {
     }
   }, [coin]);
 
+  const handleCancelEntryOrders = useCallback(async () => {
+    playNotificationSound('bearish', 'standard');
+    try {
+      const response = await fetch('/api/orders/cancel-entry', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ symbol: coin }),
+      });
+      const data = await response.json();
+      console.log('Cancel entry orders response:', data);
+    } catch (error) {
+      console.error('Error cancelling entry orders:', error);
+    }
+  }, [coin]);
+
   const handleCancelAllOrders = useCallback(async () => {
     try {
       const response = await fetch('/api/orders/cancel-all', {
@@ -360,8 +363,68 @@ function SymbolView({ coin }: SymbolViewProps) {
       });
       const data = await response.json();
       console.log('Cancel all orders response:', data);
+
+      if (data.success) {
+        playNotificationSound('bearish', 'standard');
+      }
     } catch (error) {
       console.error('Error cancelling all orders:', error);
+    }
+  }, [coin]);
+
+  const handleMoveSL25 = useCallback(async () => {
+    try {
+      const response = await fetch('/api/orders/move-stop-loss', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ coin, percentage: 25 }),
+      });
+      const data = await response.json();
+      console.log('Move SL 25% response:', data);
+    } catch (error) {
+      console.error('Error moving stop loss 25%:', error);
+    }
+  }, [coin]);
+
+  const handleMoveSL50 = useCallback(async () => {
+    try {
+      const response = await fetch('/api/orders/move-stop-loss', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ coin, percentage: 50 }),
+      });
+      const data = await response.json();
+      console.log('Move SL 50% response:', data);
+    } catch (error) {
+      console.error('Error moving stop loss 50%:', error);
+    }
+  }, [coin]);
+
+  const handleMoveSL75 = useCallback(async () => {
+    try {
+      const response = await fetch('/api/orders/move-stop-loss', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ coin, percentage: 75 }),
+      });
+      const data = await response.json();
+      console.log('Move SL 75% response:', data);
+    } catch (error) {
+      console.error('Error moving stop loss 75%:', error);
+    }
+  }, [coin]);
+
+  const handleMoveSLBreakeven = useCallback(async () => {
+    try {
+      const response = await fetch('/api/orders/move-stop-loss', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ coin, percentage: 0 }),
+      });
+      const data = await response.json();
+      console.log('Move SL to breakeven response:', data);
+    } catch (error) {
+      console.error('Error moving stop loss to breakeven:', error);
     }
   }, [coin]);
 
@@ -376,255 +439,90 @@ function SymbolView({ coin }: SymbolViewProps) {
     { key: '2', action: handleClose50, description: 'Close 50%' },
     { key: '3', action: handleClose75, description: 'Close 75%' },
     { key: '4', action: handleClose100, description: 'Close 100%' },
+    { key: '5', action: handleMoveSL25, description: 'Move SL 25%' },
+    { key: '6', action: handleMoveSL50, description: 'Move SL 50%' },
+    { key: '7', action: handleMoveSL75, description: 'Move SL 75%' },
+    { key: '8', action: handleMoveSLBreakeven, description: 'Move SL to Breakeven' },
   ];
 
   useKeyboardShortcuts(keyBindings, !isPanelOpen);
 
   return (
     <div className="h-full flex flex-col bg-bg-primary">
-      <div className="flex flex-col h-full w-full p-2">
-        {/* Header */}
-        <TerminalHeader coin={coin} />
+      <div className="flex h-full w-full">
+        {/* Left Column - Charts and Data */}
+        <div className="flex flex-col flex-1 min-w-0 p-2 gap-2">
+          {/* Header */}
+          <TerminalHeader coin={coin} />
 
-        {/* Main Content - Side by Side */}
-        <div className="flex gap-2 overflow-x-auto flex-1 min-h-0">
-          {/* Left Side - Charts */}
-          <div className="flex-1 min-w-[500px] flex flex-col gap-2">
-            {/* BTC Chart Area */}
-            <div className="terminal-border p-1.5 flex-1 min-h-0">
-              <BTCChart />
-            </div>
-
-            {/* Scalping Chart Area */}
-            <div className="terminal-border p-1.5 flex-[2] min-h-0 flex flex-col">
-              <div className="text-[10px] text-primary-muted mb-1 uppercase tracking-wider">█ SCALPING CHART</div>
+          {/* Main Content - 3 Column Layout */}
+          <div className="flex gap-2 flex-1 min-h-0">
+            {/* Left - BTC Chart (Full Height) */}
+            <div className="terminal-border p-1.5 flex flex-col flex-1 min-w-0">
               <div className="flex-1 min-h-0">
-                <ScalpingChart
-                  coin={coin}
-                  interval="1m"
-                  onPriceUpdate={setCurrentPrice}
-                  position={position}
-                  orders={orders}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Right Side - Trading Info */}
-          <div className="flex-1 min-w-[500px] flex flex-col gap-2">
-            {/* Market Stats - Full Width */}
-            <MarketStats coin={coin} currentPrice={currentPrice} />
-
-            {/* Indicator Signals - Full Width */}
-            <IndicatorSignals coin={coin} />
-
-            {/* Two Column Layout for Position/OrderBook and Volume/Trades */}
-            <div className="flex gap-2 flex-1 min-h-0">
-              {/* Left Column - Position and Order Book */}
-              <div className="flex-1 min-w-[500px] flex flex-col gap-2">
-                {/* Position Info */}
-              <div className="terminal-border p-1.5">
-                <div className="text-[10px] text-primary-muted mb-1.5 uppercase tracking-wider">█ POSITION</div>
-                <div className="text-[10px] space-y-1 font-mono">
-                  <div className="flex justify-between">
-                    <span className="text-primary-muted">SIZE:</span>
-                    <span className={position ? (position.side === 'long' ? 'text-bullish' : 'text-bearish') : 'text-primary'}>
-                      {position ? `${position.size.toFixed(decimals.size)} ${coin} ${position.side.toUpperCase()}` : `-- ${coin}`}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-primary-muted">ENTRY:</span>
-                    <span className="text-primary">
-                      {position ? position.entryPrice.toFixed(decimals.price) : '---.--'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-primary-muted">PNL:</span>
-                    <span className={position ? (position.pnl >= 0 ? 'text-bullish' : 'text-bearish') : 'text-primary'}>
-                      {position ? `${position.pnl >= 0 ? '+' : ''}${position.pnl.toFixed(2)} USD (${position.pnlPercentage >= 0 ? '+' : ''}${position.pnlPercentage.toFixed(2)}%)` : '+-.-- USD'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-primary-muted">LEVERAGE:</span>
-                    <span className="text-primary">
-                      {position ? `${position.leverage}x` : '--x'}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Trading Actions */}
-                <div className="mt-3 pt-3 border-t border-frame">
-                  <div className="text-[10px] text-primary-muted mb-2 uppercase tracking-wider">█ ACTIONS</div>
-                  <div className="grid grid-cols-2 gap-1.5 text-[10px] font-mono">
-                    <button
-                      className="px-2 py-1.5 bg-accent-blue/20 border border-accent-blue/40 text-accent-blue hover:bg-accent-blue/30 hover:border-accent-blue/60 transition-all rounded-sm hover:shadow-[0_0_8px_rgba(50,116,170,0.3)]"
-                      onClick={handleBuyCloud}
-                    >
-                      <span className="text-accent-blue/60 text-[10px] font-bold mr-1">Q</span>
-                      █ BUY CLOUD
-                    </button>
-                    <button
-                      className="px-2 py-1.5 bg-accent-rose/20 border border-accent-rose/40 text-accent-rose hover:bg-accent-rose/30 hover:border-accent-rose/60 transition-all rounded-sm hover:shadow-[0_0_8px_rgba(194,150,141,0.3)]"
-                      onClick={handleSellCloud}
-                    >
-                      <span className="text-accent-rose/60 text-[10px] font-bold mr-1">W</span>
-                      █ SELL CLOUD
-                    </button>
-                    <button
-                      className="px-2 py-1.5 bg-bullish/20 border border-bullish/40 text-bullish hover:bg-bullish/30 hover:border-bullish/60 transition-all rounded-sm hover:shadow-[0_0_8px_rgba(38,166,154,0.3)]"
-                      onClick={handleSmLong}
-                    >
-                      <span className="text-bullish/60 text-[10px] font-bold mr-1">A</span>
-                      █ SM LONG
-                    </button>
-                    <button
-                      className="px-2 py-1.5 bg-bearish/20 border border-bearish/40 text-bearish hover:bg-bearish/30 hover:border-bearish/60 transition-all rounded-sm hover:shadow-[0_0_8px_rgba(239,83,80,0.3)]"
-                      onClick={handleSmShort}
-                    >
-                      <span className="text-bearish/60 text-[10px] font-bold mr-1">S</span>
-                      █ SM SHORT
-                    </button>
-                    <button
-                      className="px-2 py-1.5 bg-bullish/30 border-2 border-bullish/60 text-bullish font-bold hover:bg-bullish/40 hover:border-bullish/80 transition-all rounded-sm hover:shadow-[0_0_10px_rgba(38,166,154,0.5)]"
-                      onClick={handleBigLong}
-                    >
-                      <span className="text-bullish/60 text-[10px] font-bold mr-1">⇧A</span>
-                      ██ BIG LONG
-                    </button>
-                    <button
-                      className="px-2 py-1.5 bg-bearish/30 border-2 border-bearish/60 text-bearish font-bold hover:bg-bearish/40 hover:border-bearish/80 transition-all rounded-sm hover:shadow-[0_0_10px_rgba(239,83,80,0.5)]"
-                      onClick={handleBigShort}
-                    >
-                      <span className="text-bearish/60 text-[10px] font-bold mr-1">⇧S</span>
-                      ██ BIG SHORT
-                    </button>
-                    <button
-                      className="px-2 py-1.5 bg-primary-muted/10 border border-primary-muted/30 text-primary-muted hover:bg-primary-muted/20 hover:border-primary-muted/50 hover:text-primary transition-all rounded-sm hover:shadow-[0_0_8px_rgba(68,186,186,0.2)]"
-                      onClick={handleClose25}
-                    >
-                      <span className="text-primary-muted/60 text-[10px] font-bold mr-1">1</span>
-                      █ CLOSE 25%
-                    </button>
-                    <button
-                      className="px-2 py-1.5 bg-primary-muted/10 border border-primary-muted/30 text-primary-muted hover:bg-primary-muted/20 hover:border-primary-muted/50 hover:text-primary transition-all rounded-sm hover:shadow-[0_0_8px_rgba(68,186,186,0.2)]"
-                      onClick={handleClose50}
-                    >
-                      <span className="text-primary-muted/60 text-[10px] font-bold mr-1">2</span>
-                      █ CLOSE 50%
-                    </button>
-                    <button
-                      className="px-2 py-1.5 bg-primary-muted/10 border border-primary-muted/30 text-primary-muted hover:bg-primary-muted/20 hover:border-primary-muted/50 hover:text-primary transition-all rounded-sm hover:shadow-[0_0_8px_rgba(68,186,186,0.2)]"
-                      onClick={handleClose75}
-                    >
-                      <span className="text-primary-muted/60 text-[10px] font-bold mr-1">3</span>
-                      █ CLOSE 75%
-                    </button>
-                    <button
-                      className="px-2 py-1.5 bg-primary-muted/10 border border-primary-muted/30 text-primary-muted hover:bg-primary-muted/20 hover:border-primary-muted/50 hover:text-primary transition-all rounded-sm hover:shadow-[0_0_8px_rgba(68,186,186,0.2)]"
-                      onClick={handleClose100}
-                    >
-                      <span className="text-primary-muted/60 text-[10px] font-bold mr-1">4</span>
-                      █ CLOSE 100%
-                    </button>
-                    <button
-                      className="col-span-2 px-2 py-1.5 bg-accent-orange/10 border border-accent-orange/30 text-accent-orange hover:bg-accent-orange/20 hover:border-accent-orange/50 transition-all rounded-sm hover:shadow-[0_0_8px_rgba(255,165,0,0.3)]"
-                      onClick={handleCancelAllOrders}
-                      disabled={orders.length === 0}
-                    >
-                      ✕ CANCEL ALL ORDERS
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Price Tape */}
-              <div className="flex-1 overflow-hidden">
-                <PriceTape coin={coin} position={position} orders={orders} />
+                <BTCChart />
               </div>
             </div>
 
-            {/* Right Column - Recent Trades */}
-            <div className="flex-1 min-w-[500px] flex flex-col gap-2">
-              {/* Volume Flow Timeline */}
-              <div className="terminal-border p-1.5">
-                <div className="text-[10px] text-primary-muted mb-1.5 uppercase tracking-wider">█ VOLUME FLOW</div>
-                <TradeVolumeTimeline coin={coin} trades={trades} />
+            {/* Right Side - Market Stats, Scalping Chart, Volume/Indicators */}
+            <div className="flex flex-col gap-2 flex-1 min-w-0">
+              {/* Market Stats (Top) */}
+              <MarketStats coin={coin} currentPrice={currentPrice} />
+
+              {/* Scalping Chart (Middle) */}
+              <div className="terminal-border p-1.5 flex flex-col flex-[2] min-h-0">
+                <div className="text-[10px] text-primary-muted mb-1 uppercase tracking-wider">█ SCALPING CHART</div>
+                <div className="flex-1 min-h-0">
+                  <ScalpingChart
+                    coin={coin}
+                    interval="1m"
+                    onPriceUpdate={setCurrentPrice}
+                    position={position}
+                    orders={orders}
+                  />
+                </div>
               </div>
 
-              {/* Recent Trades */}
-              <div className="terminal-border p-1.5 flex-1 flex flex-col overflow-hidden">
-                <style jsx>{`
-                  @keyframes flash-green {
-                    0%, 100% { background-color: transparent; }
-                    50% { background-color: color-mix(in srgb, var(--status-bullish) 30%, transparent); }
-                  }
-                  @keyframes flash-red {
-                    0%, 100% { background-color: transparent; }
-                    50% { background-color: color-mix(in srgb, var(--status-bearish) 30%, transparent); }
-                  }
-                  .animate-flash-green {
-                    animation: flash-green 0.5s ease-in-out;
-                  }
-                  .animate-flash-red {
-                    animation: flash-red 0.5s ease-in-out;
-                  }
-                `}</style>
-                <div className="text-[10px] text-primary-muted mb-1.5 uppercase tracking-wider">█ RECENT TRADES</div>
-
-                <div className="grid grid-cols-3 text-[10px] text-primary-muted mb-1 font-bold font-mono">
-                  <div>PRICE</div>
-                  <div className="text-right">SIZE</div>
-                  <div className="text-right">TIME</div>
-                </div>
-
-                <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-primary-dark scrollbar-track-transparent">
-                  <div className="text-[10px] font-mono space-y-0.5">
-                    {trades.length === 0 ? (
-                      [...Array(10)].map((_, i) => (
-                        <div key={i} className="grid grid-cols-3 text-primary/70">
-                          <div>---.--</div>
-                          <div className="text-right">-.-</div>
-                          <div className="text-right">--:--</div>
-                        </div>
-                      ))
-                    ) : (
-                      (() => {
-                        const maxSize = Math.max(...trades.map(t => t.size));
-
-                        return trades.map((trade, index) => {
-                          const percentage = maxSize > 0 ? (trade.size / maxSize) * 100 : 0;
-                          const tradeKey = `${trade.time}-${index}`;
-                          const isNew = newTradeKeys.has(tradeKey);
-                          const flashClass = isNew ? (trade.side === 'buy' ? 'animate-flash-green' : 'animate-flash-red') : '';
-
-                          return (
-                            <div key={tradeKey} className={`grid grid-cols-3 relative ${trade.side === 'buy' ? 'text-bullish' : 'text-bearish'} ${flashClass}`}>
-                              <div
-                                className={`absolute inset-0 ${trade.side === 'buy' ? 'bg-bullish' : 'bg-bearish'} opacity-20`}
-                                style={{ width: `${percentage}%` }}
-                              ></div>
-                              <div className="relative z-10">{trade.priceFormatted}</div>
-                              <div className="relative z-10 text-right">{trade.sizeFormatted}</div>
-                              <div className="relative z-10 text-right">
-                                {new Date(trade.time).toLocaleTimeString('en-US', {
-                                  hour12: false,
-                                  hour: '2-digit',
-                                  minute: '2-digit',
-                                  second: '2-digit'
-                                })}
-                              </div>
-                            </div>
-                          );
-                        });
-                      })()
-                    )}
+              {/* Bottom Section - Volume/Indicators */}
+              <div className="flex flex-col gap-2 flex-1 min-h-0">
+                {/* Volume Flow Timeline */}
+                <div className="terminal-border p-1.5 flex flex-col flex-1 min-h-0">
+                  <div className="text-[10px] text-primary-muted mb-1.5 uppercase tracking-wider">█ VOLUME FLOW</div>
+                  <div className="flex-1 min-h-0">
+                    <TradeVolumeTimeline coin={coin} trades={trades} />
                   </div>
                 </div>
+
+                {/* Indicator Signals */}
+                <IndicatorSignals coin={coin} />
               </div>
-            </div>
             </div>
           </div>
         </div>
+
+        {/* Right Sidebar - Trading Panel */}
+        <RightTradingPanel
+          coin={coin}
+          position={position}
+          orders={orders}
+          decimals={decimals}
+          onBuyCloud={handleBuyCloud}
+          onSellCloud={handleSellCloud}
+          onSmLong={handleSmLong}
+          onSmShort={handleSmShort}
+          onBigLong={handleBigLong}
+          onBigShort={handleBigShort}
+          onClose25={handleClose25}
+          onClose50={handleClose50}
+          onClose75={handleClose75}
+          onClose100={handleClose100}
+          onMoveSL25={handleMoveSL25}
+          onMoveSL50={handleMoveSL50}
+          onMoveSL75={handleMoveSL75}
+          onMoveSLBreakeven={handleMoveSLBreakeven}
+          onCancelEntryOrders={handleCancelEntryOrders}
+          onCancelAllOrders={handleCancelAllOrders}
+        />
       </div>
     </div>
   );

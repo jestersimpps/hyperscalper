@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, memo } from 'react';
 import type { Trade } from '@/types';
 import { getThemeColors } from '@/lib/theme-utils';
 
@@ -59,7 +59,7 @@ function calculateCumulativeVolume(buckets: BucketData[]): Array<{ time: number;
   });
 }
 
-export default function TradeVolumeTimeline({ coin, trades }: TradeVolumeTimelineProps) {
+function TradeVolumeTimeline({ coin, trades }: TradeVolumeTimelineProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<any>(null);
   const lineSeriesRef = useRef<any>(null);
@@ -81,7 +81,7 @@ export default function TradeVolumeTimeline({ coin, trades }: TradeVolumeTimelin
 
         const chart = createChart(chartContainerRef.current, {
           width: chartContainerRef.current.clientWidth,
-          height: 120,
+          height: chartContainerRef.current.clientHeight,
           layout: {
             background: { color: colors.backgroundPrimary },
             textColor: colors.primaryMuted,
@@ -121,6 +121,7 @@ export default function TradeVolumeTimeline({ coin, trades }: TradeVolumeTimelin
           if (chartContainerRef.current && chart) {
             chart.applyOptions({
               width: chartContainerRef.current.clientWidth,
+              height: chartContainerRef.current.clientHeight,
             });
           }
         };
@@ -159,8 +160,10 @@ export default function TradeVolumeTimeline({ coin, trades }: TradeVolumeTimelin
   }, [trades]);
 
   return (
-    <div className="w-full h-[120px]">
+    <div className="w-full h-full flex flex-col">
       <div ref={chartContainerRef} className="w-full h-full" />
     </div>
   );
 }
+
+export default memo(TradeVolumeTimeline);

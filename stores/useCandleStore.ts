@@ -16,6 +16,8 @@ interface CandleStore {
   cleanup: () => void;
 }
 
+const MAX_CANDLES = 1000;
+
 const getCandleKey = (coin: string, interval: string): string => `${coin}-${interval}`;
 
 export const useCandleStore = create<CandleStore>((set, get) => ({
@@ -107,8 +109,13 @@ export const useCandleStore = create<CandleStore>((set, get) => ({
               candles: { ...state.candles, [key]: updatedCandles },
             }));
           } else if (candle.time > lastCandle.time) {
+            const updatedCandles = [...existingCandles, formattedCandle];
+            const limitedCandles = updatedCandles.length > MAX_CANDLES
+              ? updatedCandles.slice(-MAX_CANDLES)
+              : updatedCandles;
+
             set((state) => ({
-              candles: { ...state.candles, [key]: [...state.candles[key], formattedCandle] },
+              candles: { ...state.candles, [key]: limitedCandles },
             }));
           }
         }

@@ -12,10 +12,15 @@ const formatPrice = (value: number, decimals: number): string => {
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const coin = searchParams.get('coin') || 'BTC';
+  const nSigFigsParam = searchParams.get('nSigFigs');
+  const mantissaParam = searchParams.get('mantissa');
+
+  const nSigFigs = nSigFigsParam ? (parseInt(nSigFigsParam) as 2 | 3 | 4 | 5) : undefined;
+  const mantissa = mantissaParam ? (parseInt(mantissaParam) as 2 | 5) : undefined;
 
   try {
     const service = getHyperliquidService();
-    const book = await service.getOrderBook({ coin });
+    const book = await service.getOrderBook({ coin, nSigFigs, mantissa });
     const decimals = useSymbolMetaStore.getState().getDecimals(coin);
 
     const bids = book.levels[0].map((level: any) => ({

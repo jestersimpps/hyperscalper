@@ -1202,6 +1202,39 @@ export function calculateTrendlines(candles: FullCandleData[]): Trendlines {
   };
 }
 
+export function calculatePivotLines(candles: FullCandleData[]): Trendlines {
+  if (candles.length < 30) {
+    return { supportLine: [], resistanceLine: [] };
+  }
+
+  const pivots = detectPivots(candles, 2);
+
+  const tops = pivots.filter(p => p.type === 'high').slice(-2);
+  const bottoms = pivots.filter(p => p.type === 'low').slice(-2);
+
+  console.log('[PivotLines] Total pivots detected:', pivots.length);
+  console.log('[PivotLines] Tops found:', tops.length, tops);
+  console.log('[PivotLines] Bottoms found:', bottoms.length, bottoms);
+
+  const supportLine: TrendlineWithStyle[] = bottoms.length >= 2 ? [{
+    points: [
+      { time: bottoms[0].time / 1000, value: bottoms[0].price },
+      { time: bottoms[1].time / 1000, value: bottoms[1].price }
+    ],
+    lineStyle: 0
+  }] : [];
+
+  const resistanceLine: TrendlineWithStyle[] = tops.length >= 2 ? [{
+    points: [
+      { time: tops[0].time / 1000, value: tops[0].price },
+      { time: tops[1].time / 1000, value: tops[1].price }
+    ],
+    lineStyle: 0
+  }] : [];
+
+  return { supportLine, resistanceLine };
+}
+
 export const calculateEMAMemoized = createMemoizedFunction(
   calculateEMA,
   (data: number[], period: number) => {

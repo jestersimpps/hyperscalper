@@ -20,6 +20,7 @@ import {
   detectStochasticPivots,
   detectDivergence,
   calculateTrendlines,
+  calculatePivotLines,
   type StochasticData,
   type DivergencePoint,
 } from '@/lib/indicators';
@@ -143,6 +144,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
   const positionLineRef = useRef<any>(null);
   const orderLinesRef = useRef<any[]>([]);
   const cachedTrendlinesRef = useRef<{ supportLine: any[]; resistanceLine: any[] }>({ supportLine: [], resistanceLine: [] });
+  const lastTrendlineCalculationRef = useRef<number>(0);
   const [chartReady, setChartReady] = useState(false);
   const candlesBufferRef = useRef<CandleData[]>([]);
   const lastCandleTimeRef = useRef<number | null>(null);
@@ -203,7 +205,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
             width: 60,
             scaleMargins: {
               top: 0.1,
-              bottom: 0.4,
+              bottom: 0.45,
             },
           },
         });
@@ -283,22 +285,22 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
 
         macdLineSeries.priceScale().applyOptions({
           scaleMargins: {
-            top: 0.55,
-            bottom: 0.35,
+            top: 0.65,
+            bottom: 0.20,
           },
         });
 
         macdSignalSeries.priceScale().applyOptions({
           scaleMargins: {
-            top: 0.55,
-            bottom: 0.35,
+            top: 0.65,
+            bottom: 0.20,
           },
         });
 
         macdHistogramSeries.priceScale().applyOptions({
           scaleMargins: {
-            top: 0.55,
-            bottom: 0.35,
+            top: 0.65,
+            bottom: 0.20,
           },
         });
 
@@ -326,8 +328,8 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
 
             dSeries.priceScale().applyOptions({
               scaleMargins: {
-                top: 0.70,
-                bottom: 0.20,
+                top: 0.80,
+                bottom: 0.05,
               },
             });
 
@@ -371,22 +373,22 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
 
           lineSeries.priceScale().applyOptions({
             scaleMargins: {
-              top: 0.55,
-              bottom: 0.35,
+              top: 0.65,
+              bottom: 0.20,
             },
           });
 
           signalSeries.priceScale().applyOptions({
             scaleMargins: {
-              top: 0.55,
-              bottom: 0.35,
+              top: 0.65,
+              bottom: 0.20,
             },
           });
 
           histogramSeries.priceScale().applyOptions({
             scaleMargins: {
-              top: 0.55,
-              bottom: 0.35,
+              top: 0.65,
+              bottom: 0.20,
             },
           });
 
@@ -938,22 +940,34 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
   }, [chartReady, divergenceData]);
 
   const trendlines = useMemo(() => {
-    if (candles.length < 30) {
+    const currentLength = candles.length;
+
+    if (currentLength < 30) {
       cachedTrendlinesRef.current = { supportLine: [], resistanceLine: [] };
       return cachedTrendlinesRef.current;
     }
 
-    if (candles.length % 5 !== 0) {
+    if (lastTrendlineCalculationRef.current === currentLength) {
+      return cachedTrendlinesRef.current;
+    }
+
+    const cacheEmpty = cachedTrendlinesRef.current.supportLine.length === 0 &&
+                       cachedTrendlinesRef.current.resistanceLine.length === 0;
+
+    if (!cacheEmpty && currentLength % 10 !== 0) {
       return cachedTrendlinesRef.current;
     }
 
     const newTrendlines = calculateTrendlines(candles);
     cachedTrendlinesRef.current = newTrendlines;
+    lastTrendlineCalculationRef.current = currentLength;
     return newTrendlines;
-  }, [candles]);
+  }, [candles.length, candles]);
 
   useEffect(() => {
-    if (!chartReady || !chartRef.current || trendlines.supportLine.length === 0) return;
+    if (!chartReady || !chartRef.current || trendlines.supportLine.length === 0) {
+      return;
+    }
 
     supportLineSeriesRef.current.forEach((series) => {
       try {

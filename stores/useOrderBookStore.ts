@@ -9,11 +9,14 @@ interface OrderBookStore {
   subscriptions: Record<string, { subscriptionId: string; cleanup: () => void }>;
   wsService: ExchangeWebSocketService | null;
 
-  fetchOrderBook: (coin: string) => Promise<void>;
-  subscribeToOrderBook: (coin: string) => void;
-  unsubscribeFromOrderBook: (coin: string) => void;
+  fetchOrderBook: (coin: string, nSigFigs?: 2 | 3 | 4 | 5 | null, mantissa?: 2 | 5 | null) => Promise<void>;
+  subscribeToOrderBook: (coin: string, nSigFigs?: 2 | 3 | 4 | 5 | null, mantissa?: 2 | 5 | null) => void;
+  unsubscribeFromOrderBook: (coin: string, nSigFigs?: 2 | 3 | 4 | 5 | null) => void;
   cleanup: () => void;
 }
+
+const THROTTLE_MS = 333;
+const lastUpdateTimes: Record<string, number> = {};
 
 export const useOrderBookStore = create<OrderBookStore>((set, get) => ({
   orderBooks: {},
@@ -22,20 +25,25 @@ export const useOrderBookStore = create<OrderBookStore>((set, get) => ({
   subscriptions: {},
   wsService: null,
 
-  fetchOrderBook: async (coin) => {
+  fetchOrderBook: async (coin, nSigFigs, mantissa) => {
     const { loading, orderBooks } = get();
+    const key = `${coin}${nSigFigs ? `_${nSigFigs}` : ''}`;
 
-    if (loading[coin] || orderBooks[coin]) {
+    if (loading[key] || orderBooks[key]) {
       return;
     }
 
     set((state) => ({
-      loading: { ...state.loading, [coin]: true },
-      errors: { ...state.errors, [coin]: null },
+      loading: { ...state.loading, [key]: true },
+      errors: { ...state.errors, [key]: null },
     }));
 
     try {
-      const response = await fetch(`/api/orderbook?coin=${coin}`);
+      const params = new URLSearchParams({ coin });
+      if (nSigFigs) params.append('nSigFigs', nSigFigs.toString());
+      if (mantissa) params.append('mantissa', mantissa.toString());
+
+      const response = await fetch(`/api/orderbook?${params.toString()}`);
 
       if (!response.ok) {
         throw new Error(`Failed to fetch order book: ${response.statusText}`);
@@ -44,26 +52,27 @@ export const useOrderBookStore = create<OrderBookStore>((set, get) => ({
       const data: OrderBookData = await response.json();
 
       set((state) => ({
-        orderBooks: { ...state.orderBooks, [coin]: data },
-        loading: { ...state.loading, [coin]: false },
+        orderBooks: { ...state.orderBooks, [key]: data },
+        loading: { ...state.loading, [key]: false },
       }));
     } catch (error) {
       set((state) => ({
-        errors: { ...state.errors, [coin]: error instanceof Error ? error.message : 'Unknown error' },
-        loading: { ...state.loading, [coin]: false },
+        errors: { ...state.errors, [key]: error instanceof Error ? error.message : 'Unknown error' },
+        loading: { ...state.loading, [key]: false },
       }));
     }
   },
 
-  subscribeToOrderBook: (coin) => {
+  subscribeToOrderBook: (coin, nSigFigs, mantissa) => {
     const { subscriptions } = get();
+    const key = `${coin}${nSigFigs ? `_${nSigFigs}` : ''}`;
 
-    if (subscriptions[coin]) {
-      console.log(`[OrderBookStore] Already subscribed to ${coin}`);
+    if (subscriptions[key]) {
+      console.log(`[OrderBookStore] Already subscribed to ${key}`);
       return;
     }
 
-    console.log(`[OrderBookStore] Subscribing to ${coin}`);
+    console.log(`[OrderBookStore] Subscribing to ${key}`);
 
     const initWebSocket = async () => {
       const { useWebSocketService } = await import('@/lib/websocket/websocket-singleton');
@@ -72,15 +81,24 @@ export const useOrderBookStore = create<OrderBookStore>((set, get) => ({
       const cleanup = trackSubscription();
 
       const subscriptionId = service.subscribeToOrderBook(
-        { coin },
+        { coin, nSigFigs, mantissa },
         (data) => {
           if (!data || !data.bids || !data.asks) {
             console.warn('[OrderBookStore] Invalid order book data received');
             return;
           }
 
+          const now = Date.now();
+          const lastUpdate = lastUpdateTimes[key] || 0;
+
+          if (now - lastUpdate < THROTTLE_MS) {
+            return;
+          }
+
+          lastUpdateTimes[key] = now;
+
           set((state) => ({
-            orderBooks: { ...state.orderBooks, [coin]: data },
+            orderBooks: { ...state.orderBooks, [key]: data },
           }));
         }
       );
@@ -89,26 +107,27 @@ export const useOrderBookStore = create<OrderBookStore>((set, get) => ({
         wsService: service,
         subscriptions: {
           ...state.subscriptions,
-          [coin]: { subscriptionId, cleanup }
+          [key]: { subscriptionId, cleanup }
         },
       }));
 
-      console.log(`[OrderBookStore] Subscribed to ${coin} with ID: ${subscriptionId}`);
+      console.log(`[OrderBookStore] Subscribed to ${key} with ID: ${subscriptionId}`);
     };
 
     initWebSocket();
   },
 
-  unsubscribeFromOrderBook: (coin) => {
+  unsubscribeFromOrderBook: (coin, nSigFigs) => {
     const { subscriptions, wsService } = get();
+    const key = `${coin}${nSigFigs ? `_${nSigFigs}` : ''}`;
 
-    const subscription = subscriptions[coin];
+    const subscription = subscriptions[key];
     if (!subscription) {
-      console.warn(`[OrderBookStore] No subscription found for ${coin}`);
+      console.warn(`[OrderBookStore] No subscription found for ${key}`);
       return;
     }
 
-    console.log(`[OrderBookStore] Unsubscribing from ${coin}`);
+    console.log(`[OrderBookStore] Unsubscribing from ${key}`);
 
     if (wsService) {
       wsService.unsubscribe(subscription.subscriptionId);
@@ -116,11 +135,11 @@ export const useOrderBookStore = create<OrderBookStore>((set, get) => ({
     subscription.cleanup();
 
     const newSubscriptions = { ...subscriptions };
-    delete newSubscriptions[coin];
+    delete newSubscriptions[key];
 
     set({ subscriptions: newSubscriptions });
 
-    console.log(`[OrderBookStore] Unsubscribed from ${coin}`);
+    console.log(`[OrderBookStore] Unsubscribed from ${key}`);
   },
 
   cleanup: () => {

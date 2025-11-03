@@ -1,12 +1,15 @@
 'use client';
 
-import { useEffect, useRef, useMemo } from 'react';
+import { useEffect, useRef, useMemo, useState, memo } from 'react';
 import { useCandleStore } from '@/stores/useCandleStore';
+import { useOrderBookStore } from '@/stores/useOrderBookStore';
 import { useSymbolMetaStore } from '@/stores/useSymbolMetaStore';
 import { getThemeColors } from '@/lib/theme-utils';
 import type { CandleData } from '@/types';
 import type { Position } from '@/models/Position';
 import type { Order } from '@/models/Order';
+import type { OrderBookZone, OrderBookZones } from '@/models/OrderBookZone';
+import type { OrderBookLevel } from '@/lib/websocket/exchange-websocket.interface';
 
 interface PriceTapeProps {
   coin: string;
@@ -22,6 +25,12 @@ interface PricePoint {
 const TIMEFRAME_MS = 300000;
 const INTERVAL_MS = 500;
 const DATA_POINTS = TIMEFRAME_MS / INTERVAL_MS;
+
+const ZONE_LEVELS = 12;
+const ZONE_UPDATE_THRESHOLD = 0.15;
+const ZONE_OPACITY_MIN = 0.08;
+const ZONE_OPACITY_MAX = 0.35;
+const ZONE_LINE_WIDTH = 20;
 
 function buildPriceData(candles: CandleData[]): PricePoint[] {
   if (candles.length === 0) return [];
@@ -50,7 +59,48 @@ function buildPriceData(candles: CandleData[]): PricePoint[] {
   return data;
 }
 
-export default function PriceTape({ coin, position, orders = [] }: PriceTapeProps) {
+function calculateZones(
+  levels: OrderBookLevel[],
+  side: 'bid' | 'ask',
+  count: number = ZONE_LEVELS
+): OrderBookZone[] {
+  if (!levels || levels.length === 0) return [];
+
+  const topLevels = levels.slice(0, count);
+  const maxVolume = Math.max(...topLevels.map(l => l.total));
+
+  return topLevels.map(level => ({
+    price: level.price,
+    volume: level.total,
+    intensity: maxVolume > 0 ? level.total / maxVolume : 0,
+    side,
+  }));
+}
+
+function shouldUpdateZones(
+  currentZones: OrderBookZone[],
+  newZones: OrderBookZone[]
+): boolean {
+  if (currentZones.length !== newZones.length) return true;
+
+  for (let i = 0; i < currentZones.length; i++) {
+    const current = currentZones[i];
+    const newZone = newZones[i];
+
+    if (Math.abs(current.price - newZone.price) > 0.0001) {
+      return true;
+    }
+
+    const volumeChange = Math.abs(current.volume - newZone.volume) / (current.volume || 1);
+    if (volumeChange > ZONE_UPDATE_THRESHOLD) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function PriceTape({ coin, position, orders = [] }: PriceTapeProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<any>(null);
   const lineSeriesRef = useRef<any>(null);
@@ -59,10 +109,17 @@ export default function PriceTape({ coin, position, orders = [] }: PriceTapeProp
   const positionLineRef = useRef<any>(null);
   const orderLinesRef = useRef<any[]>([]);
   const chartReadyRef = useRef(false);
+  const bidZoneLinesRef = useRef<any[]>([]);
+  const askZoneLinesRef = useRef<any[]>([]);
+  const currentZonesRef = useRef<OrderBookZones | null>(null);
+
+  const [selectedPrecision, setSelectedPrecision] = useState<2 | 3 | 4 | 5 | null>(null);
 
   const interval = '1m';
   const candleKey = `${coin}-${interval}`;
   const candles = useCandleStore((state) => state.candles[candleKey]) || [];
+  const orderBookKey = `${coin}${selectedPrecision ? `_${selectedPrecision}` : ''}`;
+  const orderBook = useOrderBookStore((state) => state.orderBooks[orderBookKey]);
 
   const getDecimals = useSymbolMetaStore((state) => state.getDecimals);
   const decimals = useMemo(() => getDecimals(coin), [getDecimals, coin]);
@@ -167,6 +224,37 @@ export default function PriceTape({ coin, position, orders = [] }: PriceTapeProp
   }, [coin, interval]);
 
   useEffect(() => {
+    bidZoneLinesRef.current.forEach((line) => {
+      if (lineSeriesRef.current) {
+        try {
+          lineSeriesRef.current.removePriceLine(line);
+        } catch (e) {}
+      }
+    });
+    bidZoneLinesRef.current = [];
+
+    askZoneLinesRef.current.forEach((line) => {
+      if (lineSeriesRef.current) {
+        try {
+          lineSeriesRef.current.removePriceLine(line);
+        } catch (e) {}
+      }
+    });
+    askZoneLinesRef.current = [];
+    currentZonesRef.current = null;
+  }, [selectedPrecision]);
+
+  useEffect(() => {
+    const { subscribeToOrderBook, unsubscribeFromOrderBook } = useOrderBookStore.getState();
+
+    subscribeToOrderBook(coin, selectedPrecision);
+
+    return () => {
+      unsubscribeFromOrderBook(coin, selectedPrecision);
+    };
+  }, [coin, selectedPrecision]);
+
+  useEffect(() => {
     if (!lineSeriesRef.current || candles.length === 0) return;
 
     const now = Date.now();
@@ -195,6 +283,107 @@ export default function PriceTape({ coin, position, orders = [] }: PriceTapeProp
   }, [candles]);
 
   useEffect(() => {
+    if (!chartReadyRef.current || !lineSeriesRef.current || !orderBook) return;
+
+    const colors = getThemeColors();
+
+    const newBidZones = calculateZones(orderBook.bids, 'bid', ZONE_LEVELS);
+    const newAskZones = calculateZones(orderBook.asks, 'ask', ZONE_LEVELS);
+
+    if (newBidZones.length === 0 || newAskZones.length === 0) {
+      return;
+    }
+
+    const currentZones = currentZonesRef.current;
+
+    const shouldUpdateBids = !currentZones || shouldUpdateZones(currentZones.bids, newBidZones);
+    const shouldUpdateAsks = !currentZones || shouldUpdateZones(currentZones.asks, newAskZones);
+
+    if (!shouldUpdateBids && !shouldUpdateAsks) return;
+
+    bidZoneLinesRef.current.forEach((line) => {
+      try {
+        lineSeriesRef.current.removePriceLine(line);
+      } catch (e) {}
+    });
+    bidZoneLinesRef.current = [];
+
+    askZoneLinesRef.current.forEach((line) => {
+      try {
+        lineSeriesRef.current.removePriceLine(line);
+      } catch (e) {}
+    });
+    askZoneLinesRef.current = [];
+
+    newBidZones.forEach((zone) => {
+      const opacity = ZONE_OPACITY_MIN + (zone.intensity * (ZONE_OPACITY_MAX - ZONE_OPACITY_MIN));
+      const alpha = Math.round(opacity * 255).toString(16).padStart(2, '0');
+      const color = `${colors.statusBullish}${alpha}`;
+
+      const formattedPrice = parseFloat(zone.price.toFixed(decimals.price));
+
+      const priceLine = lineSeriesRef.current.createPriceLine({
+        price: formattedPrice,
+        color: color,
+        lineWidth: ZONE_LINE_WIDTH,
+        lineStyle: 0,
+        axisLabelVisible: false,
+        title: '',
+      });
+
+      bidZoneLinesRef.current.push(priceLine);
+    });
+
+    newAskZones.forEach((zone) => {
+      const opacity = ZONE_OPACITY_MIN + (zone.intensity * (ZONE_OPACITY_MAX - ZONE_OPACITY_MIN));
+      const alpha = Math.round(opacity * 255).toString(16).padStart(2, '0');
+      const color = `${colors.statusBearish}${alpha}`;
+
+      const formattedPrice = parseFloat(zone.price.toFixed(decimals.price));
+
+      const priceLine = lineSeriesRef.current.createPriceLine({
+        price: formattedPrice,
+        color: color,
+        lineWidth: ZONE_LINE_WIDTH,
+        lineStyle: 0,
+        axisLabelVisible: false,
+        title: '',
+      });
+
+      askZoneLinesRef.current.push(priceLine);
+    });
+
+    currentZonesRef.current = {
+      bids: newBidZones,
+      asks: newAskZones,
+      timestamp: Date.now(),
+    };
+  }, [coin, orderBook, decimals.price]);
+
+  useEffect(() => {
+    return () => {
+      bidZoneLinesRef.current.forEach((line) => {
+        if (lineSeriesRef.current) {
+          try {
+            lineSeriesRef.current.removePriceLine(line);
+          } catch (e) {}
+        }
+      });
+      bidZoneLinesRef.current = [];
+
+      askZoneLinesRef.current.forEach((line) => {
+        if (lineSeriesRef.current) {
+          try {
+            lineSeriesRef.current.removePriceLine(line);
+          } catch (e) {}
+        }
+      });
+      askZoneLinesRef.current = [];
+      currentZonesRef.current = null;
+    };
+  }, [coin]);
+
+  useEffect(() => {
     if (!chartReadyRef.current || !lineSeriesRef.current) return;
 
     lineSeriesRef.current.applyOptions({
@@ -211,6 +400,11 @@ export default function PriceTape({ coin, position, orders = [] }: PriceTapeProp
 
         if (orders.length > 0) {
           prices.push(...orders.map(o => o.price));
+        }
+
+        if (currentZonesRef.current) {
+          prices.push(...currentZonesRef.current.bids.map(z => z.price));
+          prices.push(...currentZonesRef.current.asks.map(z => z.price));
         }
 
         if (prices.length === 0) return null;
@@ -319,10 +513,40 @@ export default function PriceTape({ coin, position, orders = [] }: PriceTapeProp
     };
   }, [coin, ordersKey, decimals.price]);
 
+  const precisionOptions: Array<{ value: 2 | 3 | 4 | 5 | null; label: string }> = [
+    { value: 2, label: '2' },
+    { value: 3, label: '3' },
+    { value: 4, label: '4' },
+    { value: 5, label: '5' },
+    { value: null, label: 'FULL' },
+  ];
+
   return (
     <div className="relative w-full h-full min-h-[300px] terminal-border p-1.5">
-      <div className="text-[10px] text-primary-muted mb-1.5 uppercase tracking-wider">█ PRICE TAPE</div>
-      <div ref={chartContainerRef} className="w-full h-[calc(100%-20px)]" />
+      <div className="flex items-center justify-between mb-1.5">
+        <div className="text-[10px] text-primary-muted uppercase tracking-wider">█ PRICE TAPE</div>
+        <div className="flex gap-1">
+          {precisionOptions.map((option) => (
+            <button
+              key={option.label}
+              onClick={() => setSelectedPrecision(option.value)}
+              className={`
+                px-1.5 py-0.5 text-[9px] font-mono rounded
+                transition-colors
+                ${selectedPrecision === option.value
+                  ? 'bg-primary/20 border border-primary text-primary'
+                  : 'border border-primary-muted text-primary-muted hover:border-primary hover:text-primary'
+                }
+              `}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div ref={chartContainerRef} className="w-full h-[calc(100%-28px)]" />
     </div>
   );
 }
+
+export default memo(PriceTape);

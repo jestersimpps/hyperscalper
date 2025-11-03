@@ -86,7 +86,11 @@ export class HyperliquidService implements IHyperliquidService {
   }
 
   async getOrderBook(params: OrderBookParams): Promise<Book> {
-    return await this.publicClient.l2Book({ coin: params.coin });
+    return await this.publicClient.l2Book({
+      coin: params.coin,
+      nSigFigs: params.nSigFigs,
+      mantissa: params.mantissa
+    });
   }
 
   async getRecentTrades(params: TradesParams): Promise<any[]> {
@@ -95,7 +99,11 @@ export class HyperliquidService implements IHyperliquidService {
 
   async subscribeToOrderBook(params: OrderBookParams, callback: (data: Book) => void): Promise<() => void> {
     this.initWebSocket();
-    return this.eventClient!.l2Book({ coin: params.coin }, callback);
+    return this.eventClient!.l2Book({
+      coin: params.coin,
+      nSigFigs: params.nSigFigs,
+      mantissa: params.mantissa
+    }, callback);
   }
 
   async subscribeToCandles(params: CandleParams, callback: (data: Candle) => void): Promise<() => void> {
@@ -390,6 +398,41 @@ export class HyperliquidService implements IHyperliquidService {
 
     const coinIndex = await this.getCoinIndex(coin);
     const cancels = coinOrders.map(order => ({
+      a: coinIndex,
+      o: order.oid
+    }));
+
+    return await this.walletClient!.cancel({ cancels });
+  }
+
+  async cancelEntryOrders(coin: string): Promise<any> {
+    this.ensureWalletClient();
+    const orders = await this.getOpenOrders();
+    const coinOrders = orders.filter(order => order.coin === coin);
+
+    const entryOrders = coinOrders.filter(order => {
+      if (order.isPositionTpsl) return false;
+
+      const ot = order.orderType?.toLowerCase() || '';
+      if (ot.includes('stop')) return false;
+      if (ot.includes('tp')) return false;
+
+      if (order.isTrigger && order.reduceOnly) {
+        const triggerType = ot || '';
+        if (triggerType.includes('market')) return false;
+      }
+
+      return true;
+    });
+
+    console.log(`[cancelEntryOrders] Total orders: ${coinOrders.length}, Entry orders: ${entryOrders.length}, TP/SL orders: ${coinOrders.length - entryOrders.length}`);
+
+    if (entryOrders.length === 0) {
+      return { status: 'ok', response: { type: 'default', data: { statuses: [] } } };
+    }
+
+    const coinIndex = await this.getCoinIndex(coin);
+    const cancels = entryOrders.map(order => ({
       a: coinIndex,
       o: order.oid
     }));

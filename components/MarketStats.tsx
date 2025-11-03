@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, memo } from 'react';
 import { useCandleStore } from '@/stores/useCandleStore';
 import { useSymbolMetaStore } from '@/stores/useSymbolMetaStore';
 import { getCandleTimeWindow } from '@/lib/time-utils';
@@ -10,7 +10,7 @@ interface MarketStatsProps {
   currentPrice: number;
 }
 
-export default function MarketStats({ coin, currentPrice }: MarketStatsProps) {
+function MarketStats({ coin, currentPrice }: MarketStatsProps) {
   const [stats, setStats] = useState<{
     high24h: number;
     low24h: number;
@@ -109,3 +109,5 @@ export default function MarketStats({ coin, currentPrice }: MarketStatsProps) {
     </div>
   );
 }
+
+export default memo(MarketStats);

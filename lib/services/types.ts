@@ -10,6 +10,8 @@ export interface CandleParams {
 
 export interface OrderBookParams {
   coin: string;
+  nSigFigs?: 2 | 3 | 4 | 5 | null;
+  mantissa?: 2 | 5 | null;
 }
 
 export interface TradesParams {
