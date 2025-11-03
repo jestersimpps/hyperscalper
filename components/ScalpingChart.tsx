@@ -987,13 +987,6 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
       return cachedStochTrendlinesRef.current;
     }
 
-    const cacheEmpty = cachedStochTrendlinesRef.current.supportLine.length === 0 &&
-                       cachedStochTrendlinesRef.current.resistanceLine.length === 0;
-
-    if (!cacheEmpty && currentLength % 10 !== 0) {
-      return cachedStochTrendlinesRef.current;
-    }
-
     const enabledVariants = Object.entries(stochasticSettings.variants).filter(([_, v]) => v.enabled);
     if (enabledVariants.length === 0) {
       cachedStochTrendlinesRef.current = { supportLine: [], resistanceLine: [] };
