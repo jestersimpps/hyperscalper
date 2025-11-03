@@ -1162,7 +1162,8 @@ export function calculateTrendlines(candles: FullCandleData[]): Trendlines {
   const supportCandidates: ScoredLine[] = [];
   const resistanceCandidates: ScoredLine[] = [];
 
-  const actualEndTime = candles[candles.length - 1].time;
+  const FIFTEEN_MINUTES_MS = 15 * 60 * 1000;
+  const actualEndTime = candles[candles.length - 1].time + FIFTEEN_MINUTES_MS;
 
   for (const period of lookbackPeriods) {
     const candleSubset = candles.slice(-(period + excludeLastCandles), -excludeLastCandles);

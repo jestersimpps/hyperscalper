@@ -94,14 +94,15 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
       const colorClass = position.pnl >= 0 ? 'text-bullish' : 'text-bearish';
 
       return (
-        <span className={`text-xs font-mono ${colorClass} w-28 text-right flex-shrink-0`}>
-          ${formattedPrice} {pnlSign}${formattedPnl}
-        </span>
+        <div className="flex flex-col text-xs font-mono text-right flex-shrink-0">
+          <span className="text-primary-muted">${formattedPrice}</span>
+          <span className={colorClass}>{pnlSign}${formattedPnl}</span>
+        </div>
       );
     }
 
     return (
-      <span className="text-xs font-mono text-primary-muted w-28 text-right flex-shrink-0">
+      <span className="text-xs font-mono text-primary-muted text-right flex-shrink-0">
         ${formattedPrice}
       </span>
     );

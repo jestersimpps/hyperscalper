@@ -53,11 +53,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const totalCoinSize = orderParams.reduce((sum, order) => sum + parseFloat(order.size), 0);
     const formattedTotalSize = await hlService.formatSize(totalCoinSize, symbol);
 
-    const stopLossPrice = currentPrice + (4 * priceInterval);
+    const stopLossPrice = currentPrice + (8 * priceInterval);
     const formattedStopLoss = await hlService.formatPrice(stopLossPrice, symbol);
 
-    const TAKER_FEE_PERCENT = 0.1;
-    const takeProfitPrice = currentPrice * (1 - (1 + TAKER_FEE_PERCENT) / 100);
+    const TAKE_PROFIT_PERCENT = 2;
+    const takeProfitPrice = currentPrice * (1 - TAKE_PROFIT_PERCENT / 100);
     const formattedTakeProfit = await hlService.formatPrice(takeProfitPrice, symbol);
 
     const stopLossResult = await hlService.placeStopLoss({
