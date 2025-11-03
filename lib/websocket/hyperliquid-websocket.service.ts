@@ -6,9 +6,11 @@ import type {
   CandleCallback,
   OrderBookCallback,
   TradeCallback,
+  AllMidsCallback,
   CandleData,
   OrderBookData,
   TradeData,
+  AllMidsData,
   OrderBookLevel
 } from './exchange-websocket.interface';
 
@@ -19,7 +21,7 @@ import { formatPrice, formatSize } from '@/lib/format-utils';
 
 interface Subscription {
   id: string;
-  type: 'candle' | 'orderBook' | 'trade';
+  type: 'candle' | 'orderBook' | 'trade' | 'allMids';
   params: any;
   callback: any;
   unsubscribeFn: () => void;
@@ -107,7 +109,8 @@ export class HyperliquidWebSocketService implements ExchangeWebSocketService {
   }
 
   subscribeToOrderBook(params: OrderBookSubscriptionParams, callback: OrderBookCallback): string {
-    const subscriptionId = `orderbook_${params.coin}_${Date.now()}`;
+    const precisionSuffix = params.nSigFigs ? `_${params.nSigFigs}` : '';
+    const subscriptionId = `orderbook_${params.coin}${precisionSuffix}_${Date.now()}`;
 
     this.initialize().then(() => {
       if (!this.eventClient) {
@@ -116,7 +119,11 @@ export class HyperliquidWebSocketService implements ExchangeWebSocketService {
       }
 
       const unsubscribeFn = this.eventClient.l2Book(
-        { coin: params.coin },
+        {
+          coin: params.coin,
+          nSigFigs: params.nSigFigs,
+          mantissa: params.mantissa
+        },
         (book: Book) => {
           try {
             const bids = book.levels[0].map(level => ({
@@ -210,6 +217,45 @@ export class HyperliquidWebSocketService implements ExchangeWebSocketService {
       this.subscriptions.set(subscriptionId, subscription);
     }).catch((error) => {
       console.error('[HyperliquidWS] Failed to subscribe to trades:', error);
+    });
+
+    return subscriptionId;
+  }
+
+  subscribeToAllMids(callback: AllMidsCallback): string {
+    const subscriptionId = `allmids_${Date.now()}`;
+
+    this.initialize().then(() => {
+      if (!this.eventClient) {
+        console.error('[HyperliquidWS] EventClient not initialized');
+        return;
+      }
+
+      const unsubscribeFn = this.eventClient.allMids(
+        (data: { mids: { [coin: string]: string } }) => {
+          try {
+            const prices: AllMidsData = {};
+            Object.entries(data.mids).forEach(([coin, price]) => {
+              prices[coin] = parseFloat(price);
+            });
+            callback(prices);
+          } catch (error) {
+            console.error('[HyperliquidWS] Error processing allMids:', error);
+          }
+        }
+      );
+
+      const subscription: Subscription = {
+        id: subscriptionId,
+        type: 'allMids',
+        params: {},
+        callback,
+        unsubscribeFn
+      };
+
+      this.subscriptions.set(subscriptionId, subscription);
+    }).catch((error) => {
+      console.error('[HyperliquidWS] Failed to subscribe to allMids:', error);
     });
 
     return subscriptionId;

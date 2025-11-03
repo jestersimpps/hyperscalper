@@ -12,6 +12,9 @@ interface PositionStore {
   unsubscribeFromPosition: (coin: string) => void;
   startPolling: (coin: string, interval: number) => void;
   stopPolling: (coin: string) => void;
+  startPollingMultiple: (coins: string[], interval?: number) => void;
+  stopPollingMultiple: (coins: string[]) => void;
+  getPosition: (coin: string) => Position | null;
 }
 
 export const usePositionStore = create<PositionStore>((set, get) => ({
@@ -87,5 +90,19 @@ export const usePositionStore = create<PositionStore>((set, get) => ({
   unsubscribeFromPosition: (coin: string) => {
     const { stopPolling } = get();
     stopPolling(coin);
+  },
+
+  startPollingMultiple: (coins: string[], interval: number = 5000) => {
+    const { startPolling } = get();
+    coins.forEach(coin => startPolling(coin, interval));
+  },
+
+  stopPollingMultiple: (coins: string[]) => {
+    const { stopPolling } = get();
+    coins.forEach(coin => stopPolling(coin));
+  },
+
+  getPosition: (coin: string) => {
+    return get().positions[coin] || null;
   },
 }));

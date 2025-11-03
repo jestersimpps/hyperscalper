@@ -5,6 +5,10 @@ import { useEffect, useState } from 'react';
 import { useScannerStore } from '@/stores/useScannerStore';
 import { useSettingsStore } from '@/stores/useSettingsStore';
 import { useTopSymbolsStore } from '@/stores/useTopSymbolsStore';
+import { useSidebarPricesStore } from '@/stores/useSidebarPricesStore';
+import { usePositionStore } from '@/stores/usePositionStore';
+import { useSymbolMetaStore } from '@/stores/useSymbolMetaStore';
+import { formatPrice } from '@/lib/format-utils';
 
 interface SidepanelProps {
   selectedSymbol: string;
@@ -22,6 +26,8 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
   const startAutoRefresh = useTopSymbolsStore((state) => state.startAutoRefresh);
   const stopAutoRefresh = useTopSymbolsStore((state) => state.stopAutoRefresh);
   const pinnedSymbols = settings.pinnedSymbols;
+  const { subscribe, unsubscribe, getPrice } = useSidebarPricesStore();
+  const { startPollingMultiple, stopPollingMultiple, getPosition } = usePositionStore();
 
   useEffect(() => {
     if (settings.scanner.enabled) {
@@ -43,6 +49,26 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
     };
   }, [startAutoRefresh, stopAutoRefresh]);
 
+  useEffect(() => {
+    subscribe();
+
+    return () => {
+      unsubscribe();
+    };
+  }, [subscribe, unsubscribe]);
+
+  useEffect(() => {
+    if (pinnedSymbols.length > 0) {
+      startPollingMultiple(pinnedSymbols);
+    }
+
+    return () => {
+      if (pinnedSymbols.length > 0) {
+        stopPollingMultiple(pinnedSymbols);
+      }
+    };
+  }, [pinnedSymbols, startPollingMultiple, stopPollingMultiple]);
+
   const formatTimeSince = (timestamp: number | null) => {
     if (!timestamp) return 'Never';
     const seconds = Math.floor((Date.now() - timestamp) / 1000);
@@ -51,6 +77,34 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
     if (minutes < 60) return `${minutes}m ago`;
     const hours = Math.floor(minutes / 60);
     return `${hours}h ago`;
+  };
+
+  const renderPrice = (coin: string) => {
+    const price = getPrice(coin);
+    const position = getPosition(coin);
+
+    if (!price) return null;
+
+    const decimals = useSymbolMetaStore.getState().getDecimals(coin);
+    const formattedPrice = formatPrice(price, decimals.price);
+
+    if (position) {
+      const formattedPnl = position.pnl.toFixed(2);
+      const pnlSign = position.pnl >= 0 ? '+' : '';
+      const colorClass = position.pnl >= 0 ? 'text-bullish' : 'text-bearish';
+
+      return (
+        <span className={`text-xs font-mono ${colorClass} w-28 text-right flex-shrink-0`}>
+          ${formattedPrice} {pnlSign}${formattedPnl}
+        </span>
+      );
+    }
+
+    return (
+      <span className="text-xs font-mono text-primary-muted w-28 text-right flex-shrink-0">
+        ${formattedPrice}
+      </span>
+    );
   };
 
   return (
@@ -122,8 +176,13 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                         }}
                         className="flex-1 text-left p-2"
                       >
-                        <div className={`text-xs font-mono ${textColor}`}>
-                          {displayText}
+                        <div className="flex justify-between items-center gap-2">
+                          <div className={`text-xs font-mono ${textColor} flex-1 min-w-0`}>
+                            {displayText}
+                          </div>
+                          <div className="flex-shrink-0">
+                            {renderPrice(result.symbol)}
+                          </div>
                         </div>
                       </button>
                       <button
@@ -196,13 +255,16 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                         }}
                         className="flex-1 text-left p-2"
                       >
-                        <div className="flex justify-between items-center">
-                          <span className="text-primary text-xs font-mono font-bold">
+                        <div className="flex justify-between items-center gap-2">
+                          <span className="text-primary text-xs font-mono font-bold w-16 flex-shrink-0">
                             {symbolData.name}
                           </span>
-                          <span className="text-primary-muted text-xs font-mono">
-                            ${volumeInMillions}M
-                          </span>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            {renderPrice(symbolData.name)}
+                            <span className="text-primary-muted text-xs font-mono w-12 text-right">
+                              ${volumeInMillions}M
+                            </span>
+                          </div>
                         </div>
                       </button>
                       <button
@@ -257,10 +319,13 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                   }}
                   className="flex-1 text-left p-2"
                 >
-                  <div className="flex justify-between items-center">
-                    <span className="text-primary font-bold">{symbol}/USD</span>
+                  <div className="flex justify-between items-center gap-2">
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <span className="text-primary font-bold w-20 flex-shrink-0">{symbol}/USD</span>
+                      {renderPrice(symbol)}
+                    </div>
                     {selectedSymbol === symbol && (
-                      <span className="text-primary text-xs">█</span>
+                      <span className="text-primary text-xs flex-shrink-0">█</span>
                     )}
                   </div>
                 </button>

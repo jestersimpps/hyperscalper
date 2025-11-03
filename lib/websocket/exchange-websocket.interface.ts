@@ -37,6 +37,10 @@ export interface TradeData {
   sizeFormatted: string;
 }
 
+export interface AllMidsData {
+  [coin: string]: number;
+}
+
 export interface CandleSubscriptionParams {
   coin: string;
   interval: string;
@@ -44,6 +48,8 @@ export interface CandleSubscriptionParams {
 
 export interface OrderBookSubscriptionParams {
   coin: string;
+  nSigFigs?: 2 | 3 | 4 | 5 | null;
+  mantissa?: 2 | 5 | null;
 }
 
 export interface TradeSubscriptionParams {
@@ -53,6 +59,7 @@ export interface TradeSubscriptionParams {
 export type CandleCallback = (candle: CandleData) => void;
 export type OrderBookCallback = (orderBook: OrderBookData) => void;
 export type TradeCallback = (trades: TradeData | TradeData[]) => void;
+export type AllMidsCallback = (mids: AllMidsData) => void;
 
 export interface ExchangeWebSocketService {
   subscribeToCandles(params: CandleSubscriptionParams, callback: CandleCallback): string;
@@ -60,6 +67,8 @@ export interface ExchangeWebSocketService {
   subscribeToOrderBook(params: OrderBookSubscriptionParams, callback: OrderBookCallback): string;
 
   subscribeToTrades(params: TradeSubscriptionParams, callback: TradeCallback): string;
+
+  subscribeToAllMids(callback: AllMidsCallback): string;
 
   unsubscribe(subscriptionId: string): void;
 
