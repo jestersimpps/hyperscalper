@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { CandleData, TimeInterval } from '@/types';
 import type { ExchangeWebSocketService } from '@/lib/websocket/exchange-websocket.interface';
 import { formatCandle } from '@/lib/format-utils';
+import { MAX_CANDLES } from '@/lib/constants';
 
 interface CandleStore {
   candles: Record<string, CandleData[]>;
@@ -15,8 +16,6 @@ interface CandleStore {
   unsubscribeFromCandles: (coin: string, interval: TimeInterval) => void;
   cleanup: () => void;
 }
-
-const MAX_CANDLES = 1000;
 
 const getCandleKey = (coin: string, interval: string): string => `${coin}-${interval}`;
 

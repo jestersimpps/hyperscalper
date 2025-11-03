@@ -125,9 +125,12 @@ export function calculateStochastic(
     const slice = validCandles.slice(i - period + 1, i + 1);
     if (slice.length !== period) continue;
 
+    const currentCandle = validCandles[i];
+    if (!currentCandle || typeof currentCandle.close !== 'number') continue;
+
     const high = Math.max(...slice.map((c) => c.high));
     const low = Math.min(...slice.map((c) => c.low));
-    const close = validCandles[i].close;
+    const close = currentCandle.close;
 
     const k = high === low ? 50 : ((close - low) / (high - low)) * 100;
     kValues.push(k);

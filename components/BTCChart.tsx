@@ -4,13 +4,14 @@ import { useEffect, useState, memo } from 'react';
 import ScalpingChart from '@/components/ScalpingChart';
 import { useCandleStore } from '@/stores/useCandleStore';
 import { getCandleTimeWindow } from '@/lib/time-utils';
+import { STANDARD_CANDLES } from '@/lib/constants';
 
 function BTCChart() {
   const [currentPrice, setCurrentPrice] = useState(0);
   const candles = useCandleStore((state) => state.candles['BTC-1m']) || [];
 
   useEffect(() => {
-    const { startTime, endTime } = getCandleTimeWindow('1m', 3000);
+    const { startTime, endTime } = getCandleTimeWindow('1m', STANDARD_CANDLES);
     const { fetchCandles, subscribeToCandles } = useCandleStore.getState();
 
     fetchCandles('BTC', '1m', startTime, endTime);
