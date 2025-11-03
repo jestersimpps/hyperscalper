@@ -7,13 +7,13 @@ export const dynamic = 'force-dynamic';
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     const body = await request.json();
-    const { symbol, currentPrice, percentage } = body;
+    const { symbol, currentPrice, percentage, priceInterval } = body;
 
-    if (!symbol || !currentPrice || !percentage) {
+    if (!symbol || !currentPrice || !percentage || !priceInterval) {
       return NextResponse.json(
         {
           success: false,
-          message: 'Missing required parameters: symbol, currentPrice, percentage',
+          message: 'Missing required parameters: symbol, currentPrice, percentage, priceInterval',
         },
         { status: 400 }
       );
@@ -25,29 +25,53 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const accountValue = parseFloat(accountBalance.accountValue);
     const positionSize = (accountValue * percentage) / 100;
 
-    const formattedPrice = await hlService.formatPrice(currentPrice, symbol);
     const coinSize = positionSize / currentPrice;
     const formattedSize = await hlService.formatSize(coinSize, symbol);
 
-    const orderResult = await hlService.placeLimitOrder({
+    const orderResult = await hlService.placeMarketSell(symbol, formattedSize);
+
+    const stopLossPrice = currentPrice + (8 * priceInterval);
+    const formattedStopLoss = await hlService.formatPrice(stopLossPrice, symbol);
+
+    const TAKE_PROFIT_PERCENT = 2;
+    const takeProfitPrice = currentPrice * (1 - TAKE_PROFIT_PERCENT / 100);
+    const formattedTakeProfit = await hlService.formatPrice(takeProfitPrice, symbol);
+
+    const stopLossResult = await hlService.placeStopLoss({
       coin: symbol,
-      isBuy: false,
-      price: formattedPrice,
+      triggerPrice: formattedStopLoss,
       size: formattedSize,
-      reduceOnly: false,
+      isBuy: true,
+    });
+
+    const takeProfitResult = await hlService.placeTakeProfit({
+      coin: symbol,
+      triggerPrice: formattedTakeProfit,
+      size: formattedSize,
+      isBuy: true,
     });
 
     return NextResponse.json({
       success: true,
-      message: `Small Short order placed for ${symbol}`,
+      message: `Small Short market order placed for ${symbol} with SL/TP`,
       data: {
         symbol,
         currentPrice,
         percentage,
+        priceInterval,
         positionSize,
-        formattedPrice,
         formattedSize,
         orderResult,
+        stopLoss: {
+          price: formattedStopLoss,
+          size: formattedSize,
+          result: stopLossResult,
+        },
+        takeProfit: {
+          price: formattedTakeProfit,
+          size: formattedSize,
+          result: takeProfitResult,
+        },
       },
     });
   } catch (error) {

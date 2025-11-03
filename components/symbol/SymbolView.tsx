@@ -178,11 +178,12 @@ function SymbolView({ coin }: SymbolViewProps) {
   const handleSmLong = useCallback(async () => {
     playNotificationSound('bullish', 'standard');
     try {
-      if (candles.length === 0) {
+      if (candles.length < 5) {
         console.error('Insufficient candle data for sm long');
         return;
       }
 
+      const priceInterval = calculateAverageCandleHeight(candles);
       const latestCandle = candles[candles.length - 1];
       const currentPriceValue = latestCandle.close;
 
@@ -192,6 +193,7 @@ function SymbolView({ coin }: SymbolViewProps) {
         body: JSON.stringify({
           symbol: coin,
           currentPrice: currentPriceValue,
+          priceInterval,
           percentage: orderSettings.smallPercentage
         }),
       });
@@ -205,11 +207,12 @@ function SymbolView({ coin }: SymbolViewProps) {
   const handleSmShort = useCallback(async () => {
     playNotificationSound('bearish', 'standard');
     try {
-      if (candles.length === 0) {
+      if (candles.length < 5) {
         console.error('Insufficient candle data for sm short');
         return;
       }
 
+      const priceInterval = calculateAverageCandleHeight(candles);
       const latestCandle = candles[candles.length - 1];
       const currentPriceValue = latestCandle.close;
 
@@ -219,6 +222,7 @@ function SymbolView({ coin }: SymbolViewProps) {
         body: JSON.stringify({
           symbol: coin,
           currentPrice: currentPriceValue,
+          priceInterval,
           percentage: orderSettings.smallPercentage
         }),
       });
@@ -232,11 +236,12 @@ function SymbolView({ coin }: SymbolViewProps) {
   const handleBigLong = useCallback(async () => {
     playNotificationSound('bullish', 'big');
     try {
-      if (candles.length === 0) {
+      if (candles.length < 5) {
         console.error('Insufficient candle data for big long');
         return;
       }
 
+      const priceInterval = calculateAverageCandleHeight(candles);
       const latestCandle = candles[candles.length - 1];
       const currentPriceValue = latestCandle.close;
 
@@ -246,6 +251,7 @@ function SymbolView({ coin }: SymbolViewProps) {
         body: JSON.stringify({
           symbol: coin,
           currentPrice: currentPriceValue,
+          priceInterval,
           percentage: orderSettings.bigPercentage
         }),
       });
@@ -259,11 +265,12 @@ function SymbolView({ coin }: SymbolViewProps) {
   const handleBigShort = useCallback(async () => {
     playNotificationSound('bearish', 'big');
     try {
-      if (candles.length === 0) {
+      if (candles.length < 5) {
         console.error('Insufficient candle data for big short');
         return;
       }
 
+      const priceInterval = calculateAverageCandleHeight(candles);
       const latestCandle = candles[candles.length - 1];
       const currentPriceValue = latestCandle.close;
 
@@ -273,6 +280,7 @@ function SymbolView({ coin }: SymbolViewProps) {
         body: JSON.stringify({
           symbol: coin,
           currentPrice: currentPriceValue,
+          priceInterval,
           percentage: orderSettings.bigPercentage
         }),
       });

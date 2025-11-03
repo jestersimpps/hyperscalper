@@ -94,7 +94,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
       const colorClass = position.pnl >= 0 ? 'text-bullish' : 'text-bearish';
 
       return (
-        <div className="flex flex-col text-xs font-mono text-right flex-shrink-0">
+        <div className="flex flex-col text-xs font-mono text-right flex-shrink-0 w-24 tabular-nums">
           <span className="text-primary-muted">${formattedPrice}</span>
           <span className={colorClass}>{pnlSign}${formattedPnl}</span>
         </div>
@@ -102,7 +102,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
     }
 
     return (
-      <span className="text-xs font-mono text-primary-muted text-right flex-shrink-0">
+      <span className="text-xs font-mono text-primary-muted text-right flex-shrink-0 w-24 tabular-nums block">
         ${formattedPrice}
       </span>
     );
@@ -323,11 +323,13 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                   <div className="flex justify-between items-center gap-2">
                     <div className="flex items-center gap-2 flex-1 min-w-0">
                       <span className="text-primary font-bold w-20 flex-shrink-0">{symbol}/USD</span>
+                      {selectedSymbol === symbol && (
+                        <span className="text-primary text-xs flex-shrink-0">█</span>
+                      )}
+                    </div>
+                    <div className="flex-shrink-0">
                       {renderPrice(symbol)}
                     </div>
-                    {selectedSymbol === symbol && (
-                      <span className="text-primary text-xs flex-shrink-0">█</span>
-                    )}
                   </div>
                 </button>
                 <button

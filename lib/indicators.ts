@@ -1239,6 +1239,57 @@ export function calculatePivotLines(candles: FullCandleData[]): Trendlines {
   return { supportLine, resistanceLine };
 }
 
+export function calculateStochasticPivotLines(
+  stochData: StochasticData[],
+  candles: FullCandleData[]
+): Trendlines {
+  if (stochData.length < 30 || candles.length < 30 || stochData.length !== candles.length) {
+    return { supportLine: [], resistanceLine: [] };
+  }
+
+  const pivots = detectStochasticPivots(stochData, candles, 1);
+
+  const tops = pivots.filter(p => p.type === 'high').slice(-2);
+  const bottoms = pivots.filter(p => p.type === 'low').slice(-2);
+
+  console.log('[StochPivotLines] Total pivots detected:', pivots.length);
+  console.log('[StochPivotLines] Tops found:', tops.length, tops);
+  console.log('[StochPivotLines] Bottoms found:', bottoms.length, bottoms);
+
+  const FIFTEEN_MINUTES_MS = 15 * 60 * 1000;
+  const extendedEndTime = (candles[candles.length - 1].time + FIFTEEN_MINUTES_MS) / 1000;
+
+  let supportLine: TrendlineWithStyle[] = [];
+  if (bottoms.length >= 2) {
+    const slope = (bottoms[1].value - bottoms[0].value) / (bottoms[1].time - bottoms[0].time);
+    const extendedValue = bottoms[1].value + slope * (extendedEndTime * 1000 - bottoms[1].time);
+
+    supportLine = [{
+      points: [
+        { time: bottoms[0].time / 1000, value: bottoms[0].value },
+        { time: extendedEndTime, value: extendedValue }
+      ],
+      lineStyle: 0
+    }];
+  }
+
+  let resistanceLine: TrendlineWithStyle[] = [];
+  if (tops.length >= 2) {
+    const slope = (tops[1].value - tops[0].value) / (tops[1].time - tops[0].time);
+    const extendedValue = tops[1].value + slope * (extendedEndTime * 1000 - tops[1].time);
+
+    resistanceLine = [{
+      points: [
+        { time: tops[0].time / 1000, value: tops[0].value },
+        { time: extendedEndTime, value: extendedValue }
+      ],
+      lineStyle: 0
+    }];
+  }
+
+  return { supportLine, resistanceLine };
+}
+
 export const calculateEMAMemoized = createMemoizedFunction(
   calculateEMA,
   (data: number[], period: number) => {
@@ -1274,3 +1325,276 @@ export const calculateStochasticMemoized = createMemoizedFunction(
   100,
   60000
 );
+
+interface StochasticPivotPoint {
+  time: number;
+  value: number;
+  index: number;
+}
+
+function findStochasticPivotLows(stochData: StochasticData[], candles: FullCandleData[], window: number = 3): StochasticPivotPoint[] {
+  const pivots: StochasticPivotPoint[] = [];
+  const halfWindow = Math.floor(window / 2);
+
+  for (let i = halfWindow; i < stochData.length - halfWindow; i++) {
+    const current = stochData[i];
+    let isPivot = true;
+
+    for (let j = i - halfWindow; j <= i + halfWindow; j++) {
+      if (j !== i && stochData[j].d <= current.d) {
+        isPivot = false;
+        break;
+      }
+    }
+
+    if (isPivot) {
+      pivots.push({
+        time: candles[i].time,
+        value: current.d,
+        index: i
+      });
+    }
+  }
+
+  return pivots;
+}
+
+function findStochasticPivotHighs(stochData: StochasticData[], candles: FullCandleData[], window: number = 3): StochasticPivotPoint[] {
+  const pivots: StochasticPivotPoint[] = [];
+  const halfWindow = Math.floor(window / 2);
+
+  for (let i = halfWindow; i < stochData.length - halfWindow; i++) {
+    const current = stochData[i];
+    let isPivot = true;
+
+    for (let j = i - halfWindow; j <= i + halfWindow; j++) {
+      if (j !== i && stochData[j].d >= current.d) {
+        isPivot = false;
+        break;
+      }
+    }
+
+    if (isPivot) {
+      pivots.push({
+        time: candles[i].time,
+        value: current.d,
+        index: i
+      });
+    }
+  }
+
+  return pivots;
+}
+
+interface StochasticLineEquation {
+  slope: number;
+  intercept: number;
+  startPivot: StochasticPivotPoint;
+  endPivot: StochasticPivotPoint;
+}
+
+function calculateStochasticLineThroughPivots(p1: StochasticPivotPoint, p2: StochasticPivotPoint): StochasticLineEquation {
+  const slope = (p2.value - p1.value) / (p2.time - p1.time);
+  const intercept = p1.value - slope * p1.time;
+  return { slope, intercept, startPivot: p1, endPivot: p2 };
+}
+
+function countStochasticPivotTouches(
+  line: StochasticLineEquation,
+  pivots: StochasticPivotPoint[],
+  tolerance: number = 0.05
+): { touches: number; touchedPivots: StochasticPivotPoint[] } {
+  let touches = 0;
+  const touchedPivots: StochasticPivotPoint[] = [];
+
+  for (const pivot of pivots) {
+    const lineValue = line.slope * pivot.time + line.intercept;
+    const diff = Math.abs(pivot.value - lineValue);
+    if (diff < tolerance) {
+      touches++;
+      touchedPivots.push(pivot);
+    }
+  }
+
+  return { touches, touchedPivots };
+}
+
+function validateStochasticTrendline(
+  line: { x: number; y: number }[],
+  stochData: StochasticData[],
+  candles: FullCandleData[],
+  isSupport: boolean
+): { violations: number; violationRate: number } {
+  let violations = 0;
+
+  stochData.forEach((stoch, i) => {
+    const candle = candles[i];
+    const timeRatio = (candle.time - line[0].x) / (line[1].x - line[0].x);
+    const lineValue = line[0].y + timeRatio * (line[1].y - line[0].y);
+
+    if (isSupport) {
+      if (stoch.d < lineValue) {
+        violations++;
+      }
+    } else {
+      if (stoch.d > lineValue) {
+        violations++;
+      }
+    }
+  });
+
+  return {
+    violations,
+    violationRate: violations / stochData.length
+  };
+}
+
+interface ScoredStochasticLine {
+  line: TrendlinePoint[];
+  score: number;
+  period: number;
+  violations: number;
+  deviation: number;
+  slope: number;
+  touches: number;
+  pivots: StochasticPivotPoint[];
+}
+
+function findBestStochasticTrendlineForPeriod(
+  pivots: StochasticPivotPoint[],
+  stochData: StochasticData[],
+  candles: FullCandleData[],
+  isSupport: boolean,
+  period: number,
+  lastValue: number,
+  actualEndTime: number
+): ScoredStochasticLine | null {
+  if (pivots.length < 3) return null;
+
+  let bestLine: ScoredStochasticLine | null = null;
+
+  const maxCombinations = Math.min(100, (pivots.length * (pivots.length - 1)) / 2);
+  let combinationsTested = 0;
+
+  for (let i = 0; i < pivots.length - 1 && combinationsTested < maxCombinations; i++) {
+    for (let j = i + 1; j < pivots.length && combinationsTested < maxCombinations; j++) {
+      const lineEq = calculateStochasticLineThroughPivots(pivots[i], pivots[j]);
+      combinationsTested++;
+
+      const { touches, touchedPivots } = countStochasticPivotTouches(lineEq, pivots, 3);
+
+      if (touches < 3) continue;
+
+      const startTime = candles[0].time;
+      const endTime = candles[candles.length - 1].time;
+      const startValue = lineEq.slope * startTime + lineEq.intercept;
+      const endValue = lineEq.slope * endTime + lineEq.intercept;
+
+      if (endValue < 0 || endValue > 100) continue;
+
+      const line = [
+        { x: startTime, y: startValue },
+        { x: endTime, y: endValue }
+      ];
+
+      const validation = validateStochasticTrendline(line, stochData, candles, isSupport);
+
+      if (validation.violationRate > 0.02) continue;
+
+      const deviation = Math.abs(endValue - lastValue) / 100;
+
+      if (deviation > 0.5) continue;
+
+      const score = touches * 1000 - deviation * 100;
+
+      const actualEndValue = lineEq.slope * actualEndTime + lineEq.intercept;
+
+      if (!bestLine || score > bestLine.score) {
+        bestLine = {
+          line: [
+            { time: startTime / 1000, value: startValue },
+            { time: actualEndTime / 1000, value: actualEndValue }
+          ],
+          score,
+          period,
+          violations: validation.violations,
+          deviation,
+          slope: lineEq.slope,
+          touches,
+          pivots: touchedPivots
+        };
+      }
+    }
+  }
+
+  return bestLine;
+}
+
+export function calculateStochasticTrendlines(
+  stochData: StochasticData[],
+  candles: FullCandleData[],
+  lookbackPeriod?: number
+): Trendlines {
+  if (stochData.length < 30 || candles.length < 30 || stochData.length !== candles.length) {
+    return { supportLine: [], resistanceLine: [] };
+  }
+
+  const excludeLastCandles = 10;
+  const lastValue = stochData[stochData.length - 1 - excludeLastCandles].d;
+
+  const lookbackPeriods: number[] = [];
+  if (lookbackPeriod) {
+    lookbackPeriods.push(Math.min(lookbackPeriod, stochData.length - excludeLastCandles));
+  } else {
+    const minPeriod = 20;
+    const maxPeriod = stochData.length - excludeLastCandles;
+    const step = 10;
+    for (let period = minPeriod; period <= maxPeriod; period += step) {
+      lookbackPeriods.push(period);
+    }
+  }
+
+  const supportCandidates: ScoredStochasticLine[] = [];
+  const resistanceCandidates: ScoredStochasticLine[] = [];
+
+  const FIFTEEN_MINUTES_MS = 15 * 60 * 1000;
+  const actualEndTime = candles[candles.length - 1].time + FIFTEEN_MINUTES_MS;
+
+  for (const period of lookbackPeriods) {
+    const stochSubset = stochData.slice(-(period + excludeLastCandles), -excludeLastCandles);
+    const candleSubset = candles.slice(-(period + excludeLastCandles), -excludeLastCandles);
+
+    if (stochSubset.length < 20 || candleSubset.length < 20) continue;
+
+    const pivotLows = findStochasticPivotLows(stochSubset, candleSubset, 3);
+    const pivotHighs = findStochasticPivotHighs(stochSubset, candleSubset, 3);
+
+    const supportLine = findBestStochasticTrendlineForPeriod(pivotLows, stochSubset, candleSubset, true, period, lastValue, actualEndTime);
+    const resistanceLine = findBestStochasticTrendlineForPeriod(pivotHighs, stochSubset, candleSubset, false, period, lastValue, actualEndTime);
+
+    if (supportLine) {
+      supportCandidates.push(supportLine);
+    }
+
+    if (resistanceLine) {
+      resistanceCandidates.push(resistanceLine);
+    }
+  }
+
+  supportCandidates.sort((a, b) => b.score - a.score);
+  resistanceCandidates.sort((a, b) => b.score - a.score);
+
+  const topSupport = supportCandidates.slice(0, 1);
+  const topResistance = resistanceCandidates.slice(0, 1);
+
+  return {
+    supportLine: topSupport.map((s) => ({
+      points: s.line,
+      lineStyle: 0
+    })),
+    resistanceLine: topResistance.map((r) => ({
+      points: r.line,
+      lineStyle: 0
+    }))
+  };
+}

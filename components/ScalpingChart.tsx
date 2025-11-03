@@ -20,6 +20,7 @@ import {
   detectStochasticPivots,
   detectDivergence,
   calculateTrendlines,
+  calculateStochasticPivotLines,
   calculatePivotLines,
   type StochasticData,
   type DivergencePoint,
@@ -141,10 +142,14 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
   const stochReferenceLinesRef = useRef<any[]>([]);
   const supportLineSeriesRef = useRef<any[]>([]);
   const resistanceLineSeriesRef = useRef<any[]>([]);
+  const stochSupportLineSeriesRef = useRef<any[]>([]);
+  const stochResistanceLineSeriesRef = useRef<any[]>([]);
   const positionLineRef = useRef<any>(null);
   const orderLinesRef = useRef<any[]>([]);
   const cachedTrendlinesRef = useRef<{ supportLine: any[]; resistanceLine: any[] }>({ supportLine: [], resistanceLine: [] });
   const lastTrendlineCalculationRef = useRef<number>(0);
+  const cachedStochTrendlinesRef = useRef<{ supportLine: any[]; resistanceLine: any[] }>({ supportLine: [], resistanceLine: [] });
+  const lastStochTrendlineCalculationRef = useRef<number>(0);
   const [chartReady, setChartReady] = useState(false);
   const candlesBufferRef = useRef<CandleData[]>([]);
   const lastCandleTimeRef = useRef<number | null>(null);
@@ -964,6 +969,58 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
     return newTrendlines;
   }, [candles.length, candles]);
 
+  const stochTrendlines = useMemo(() => {
+    if (!stochasticSettings.showMultiVariant) {
+      cachedStochTrendlinesRef.current = { supportLine: [], resistanceLine: [] };
+      return cachedStochTrendlinesRef.current;
+    }
+
+    const stochCandles = interval === '1m' ? candles : (isExternalData ? allMacdCandles['1m'] : useCandleStore.getState().candles[`${coin}-1m`]);
+    if (!stochCandles || stochCandles.length < 30) {
+      cachedStochTrendlinesRef.current = { supportLine: [], resistanceLine: [] };
+      return cachedStochTrendlinesRef.current;
+    }
+
+    const currentLength = stochCandles.length;
+
+    if (lastStochTrendlineCalculationRef.current === currentLength) {
+      return cachedStochTrendlinesRef.current;
+    }
+
+    const cacheEmpty = cachedStochTrendlinesRef.current.supportLine.length === 0 &&
+                       cachedStochTrendlinesRef.current.resistanceLine.length === 0;
+
+    if (!cacheEmpty && currentLength % 10 !== 0) {
+      return cachedStochTrendlinesRef.current;
+    }
+
+    const enabledVariants = Object.entries(stochasticSettings.variants).filter(([_, v]) => v.enabled);
+    if (enabledVariants.length === 0) {
+      cachedStochTrendlinesRef.current = { supportLine: [], resistanceLine: [] };
+      return cachedStochTrendlinesRef.current;
+    }
+
+    const slowestVariant = enabledVariants.reduce((slowest, [name, config]) => {
+      return config.period > slowest.config.period ? { name, config } : slowest;
+    }, { name: enabledVariants[0][0], config: enabledVariants[0][1] });
+
+    const variantConfig = slowestVariant.config;
+    const stochData = calculateStochastic(stochCandles, variantConfig.period, variantConfig.smoothK, variantConfig.smoothD);
+
+    if (stochData.length < 30) {
+      cachedStochTrendlinesRef.current = { supportLine: [], resistanceLine: [] };
+      return cachedStochTrendlinesRef.current;
+    }
+
+    const offset = stochCandles.length - stochData.length;
+    const alignedCandles = stochCandles.slice(offset);
+
+    const newStochTrendlines = calculateStochasticPivotLines(stochData, alignedCandles);
+    cachedStochTrendlinesRef.current = newStochTrendlines;
+    lastStochTrendlineCalculationRef.current = currentLength;
+    return newStochTrendlines;
+  }, [candles.length, candles, stochasticSettings, interval, allMacdCandles, coin, isExternalData]);
+
   useEffect(() => {
     if (!chartReady || !chartRef.current || trendlines.supportLine.length === 0) {
       return;
@@ -1029,6 +1086,91 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
       resistanceLineSeriesRef.current = [];
     };
   }, [chartReady, trendlines]);
+
+  useEffect(() => {
+    if (!chartReady || !chartRef.current || !stochasticSettings.showMultiVariant) {
+      stochSupportLineSeriesRef.current.forEach((series) => {
+        try {
+          chartRef.current?.removeSeries(series);
+        } catch (e) {}
+      });
+      stochSupportLineSeriesRef.current = [];
+
+      stochResistanceLineSeriesRef.current.forEach((series) => {
+        try {
+          chartRef.current?.removeSeries(series);
+        } catch (e) {}
+      });
+      stochResistanceLineSeriesRef.current = [];
+      return;
+    }
+
+    if (stochTrendlines.supportLine.length === 0 && stochTrendlines.resistanceLine.length === 0) {
+      return;
+    }
+
+    stochSupportLineSeriesRef.current.forEach((series) => {
+      try {
+        chartRef.current?.removeSeries(series);
+      } catch (e) {}
+    });
+    stochSupportLineSeriesRef.current = [];
+
+    stochResistanceLineSeriesRef.current.forEach((series) => {
+      try {
+        chartRef.current?.removeSeries(series);
+      } catch (e) {}
+    });
+    stochResistanceLineSeriesRef.current = [];
+
+    const colors = getThemeColors();
+
+    stochTrendlines.supportLine.forEach((line) => {
+      if (line.points.length >= 2) {
+        const supportSeries = chartRef.current!.addLineSeries({
+          color: colors.statusBullish,
+          lineWidth: 2,
+          lineStyle: line.lineStyle,
+          priceScaleId: 'stoch',
+          lastValueVisible: false,
+          priceLineVisible: false,
+        });
+        supportSeries.setData(line.points);
+        stochSupportLineSeriesRef.current.push(supportSeries);
+      }
+    });
+
+    stochTrendlines.resistanceLine.forEach((line) => {
+      if (line.points.length >= 2) {
+        const resistanceSeries = chartRef.current!.addLineSeries({
+          color: colors.statusBearish,
+          lineWidth: 2,
+          lineStyle: line.lineStyle,
+          priceScaleId: 'stoch',
+          lastValueVisible: false,
+          priceLineVisible: false,
+        });
+        resistanceSeries.setData(line.points);
+        stochResistanceLineSeriesRef.current.push(resistanceSeries);
+      }
+    });
+
+    return () => {
+      stochSupportLineSeriesRef.current.forEach((series) => {
+        try {
+          chartRef.current?.removeSeries(series);
+        } catch (e) {}
+      });
+      stochSupportLineSeriesRef.current = [];
+
+      stochResistanceLineSeriesRef.current.forEach((series) => {
+        try {
+          chartRef.current?.removeSeries(series);
+        } catch (e) {}
+      });
+      stochResistanceLineSeriesRef.current = [];
+    };
+  }, [chartReady, stochTrendlines, stochasticSettings.showMultiVariant]);
 
   // Position price line overlay
   useEffect(() => {
