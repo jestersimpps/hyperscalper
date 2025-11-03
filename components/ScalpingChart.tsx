@@ -20,7 +20,7 @@ import {
   detectStochasticPivots,
   detectDivergence,
   calculateTrendlines,
-  calculateStochasticTrendlines,
+  calculateStochasticPivotLines,
   calculatePivotLines,
   type StochasticData,
   type DivergencePoint,
@@ -1008,7 +1008,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
     const offset = stochCandles.length - stochData.length;
     const alignedCandles = stochCandles.slice(offset);
 
-    const newStochTrendlines = calculateStochasticTrendlines(stochData, alignedCandles);
+    const newStochTrendlines = calculateStochasticPivotLines(stochData, alignedCandles);
     cachedStochTrendlinesRef.current = newStochTrendlines;
     lastStochTrendlineCalculationRef.current = currentLength;
     return newStochTrendlines;

@@ -1247,7 +1247,7 @@ export function calculateStochasticPivotLines(
     return { supportLine: [], resistanceLine: [] };
   }
 
-  const pivots = detectStochasticPivots(stochData, candles, 1);
+  const pivots = detectStochasticPivots(stochData, candles, 3);
 
   const tops = pivots.filter(p => p.type === 'high').slice(-2);
   const bottoms = pivots.filter(p => p.type === 'low').slice(-2);
