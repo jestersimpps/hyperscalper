@@ -363,7 +363,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
 
             dSeries.priceScale().applyOptions({
               scaleMargins: {
-                top: 0.80,
+                top: 0.70,
                 bottom: 0.05,
               },
             });
@@ -408,22 +408,22 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
 
           lineSeries.priceScale().applyOptions({
             scaleMargins: {
-              top: 0.65,
-              bottom: 0.20,
+              top: 0.50,
+              bottom: 0.35,
             },
           });
 
           signalSeries.priceScale().applyOptions({
             scaleMargins: {
-              top: 0.65,
-              bottom: 0.20,
+              top: 0.50,
+              bottom: 0.35,
             },
           });
 
           histogramSeries.priceScale().applyOptions({
             scaleMargins: {
-              top: 0.65,
-              bottom: 0.20,
+              top: 0.50,
+              bottom: 0.35,
             },
           });
 
