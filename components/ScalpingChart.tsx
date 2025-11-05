@@ -20,7 +20,6 @@ import {
   detectStochasticPivots,
   detectDivergence,
   calculateTrendlines,
-  calculateStochasticPivotLines,
   calculatePivotLines,
   type StochasticData,
   type DivergencePoint,
@@ -123,6 +122,42 @@ function detectCrossovers(ema1: number[], ema2: number[], ema3: number[] | null,
   return markers;
 }
 
+function createPivotMarkers(candles: CandleData[], colors: any): any[] {
+  const pivots = detectPivots(candles, 2);
+  const markers: any[] = [];
+
+  pivots.forEach((pivot) => {
+    markers.push({
+      time: pivot.time / 1000,
+      position: pivot.type === 'high' ? 'aboveBar' : 'belowBar',
+      color: pivot.type === 'high' ? colors.statusBearish : colors.statusBullish,
+      shape: 'circle',
+      text: '',
+      id: `pivot-${pivot.type}-${pivot.index}`
+    });
+  });
+
+  return markers;
+}
+
+function createStochasticPivotMarkers(stochData: StochasticData[], candles: CandleData[], colors: any): any[] {
+  const pivots = detectStochasticPivots(stochData, candles, 3);
+  const markers: any[] = [];
+
+  pivots.forEach((pivot) => {
+    markers.push({
+      time: pivot.time / 1000,
+      position: pivot.type === 'high' ? 'aboveBar' : 'belowBar',
+      color: pivot.type === 'high' ? colors.statusBearish : colors.statusBullish,
+      shape: 'circle',
+      text: '',
+      id: `stoch-pivot-${pivot.type}-${pivot.index}`
+    });
+  });
+
+  return markers;
+}
+
 
 export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartReady, candleData, isExternalData = false, macdCandleData, position, orders, syncZoom = false }: ScalpingChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
@@ -138,18 +173,13 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
   const stochSeriesRefsRef = useRef<Record<string, { d: any }>>({});
   const macdSeriesRefsRef = useRef<Record<string, { line: any; signal: any; histogram: any }>>({});
   const divergencePriceSeriesRef = useRef<any[]>([]);
-  const divergenceStochSeriesRef = useRef<any[]>([]);
   const stochReferenceLinesRef = useRef<any[]>([]);
   const supportLineSeriesRef = useRef<any[]>([]);
   const resistanceLineSeriesRef = useRef<any[]>([]);
-  const stochSupportLineSeriesRef = useRef<any[]>([]);
-  const stochResistanceLineSeriesRef = useRef<any[]>([]);
   const positionLineRef = useRef<any>(null);
   const orderLinesRef = useRef<any[]>([]);
   const cachedTrendlinesRef = useRef<{ supportLine: any[]; resistanceLine: any[] }>({ supportLine: [], resistanceLine: [] });
   const lastTrendlineCalculationRef = useRef<number>(0);
-  const cachedStochTrendlinesRef = useRef<{ supportLine: any[]; resistanceLine: any[] }>({ supportLine: [], resistanceLine: [] });
-  const lastStochTrendlineCalculationRef = useRef<number>(0);
   const [chartReady, setChartReady] = useState(false);
   const candlesBufferRef = useRef<CandleData[]>([]);
   const lastCandleTimeRef = useRef<number | null>(null);
@@ -662,12 +692,15 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
         macdHistogramSeriesRef.current.setData([]);
       }
 
+      const pivotMarkers = createPivotMarkers(candles, colors);
+
       if (emaSettings.ema1.enabled && emaSettings.ema2.enabled && ema1.length > 0 && ema2.length > 0) {
         const ema3ForDetection = emaSettings.ema3.enabled && ema3.length > 0 ? ema3 : null;
-        const markers = detectCrossovers(ema1, ema2, ema3ForDetection, candles, colors.statusBullish, colors.statusBearish);
-        candleSeriesRef.current.setMarkers(markers);
+        const crossoverMarkers = detectCrossovers(ema1, ema2, ema3ForDetection, candles, colors.statusBullish, colors.statusBearish);
+        const allMarkers = [...pivotMarkers, ...crossoverMarkers].sort((a, b) => a.time - b.time);
+        candleSeriesRef.current.setMarkers(allMarkers);
       } else {
-        candleSeriesRef.current.setMarkers([]);
+        candleSeriesRef.current.setMarkers(pivotMarkers);
       }
     } else {
       candleSeriesRef.current.update(candleData[candleData.length - 1]);
@@ -769,6 +802,10 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
     const stochCandles = interval === '1m' ? candles : (isExternalData ? allMacdCandles['1m'] : useCandleStore.getState().candles[`${coin}-1m`]);
     if (!stochCandles || stochCandles.length === 0) return;
 
+    const colors = getThemeColors();
+    const enabledVariants = Object.entries(stochasticSettings.variants).filter(([_, config]) => config.enabled);
+    let slowestVariant: [string, any] | null = null;
+
     Object.entries(stochasticSettings.variants).forEach(([variantName, config]) => {
       if (!config.enabled || !stochSeriesRefsRef.current[variantName]) return;
 
@@ -781,8 +818,18 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
           time: (stochCandles[i + offset].time / 1000) as any,
           value: value.d,
         })));
+
+        if (!slowestVariant || config.period > slowestVariant[1].period) {
+          slowestVariant = [variantName, { config, stochData, offset }];
+        }
       }
     });
+
+    if (slowestVariant) {
+      const [variantName, { stochData, offset }] = slowestVariant;
+      const stochMarkers = createStochasticPivotMarkers(stochData, stochCandles.slice(offset), colors);
+      stochSeriesRefsRef.current[variantName].d.setMarkers(stochMarkers);
+    }
   }, [chartReady, candles, interval, allMacdCandles, stochasticSettings, coin, isExternalData]);
 
   // Stochastic reference lines (0 and 100)
@@ -877,13 +924,6 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
     });
     divergencePriceSeriesRef.current = [];
 
-    divergenceStochSeriesRef.current.forEach((series) => {
-      try {
-        chartRef.current?.removeSeries(series);
-      } catch (e) {}
-    });
-    divergenceStochSeriesRef.current = [];
-
     const colors = getThemeColors();
     const colorMap = {
       'bullish': colors.statusBullish,
@@ -908,23 +948,6 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
         ]);
         divergencePriceSeriesRef.current.push(priceSeries);
       }
-
-      const stochSeries = chartRef.current?.addLineSeries({
-        color: colorMap[div.type],
-        lineWidth: 2,
-        lineStyle: 2,
-        priceScaleId: 'stoch',
-        lastValueVisible: false,
-        priceLineVisible: false,
-      });
-
-      if (stochSeries) {
-        stochSeries.setData([
-          { time: (div.startTime / 1000) as any, value: div.startStochValue },
-          { time: (div.endTime / 1000) as any, value: div.endStochValue },
-        ]);
-        divergenceStochSeriesRef.current.push(stochSeries);
-      }
     });
 
     return () => {
@@ -934,13 +957,6 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
         } catch (e) {}
       });
       divergencePriceSeriesRef.current = [];
-
-      divergenceStochSeriesRef.current.forEach((series) => {
-        try {
-          chartRef.current?.removeSeries(series);
-        } catch (e) {}
-      });
-      divergenceStochSeriesRef.current = [];
     };
   }, [chartReady, divergenceData]);
 
@@ -968,51 +984,6 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
     lastTrendlineCalculationRef.current = currentLength;
     return newTrendlines;
   }, [candles.length, candles]);
-
-  const stochTrendlines = useMemo(() => {
-    if (!stochasticSettings.showMultiVariant) {
-      cachedStochTrendlinesRef.current = { supportLine: [], resistanceLine: [] };
-      return cachedStochTrendlinesRef.current;
-    }
-
-    const stochCandles = interval === '1m' ? candles : (isExternalData ? allMacdCandles['1m'] : useCandleStore.getState().candles[`${coin}-1m`]);
-    if (!stochCandles || stochCandles.length < 30) {
-      cachedStochTrendlinesRef.current = { supportLine: [], resistanceLine: [] };
-      return cachedStochTrendlinesRef.current;
-    }
-
-    const currentLength = stochCandles.length;
-
-    if (lastStochTrendlineCalculationRef.current === currentLength) {
-      return cachedStochTrendlinesRef.current;
-    }
-
-    const enabledVariants = Object.entries(stochasticSettings.variants).filter(([_, v]) => v.enabled);
-    if (enabledVariants.length === 0) {
-      cachedStochTrendlinesRef.current = { supportLine: [], resistanceLine: [] };
-      return cachedStochTrendlinesRef.current;
-    }
-
-    const slowestVariant = enabledVariants.reduce((slowest, [name, config]) => {
-      return config.period > slowest.config.period ? { name, config } : slowest;
-    }, { name: enabledVariants[0][0], config: enabledVariants[0][1] });
-
-    const variantConfig = slowestVariant.config;
-    const stochData = calculateStochastic(stochCandles, variantConfig.period, variantConfig.smoothK, variantConfig.smoothD);
-
-    if (stochData.length < 30) {
-      cachedStochTrendlinesRef.current = { supportLine: [], resistanceLine: [] };
-      return cachedStochTrendlinesRef.current;
-    }
-
-    const offset = stochCandles.length - stochData.length;
-    const alignedCandles = stochCandles.slice(offset);
-
-    const newStochTrendlines = calculateStochasticPivotLines(stochData, alignedCandles);
-    cachedStochTrendlinesRef.current = newStochTrendlines;
-    lastStochTrendlineCalculationRef.current = currentLength;
-    return newStochTrendlines;
-  }, [candles.length, candles, stochasticSettings, interval, allMacdCandles, coin, isExternalData]);
 
   useEffect(() => {
     if (!chartReady || !chartRef.current || trendlines.supportLine.length === 0) {
@@ -1079,91 +1050,6 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
       resistanceLineSeriesRef.current = [];
     };
   }, [chartReady, trendlines]);
-
-  useEffect(() => {
-    if (!chartReady || !chartRef.current || !stochasticSettings.showMultiVariant) {
-      stochSupportLineSeriesRef.current.forEach((series) => {
-        try {
-          chartRef.current?.removeSeries(series);
-        } catch (e) {}
-      });
-      stochSupportLineSeriesRef.current = [];
-
-      stochResistanceLineSeriesRef.current.forEach((series) => {
-        try {
-          chartRef.current?.removeSeries(series);
-        } catch (e) {}
-      });
-      stochResistanceLineSeriesRef.current = [];
-      return;
-    }
-
-    if (stochTrendlines.supportLine.length === 0 && stochTrendlines.resistanceLine.length === 0) {
-      return;
-    }
-
-    stochSupportLineSeriesRef.current.forEach((series) => {
-      try {
-        chartRef.current?.removeSeries(series);
-      } catch (e) {}
-    });
-    stochSupportLineSeriesRef.current = [];
-
-    stochResistanceLineSeriesRef.current.forEach((series) => {
-      try {
-        chartRef.current?.removeSeries(series);
-      } catch (e) {}
-    });
-    stochResistanceLineSeriesRef.current = [];
-
-    const colors = getThemeColors();
-
-    stochTrendlines.supportLine.forEach((line) => {
-      if (line.points.length >= 2) {
-        const supportSeries = chartRef.current!.addLineSeries({
-          color: colors.statusBullish,
-          lineWidth: 2,
-          lineStyle: line.lineStyle,
-          priceScaleId: 'stoch',
-          lastValueVisible: false,
-          priceLineVisible: false,
-        });
-        supportSeries.setData(line.points);
-        stochSupportLineSeriesRef.current.push(supportSeries);
-      }
-    });
-
-    stochTrendlines.resistanceLine.forEach((line) => {
-      if (line.points.length >= 2) {
-        const resistanceSeries = chartRef.current!.addLineSeries({
-          color: colors.statusBearish,
-          lineWidth: 2,
-          lineStyle: line.lineStyle,
-          priceScaleId: 'stoch',
-          lastValueVisible: false,
-          priceLineVisible: false,
-        });
-        resistanceSeries.setData(line.points);
-        stochResistanceLineSeriesRef.current.push(resistanceSeries);
-      }
-    });
-
-    return () => {
-      stochSupportLineSeriesRef.current.forEach((series) => {
-        try {
-          chartRef.current?.removeSeries(series);
-        } catch (e) {}
-      });
-      stochSupportLineSeriesRef.current = [];
-
-      stochResistanceLineSeriesRef.current.forEach((series) => {
-        try {
-          chartRef.current?.removeSeries(series);
-        } catch (e) {}
-      });
-      stochResistanceLineSeriesRef.current = [];
-    };
-  }, [chartReady, stochTrendlines, stochasticSettings.showMultiVariant]);
 
   // Position price line overlay
   useEffect(() => {

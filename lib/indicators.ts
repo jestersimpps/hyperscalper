@@ -1213,28 +1213,34 @@ export function calculatePivotLines(candles: FullCandleData[]): Trendlines {
 
   const pivots = detectPivots(candles, 2);
 
-  const tops = pivots.filter(p => p.type === 'high').slice(-2);
-  const bottoms = pivots.filter(p => p.type === 'low').slice(-2);
+  const tops = pivots.filter(p => p.type === 'high');
+  const bottoms = pivots.filter(p => p.type === 'low');
 
   console.log('[PivotLines] Total pivots detected:', pivots.length);
-  console.log('[PivotLines] Tops found:', tops.length, tops);
-  console.log('[PivotLines] Bottoms found:', bottoms.length, bottoms);
+  console.log('[PivotLines] Tops found:', tops.length);
+  console.log('[PivotLines] Bottoms found:', bottoms.length);
 
-  const supportLine: TrendlineWithStyle[] = bottoms.length >= 2 ? [{
-    points: [
-      { time: bottoms[0].time / 1000, value: bottoms[0].price },
-      { time: bottoms[1].time / 1000, value: bottoms[1].price }
-    ],
-    lineStyle: 0
-  }] : [];
+  const supportLine: TrendlineWithStyle[] = [];
+  for (let i = 1; i < bottoms.length; i++) {
+    supportLine.push({
+      points: [
+        { time: bottoms[i-1].time / 1000, value: bottoms[i-1].price },
+        { time: bottoms[i].time / 1000, value: bottoms[i].price }
+      ],
+      lineStyle: 1
+    });
+  }
 
-  const resistanceLine: TrendlineWithStyle[] = tops.length >= 2 ? [{
-    points: [
-      { time: tops[0].time / 1000, value: tops[0].price },
-      { time: tops[1].time / 1000, value: tops[1].price }
-    ],
-    lineStyle: 0
-  }] : [];
+  const resistanceLine: TrendlineWithStyle[] = [];
+  for (let i = 1; i < tops.length; i++) {
+    resistanceLine.push({
+      points: [
+        { time: tops[i-1].time / 1000, value: tops[i-1].price },
+        { time: tops[i].time / 1000, value: tops[i].price }
+      ],
+      lineStyle: 1
+    });
+  }
 
   return { supportLine, resistanceLine };
 }
@@ -1249,42 +1255,33 @@ export function calculateStochasticPivotLines(
 
   const pivots = detectStochasticPivots(stochData, candles, 3);
 
-  const tops = pivots.filter(p => p.type === 'high').slice(-2);
-  const bottoms = pivots.filter(p => p.type === 'low').slice(-2);
+  const tops = pivots.filter(p => p.type === 'high');
+  const bottoms = pivots.filter(p => p.type === 'low');
 
   console.log('[StochPivotLines] Total pivots detected:', pivots.length);
-  console.log('[StochPivotLines] Tops found:', tops.length, tops);
-  console.log('[StochPivotLines] Bottoms found:', bottoms.length, bottoms);
+  console.log('[StochPivotLines] Tops found:', tops.length);
+  console.log('[StochPivotLines] Bottoms found:', bottoms.length);
 
-  const FIFTEEN_MINUTES_MS = 15 * 60 * 1000;
-  const extendedEndTime = (candles[candles.length - 1].time + FIFTEEN_MINUTES_MS) / 1000;
-
-  let supportLine: TrendlineWithStyle[] = [];
-  if (bottoms.length >= 2) {
-    const slope = (bottoms[1].value - bottoms[0].value) / (bottoms[1].time - bottoms[0].time);
-    const extendedValue = bottoms[1].value + slope * (extendedEndTime * 1000 - bottoms[1].time);
-
-    supportLine = [{
+  const supportLine: TrendlineWithStyle[] = [];
+  for (let i = 1; i < bottoms.length; i++) {
+    supportLine.push({
       points: [
-        { time: bottoms[0].time / 1000, value: bottoms[0].value },
-        { time: extendedEndTime, value: extendedValue }
+        { time: bottoms[i-1].time / 1000, value: bottoms[i-1].value },
+        { time: bottoms[i].time / 1000, value: bottoms[i].value }
       ],
       lineStyle: 0
-    }];
+    });
   }
 
-  let resistanceLine: TrendlineWithStyle[] = [];
-  if (tops.length >= 2) {
-    const slope = (tops[1].value - tops[0].value) / (tops[1].time - tops[0].time);
-    const extendedValue = tops[1].value + slope * (extendedEndTime * 1000 - tops[1].time);
-
-    resistanceLine = [{
+  const resistanceLine: TrendlineWithStyle[] = [];
+  for (let i = 1; i < tops.length; i++) {
+    resistanceLine.push({
       points: [
-        { time: tops[0].time / 1000, value: tops[0].value },
-        { time: extendedEndTime, value: extendedValue }
+        { time: tops[i-1].time / 1000, value: tops[i-1].value },
+        { time: tops[i].time / 1000, value: tops[i].value }
       ],
       lineStyle: 0
-    }];
+    });
   }
 
   return { supportLine, resistanceLine };
