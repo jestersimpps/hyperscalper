@@ -57,12 +57,16 @@ export interface StochasticScannerConfig {
   enabled: boolean;
   oversoldThreshold: number;
   overboughtThreshold: number;
+  timeframes: ('1m' | '5m' | '15m' | '1h')[];
 }
 
 export interface EmaAlignmentScannerConfig {
   enabled: boolean;
   timeframes: ('1m' | '5m' | '15m' | '1h')[];
   lookbackBars: number;
+  ema1Period: number;
+  ema2Period: number;
+  ema3Period: number;
 }
 
 export interface ChannelScannerConfig {
@@ -78,6 +82,8 @@ export interface DivergenceScannerConfig {
   scanBullish: boolean;
   scanBearish: boolean;
   scanHidden: boolean;
+  pivotStrength: number;
+  timeframes: ('1m' | '5m' | '15m' | '1h')[];
 }
 
 export interface MacdReversalScannerConfig {
@@ -86,6 +92,8 @@ export interface MacdReversalScannerConfig {
   fastPeriod: number;
   slowPeriod: number;
   signalPeriod: number;
+  recentReversalLookback: number;
+  minCandles: number;
 }
 
 export interface RsiReversalScannerConfig {
@@ -94,6 +102,8 @@ export interface RsiReversalScannerConfig {
   period: number;
   oversoldLevel: number;
   overboughtLevel: number;
+  recentReversalLookback: number;
+  minCandles: number;
 }
 
 export interface ScannerSettings {
@@ -209,11 +219,15 @@ export const DEFAULT_SETTINGS: AppSettings = {
       enabled: false,
       oversoldThreshold: 20,
       overboughtThreshold: 80,
+      timeframes: ['1m', '5m'],
     },
     emaAlignmentScanner: {
       enabled: false,
       timeframes: ['1m', '5m', '15m'],
       lookbackBars: 3,
+      ema1Period: 5,
+      ema2Period: 13,
+      ema3Period: 21,
     },
     channelScanner: {
       enabled: false,
@@ -227,6 +241,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
       scanBullish: true,
       scanBearish: true,
       scanHidden: false,
+      pivotStrength: 3,
+      timeframes: ['1m', '5m'],
     },
     macdReversalScanner: {
       enabled: false,
@@ -234,6 +250,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
       fastPeriod: 5,
       slowPeriod: 13,
       signalPeriod: 5,
+      recentReversalLookback: 3,
+      minCandles: 50,
     },
     rsiReversalScanner: {
       enabled: false,
@@ -241,6 +259,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
       period: 14,
       oversoldLevel: 30,
       overboughtLevel: 70,
+      recentReversalLookback: 3,
+      minCandles: 50,
     },
   },
   orders: {

@@ -59,6 +59,7 @@ export const useScannerStore = create<ScannerStore>((set, get) => ({
         stochasticEnabled: settings.stochasticScanner.enabled,
         oversoldThreshold: settings.stochasticScanner.oversoldThreshold,
         overboughtThreshold: settings.stochasticScanner.overboughtThreshold,
+        stochasticTimeframes: settings.stochasticScanner.timeframes,
         stochasticVariants: {
           fast9: {
             enabled: stochVariants.fast9.enabled,
@@ -88,9 +89,9 @@ export const useScannerStore = create<ScannerStore>((set, get) => ({
         topMarkets: settings.topMarkets,
         emaAlignmentEnabled: settings.emaAlignmentScanner.enabled,
         emaTimeframes: settings.emaAlignmentScanner.timeframes,
-        ema1Period: indicatorSettings.ema.ema1.period,
-        ema2Period: indicatorSettings.ema.ema2.period,
-        ema3Period: indicatorSettings.ema.ema3.period,
+        ema1Period: settings.emaAlignmentScanner.ema1Period,
+        ema2Period: settings.emaAlignmentScanner.ema2Period,
+        ema3Period: settings.emaAlignmentScanner.ema3Period,
         emaLookbackBars: settings.emaAlignmentScanner.lookbackBars,
         channelEnabled: settings.channelScanner.enabled,
         channelTimeframes: settings.channelScanner.timeframes,
@@ -101,16 +102,22 @@ export const useScannerStore = create<ScannerStore>((set, get) => ({
         divergenceScanBullish: settings.divergenceScanner.scanBullish,
         divergenceScanBearish: settings.divergenceScanner.scanBearish,
         divergenceScanHidden: settings.divergenceScanner.scanHidden,
+        divergencePivotStrength: settings.divergenceScanner.pivotStrength,
+        divergenceTimeframes: settings.divergenceScanner.timeframes,
         macdReversalEnabled: settings.macdReversalScanner.enabled,
         macdTimeframes: settings.macdReversalScanner.timeframes,
         macdFastPeriod: settings.macdReversalScanner.fastPeriod,
         macdSlowPeriod: settings.macdReversalScanner.slowPeriod,
         macdSignalPeriod: settings.macdReversalScanner.signalPeriod,
+        macdRecentReversalLookback: settings.macdReversalScanner.recentReversalLookback,
+        macdMinCandles: settings.macdReversalScanner.minCandles,
         rsiReversalEnabled: settings.rsiReversalScanner.enabled,
         rsiTimeframes: settings.rsiReversalScanner.timeframes,
         rsiPeriod: settings.rsiReversalScanner.period,
         rsiOversoldLevel: settings.rsiReversalScanner.oversoldLevel,
         rsiOverboughtLevel: settings.rsiReversalScanner.overboughtLevel,
+        rsiRecentReversalLookback: settings.rsiReversalScanner.recentReversalLookback,
+        rsiMinCandles: settings.rsiReversalScanner.minCandles,
       };
 
       const response = await fetch('/api/scanner', {

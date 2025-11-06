@@ -142,6 +142,7 @@ export async function POST(request: NextRequest) {
           smoothD: body.stochasticVariants?.full60?.smoothD ?? 10,
         },
       },
+      stochasticTimeframes: body.stochasticTimeframes ?? ['1m', '5m'],
       emaAlignmentEnabled: body.emaAlignmentEnabled ?? false,
       emaTimeframes: body.emaTimeframes ?? ['1m', '5m', '15m'],
       ema1Period: body.ema1Period ?? 5,
@@ -157,16 +158,22 @@ export async function POST(request: NextRequest) {
       divergenceScanBullish: body.divergenceScanBullish ?? true,
       divergenceScanBearish: body.divergenceScanBearish ?? true,
       divergenceScanHidden: body.divergenceScanHidden ?? false,
+      divergencePivotStrength: body.divergencePivotStrength ?? 3,
+      divergenceTimeframes: body.divergenceTimeframes ?? ['1m', '5m'],
       macdReversalEnabled: body.macdReversalEnabled ?? false,
       macdTimeframes: body.macdTimeframes ?? ['1m', '5m', '15m', '1h'],
       macdFastPeriod: body.macdFastPeriod ?? 5,
       macdSlowPeriod: body.macdSlowPeriod ?? 13,
       macdSignalPeriod: body.macdSignalPeriod ?? 5,
+      macdRecentReversalLookback: body.macdRecentReversalLookback ?? 3,
+      macdMinCandles: body.macdMinCandles ?? 50,
       rsiReversalEnabled: body.rsiReversalEnabled ?? false,
       rsiTimeframes: body.rsiTimeframes ?? ['1m', '5m', '15m', '1h'],
       rsiPeriod: body.rsiPeriod ?? 14,
       rsiOversoldLevel: body.rsiOversoldLevel ?? 30,
       rsiOverboughtLevel: body.rsiOverboughtLevel ?? 70,
+      rsiRecentReversalLookback: body.rsiRecentReversalLookback ?? 3,
+      rsiMinCandles: body.rsiMinCandles ?? 50,
     };
 
     console.log('🔍 Scanner started:', {
@@ -447,8 +454,8 @@ export async function POST(request: NextRequest) {
               const offset = candles1m.length - stochData.length;
               const alignedCandles = candles1m.slice(offset);
 
-              const pricePivots = detectPivots(alignedCandles, 3);
-              const stochPivots = detectStochasticPivots(stochData, alignedCandles, 3);
+              const pricePivots = detectPivots(alignedCandles, params.divergencePivotStrength);
+              const stochPivots = detectStochasticPivots(stochData, alignedCandles, params.divergencePivotStrength);
               const divergences = detectDivergence(pricePivots, stochPivots, alignedCandles);
 
               const filteredDivergences = divergences.filter(div => {
@@ -514,14 +521,14 @@ export async function POST(request: NextRequest) {
             const timeframeMinutes = getTimeframeMinutes(timeframe);
             const aggregatedCandles = aggregateCandles(candles1m, timeframeMinutes);
 
-            if (aggregatedCandles.length < 50) continue;
+            if (aggregatedCandles.length < params.macdMinCandles) continue;
 
             const closePrices = aggregatedCandles.map(c => c.close);
             const macdResult = calculateMACD(closePrices, params.macdFastPeriod, params.macdSlowPeriod, params.macdSignalPeriod);
 
             if (macdResult.macd.length > 0) {
               const reversals = detectMacdReversals(macdResult, aggregatedCandles);
-              const recentReversals = reversals.filter(r => aggregatedCandles.length - aggregatedCandles.findIndex(c => c.time === r.time) <= 3);
+              const recentReversals = reversals.filter(r => aggregatedCandles.length - aggregatedCandles.findIndex(c => c.time === r.time) <= params.macdRecentReversalLookback);
 
               recentReversals.forEach(reversal => {
                 macdReversals.push({
@@ -561,14 +568,14 @@ export async function POST(request: NextRequest) {
             const timeframeMinutes = getTimeframeMinutes(timeframe);
             const aggregatedCandles = aggregateCandles(candles1m, timeframeMinutes);
 
-            if (aggregatedCandles.length < 50) continue;
+            if (aggregatedCandles.length < params.rsiMinCandles) continue;
 
             const closePrices = aggregatedCandles.map(c => c.close);
             const rsi = calculateRSI(closePrices, params.rsiPeriod);
 
             if (rsi.length > 0) {
               const reversals = detectRsiReversals(rsi, aggregatedCandles, params.rsiOversoldLevel, params.rsiOverboughtLevel);
-              const recentReversals = reversals.filter(r => aggregatedCandles.length - aggregatedCandles.findIndex(c => c.time === r.time) <= 3);
+              const recentReversals = reversals.filter(r => aggregatedCandles.length - aggregatedCandles.findIndex(c => c.time === r.time) <= params.rsiRecentReversalLookback);
 
               recentReversals.forEach(reversal => {
                 const zone = reversal.direction === 'bullish' ? 'oversold' : 'overbought';

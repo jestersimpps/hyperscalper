@@ -7,6 +7,9 @@ import { usePositionStore } from '@/stores/usePositionStore';
 import { useOrderStore } from '@/stores/useOrderStore';
 import { useSymbolMetaStore } from '@/stores/useSymbolMetaStore';
 import { useSettingsStore } from '@/stores/useSettingsStore';
+import { useCandleStore } from '@/stores/useCandleStore';
+import { calculateAverageCandleHeight } from '@/lib/trading-utils';
+import { playNotificationSound } from '@/lib/sound-utils';
 
 interface AppShellProps {
   sidepanel: ReactNode;
@@ -23,101 +26,170 @@ export default function AppShell({ sidepanel, children }: AppShellProps) {
   const decimals = useMemo(() => getDecimals(coin), [getDecimals, coin]);
   const orderSettings = useSettingsStore((state) => state.settings.orders);
 
+  const candleKey = `${coin}-1m`;
+  const candles = useCandleStore((state) => state.candles[candleKey]) || [];
+
   const handleBuyCloud = useCallback(async () => {
+    playNotificationSound('bullish', 'cloud');
     try {
+      if (candles.length < 5) {
+        return;
+      }
+
+      const priceInterval = calculateAverageCandleHeight(candles);
+      const latestCandle = candles[candles.length - 1];
+      const currentPriceValue = latestCandle.close;
+
       const response = await fetch('/api/trade/buy-cloud', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbol: coin }),
+        body: JSON.stringify({
+          symbol: coin,
+          currentPrice: currentPriceValue,
+          priceInterval,
+          percentage: orderSettings.cloudPercentage
+        }),
       });
-      const data = await response.json();
-      if (!data.success) {
-        alert(`Failed to place buy cloud orders: ${data.message}`);
-      }
+      await response.json();
     } catch (error) {
-      alert(`Error placing buy cloud orders: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      // Error executing buy cloud
     }
-  }, [coin]);
+  }, [coin, candles, orderSettings.cloudPercentage]);
 
   const handleSellCloud = useCallback(async () => {
+    playNotificationSound('bearish', 'cloud');
     try {
+      if (candles.length < 5) {
+        return;
+      }
+
+      const priceInterval = calculateAverageCandleHeight(candles);
+      const latestCandle = candles[candles.length - 1];
+      const currentPriceValue = latestCandle.close;
+
       const response = await fetch('/api/trade/sell-cloud', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbol: coin }),
+        body: JSON.stringify({
+          symbol: coin,
+          currentPrice: currentPriceValue,
+          priceInterval,
+          percentage: orderSettings.cloudPercentage
+        }),
       });
-      const data = await response.json();
-      if (!data.success) {
-        alert(`Failed to place sell cloud orders: ${data.message}`);
-      }
+      await response.json();
     } catch (error) {
-      alert(`Error placing sell cloud orders: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      // Error executing sell cloud
     }
-  }, [coin]);
+  }, [coin, candles, orderSettings.cloudPercentage]);
 
   const handleSmLong = useCallback(async () => {
+    playNotificationSound('bullish', 'standard');
     try {
+      if (candles.length < 5) {
+        return;
+      }
+
+      const priceInterval = calculateAverageCandleHeight(candles);
+      const latestCandle = candles[candles.length - 1];
+      const currentPriceValue = latestCandle.close;
+
       const response = await fetch('/api/trade/sm-long', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbol: coin, percentage: orderSettings.smLongPercentage }),
+        body: JSON.stringify({
+          symbol: coin,
+          currentPrice: currentPriceValue,
+          priceInterval,
+          percentage: orderSettings.smallPercentage
+        }),
       });
-      const data = await response.json();
-      if (!data.success) {
-        alert(`Failed to place sm long order: ${data.message}`);
-      }
+      await response.json();
     } catch (error) {
-      alert(`Error placing sm long order: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      // Error executing sm long
     }
-  }, [coin, orderSettings.smLongPercentage]);
+  }, [coin, candles, orderSettings.smallPercentage]);
 
   const handleSmShort = useCallback(async () => {
+    playNotificationSound('bearish', 'standard');
     try {
+      if (candles.length < 5) {
+        return;
+      }
+
+      const priceInterval = calculateAverageCandleHeight(candles);
+      const latestCandle = candles[candles.length - 1];
+      const currentPriceValue = latestCandle.close;
+
       const response = await fetch('/api/trade/sm-short', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbol: coin, percentage: orderSettings.smShortPercentage }),
+        body: JSON.stringify({
+          symbol: coin,
+          currentPrice: currentPriceValue,
+          priceInterval,
+          percentage: orderSettings.smallPercentage
+        }),
       });
-      const data = await response.json();
-      if (!data.success) {
-        alert(`Failed to place sm short order: ${data.message}`);
-      }
+      await response.json();
     } catch (error) {
-      alert(`Error placing sm short order: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      // Error executing sm short
     }
-  }, [coin, orderSettings.smShortPercentage]);
+  }, [coin, candles, orderSettings.smallPercentage]);
 
   const handleBigLong = useCallback(async () => {
+    playNotificationSound('bullish', 'big');
     try {
+      if (candles.length < 5) {
+        return;
+      }
+
+      const priceInterval = calculateAverageCandleHeight(candles);
+      const latestCandle = candles[candles.length - 1];
+      const currentPriceValue = latestCandle.close;
+
       const response = await fetch('/api/trade/big-long', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbol: coin, percentage: orderSettings.bigLongPercentage }),
+        body: JSON.stringify({
+          symbol: coin,
+          currentPrice: currentPriceValue,
+          priceInterval,
+          percentage: orderSettings.bigPercentage
+        }),
       });
-      const data = await response.json();
-      if (!data.success) {
-        alert(`Failed to place big long order: ${data.message}`);
-      }
+      await response.json();
     } catch (error) {
-      alert(`Error placing big long order: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      // Error executing big long
     }
-  }, [coin, orderSettings.bigLongPercentage]);
+  }, [coin, candles, orderSettings.bigPercentage]);
 
   const handleBigShort = useCallback(async () => {
+    playNotificationSound('bearish', 'big');
     try {
+      if (candles.length < 5) {
+        return;
+      }
+
+      const priceInterval = calculateAverageCandleHeight(candles);
+      const latestCandle = candles[candles.length - 1];
+      const currentPriceValue = latestCandle.close;
+
       const response = await fetch('/api/trade/big-short', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbol: coin, percentage: orderSettings.bigShortPercentage }),
+        body: JSON.stringify({
+          symbol: coin,
+          currentPrice: currentPriceValue,
+          priceInterval,
+          percentage: orderSettings.bigPercentage
+        }),
       });
-      const data = await response.json();
-      if (!data.success) {
-        alert(`Failed to place big short order: ${data.message}`);
-      }
+      await response.json();
     } catch (error) {
-      alert(`Error placing big short order: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      // Error executing big short
     }
-  }, [coin, orderSettings.bigShortPercentage]);
+  }, [coin, candles, orderSettings.bigPercentage]);
 
   const handleClose25 = useCallback(async () => {
     try {

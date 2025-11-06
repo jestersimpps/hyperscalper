@@ -7,6 +7,7 @@ import { useSettingsStore } from '@/stores/useSettingsStore';
 import { useTopSymbolsStore } from '@/stores/useTopSymbolsStore';
 import { useSidebarPricesStore } from '@/stores/useSidebarPricesStore';
 import { usePositionStore } from '@/stores/usePositionStore';
+import { useOrderStore } from '@/stores/useOrderStore';
 import { useSymbolMetaStore } from '@/stores/useSymbolMetaStore';
 import { formatPrice } from '@/lib/format-utils';
 
@@ -28,6 +29,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
   const pinnedSymbols = settings.pinnedSymbols;
   const { subscribe, unsubscribe, getPrice } = useSidebarPricesStore();
   const { startPollingMultiple, stopPollingMultiple, getPosition } = usePositionStore();
+  const orders = useOrderStore((state) => state.orders);
 
   useEffect(() => {
     if (settings.scanner.enabled) {
@@ -58,16 +60,16 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
   }, [subscribe, unsubscribe]);
 
   useEffect(() => {
-    if (pinnedSymbols.length > 0) {
-      startPollingMultiple(pinnedSymbols);
+    if (allSymbolsToShow.length > 0) {
+      startPollingMultiple(allSymbolsToShow);
     }
 
     return () => {
-      if (pinnedSymbols.length > 0) {
-        stopPollingMultiple(pinnedSymbols);
+      if (allSymbolsToShow.length > 0) {
+        stopPollingMultiple(allSymbolsToShow);
       }
     };
-  }, [pinnedSymbols, startPollingMultiple, stopPollingMultiple]);
+  }, [allSymbolsToShow, startPollingMultiple, stopPollingMultiple]);
 
   const formatTimeSince = (timestamp: number | null) => {
     if (!timestamp) return 'Never';
@@ -108,8 +110,19 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
     );
   };
 
-  const sortedPinnedSymbols = useMemo(() => {
-    return [...pinnedSymbols].sort((a, b) => {
+  const symbolsWithOrders = useMemo(() => {
+    return Object.entries(orders)
+      .filter(([_, orderList]) => orderList && orderList.length > 0)
+      .map(([symbol]) => symbol);
+  }, [orders]);
+
+  const allSymbolsToShow = useMemo(() => {
+    const symbolSet = new Set([...pinnedSymbols, ...symbolsWithOrders]);
+    return Array.from(symbolSet);
+  }, [pinnedSymbols, symbolsWithOrders]);
+
+  const sortedSymbols = useMemo(() => {
+    return [...allSymbolsToShow].sort((a, b) => {
       const posA = getPosition(a);
       const posB = getPosition(b);
 
@@ -130,7 +143,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
 
       return 0;
     });
-  }, [pinnedSymbols, getPosition]);
+  }, [allSymbolsToShow, getPosition]);
 
   return (
     <div className="p-2 h-full flex gap-2 overflow-hidden">
@@ -376,14 +389,19 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
 
         {/* Pinned Symbols List */}
         <div className="flex-1 flex flex-col gap-1 overflow-y-auto">
-        {sortedPinnedSymbols.length === 0 ? (
+        {sortedSymbols.length === 0 ? (
           <div className="terminal-border p-3 text-center">
             <span className="text-primary-muted text-xs font-mono">
               No pinned symbols. Use + to add symbols.
             </span>
           </div>
         ) : (
-          sortedPinnedSymbols.map((symbol) => (
+          sortedSymbols.map((symbol) => {
+            const isPinned = pinnedSymbols.includes(symbol);
+            const hasOrders = symbolsWithOrders.includes(symbol);
+            const orderCount = orders[symbol]?.length || 0;
+
+            return (
             <div
               key={symbol}
               className={`terminal-border ${
@@ -409,22 +427,29 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                         <span className="text-primary text-xs flex-shrink-0">█</span>
                       )}
                       <span className="text-primary font-bold flex-shrink-0">{symbol}/USD</span>
+                      {hasOrders && (
+                        <span className="text-accent-orange text-[10px] flex-shrink-0" title={`${orderCount} open order${orderCount !== 1 ? 's' : ''}`}>
+                          ✦{orderCount}
+                        </span>
+                      )}
                     </div>
                     <div className="flex-shrink-0">
                       {renderPrice(symbol)}
                     </div>
                   </div>
                 </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    unpinSymbol(symbol);
-                  }}
-                  className="p-2 text-primary-muted hover:text-bearish cursor-pointer transition-colors"
-                  title="Unpin symbol"
-                >
-                  <span className="text-lg font-bold">−</span>
-                </button>
+                {isPinned && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      unpinSymbol(symbol);
+                    }}
+                    className="p-2 text-primary-muted hover:text-bearish cursor-pointer transition-colors"
+                    title="Unpin symbol"
+                  >
+                    <span className="text-lg font-bold">−</span>
+                  </button>
+                )}
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -437,7 +462,8 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                 </button>
               </div>
             </div>
-          ))
+            );
+          })
         )}
         </div>
       </div>
