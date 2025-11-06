@@ -1,7 +1,8 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
+import { useAutoAnimate } from '@formkit/auto-animate/react';
 import { useScannerStore } from '@/stores/useScannerStore';
 import { useSettingsStore } from '@/stores/useSettingsStore';
 import { useTopSymbolsStore } from '@/stores/useTopSymbolsStore';
@@ -18,6 +19,7 @@ interface SidepanelProps {
 export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelProps) {
   const router = useRouter();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [animationParent] = useAutoAnimate();
 
   const { results, status, runScan, startAutoScanWithDelay, stopAutoScan } = useScannerStore();
   const { settings, pinSymbol, unpinSymbol } = useSettingsStore();
@@ -107,6 +109,30 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
       </span>
     );
   };
+
+  const sortedPinnedSymbols = useMemo(() => {
+    return [...pinnedSymbols].sort((a, b) => {
+      const posA = getPosition(a);
+      const posB = getPosition(b);
+
+      const pnlA = posA?.pnl ?? null;
+      const pnlB = posB?.pnl ?? null;
+
+      if (pnlA !== null && pnlB !== null) {
+        return pnlB - pnlA;
+      }
+
+      if (pnlA !== null && pnlB === null) {
+        return pnlA > 0 ? -1 : 1;
+      }
+
+      if (pnlA === null && pnlB !== null) {
+        return pnlB > 0 ? 1 : -1;
+      }
+
+      return 0;
+    });
+  }, [pinnedSymbols, getPosition]);
 
   return (
     <div className="p-2 h-full flex flex-col overflow-y-auto">
@@ -298,18 +324,18 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
       </div>
 
       {/* Pinned Symbols List */}
-      <div className="space-y-1">
-        {pinnedSymbols.length === 0 ? (
+      <div ref={animationParent} className="flex flex-col gap-1">
+        {sortedPinnedSymbols.length === 0 ? (
           <div className="terminal-border p-3 text-center">
             <span className="text-primary-muted text-xs font-mono">
               No pinned symbols. Use + to add symbols.
             </span>
           </div>
         ) : (
-          pinnedSymbols.map((symbol) => (
+          sortedPinnedSymbols.map((symbol) => (
             <div
               key={symbol}
-              className={`terminal-border transition-colors ${
+              className={`terminal-border ${
                 selectedSymbol === symbol
                   ? 'bg-primary/10 border-primary'
                   : 'hover:bg-primary/5'
