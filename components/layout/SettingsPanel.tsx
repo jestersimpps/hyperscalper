@@ -454,6 +454,124 @@ export default function SettingsPanel() {
                           </>
                         )}
                       </div>
+
+                      {/* MACD Reversal Scanner */}
+                      <div className="border-t border-frame pt-4">
+                        <div className="p-3 bg-bg-secondary border border-frame rounded">
+                          <label className="flex items-center justify-between cursor-pointer">
+                            <span className="text-primary-muted text-xs font-mono">ENABLE MACD REVERSAL SCANNER</span>
+                            <input
+                              type="checkbox"
+                              checked={settings.scanner.macdReversalScanner.enabled}
+                              onChange={(e) =>
+                                updateScannerSettings({
+                                  macdReversalScanner: {
+                                    ...settings.scanner.macdReversalScanner,
+                                    enabled: e.target.checked,
+                                  },
+                                })
+                              }
+                              className="w-4 h-4 accent-primary cursor-pointer"
+                            />
+                          </label>
+                        </div>
+
+                        {settings.scanner.macdReversalScanner.enabled && (
+                          <>
+                            <div className="p-3 bg-bg-secondary border border-frame rounded space-y-3">
+                              <div className="text-primary font-mono text-xs font-bold mb-2">TIMEFRAMES TO SCAN</div>
+                              <div className="grid grid-cols-2 gap-2">
+                                {(['1m', '5m', '15m', '1h'] as const).map((tf) => (
+                                  <label key={tf} className="flex items-center gap-2 cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={settings.scanner.macdReversalScanner.timeframes.includes(tf)}
+                                      onChange={(e) => {
+                                        const newTimeframes = e.target.checked
+                                          ? [...settings.scanner.macdReversalScanner.timeframes, tf]
+                                          : settings.scanner.macdReversalScanner.timeframes.filter((t) => t !== tf);
+                                        updateScannerSettings({
+                                          macdReversalScanner: {
+                                            ...settings.scanner.macdReversalScanner,
+                                            timeframes: newTimeframes,
+                                          },
+                                        });
+                                      }}
+                                      className="w-4 h-4 accent-primary cursor-pointer"
+                                    />
+                                    <span className="text-primary-muted text-xs font-mono">{tf.toUpperCase()}</span>
+                                  </label>
+                                ))}
+                              </div>
+                            </div>
+
+                            <div className="p-3 bg-bg-secondary border border-frame rounded">
+                              <div className="text-primary-muted text-xs font-mono">
+                                Detects MACD line crossing signal line (Fast: {settings.scanner.macdReversalScanner.fastPeriod}, Slow: {settings.scanner.macdReversalScanner.slowPeriod}, Signal: {settings.scanner.macdReversalScanner.signalPeriod})
+                              </div>
+                            </div>
+                          </>
+                        )}
+                      </div>
+
+                      {/* RSI Reversal Scanner */}
+                      <div className="border-t border-frame pt-4">
+                        <div className="p-3 bg-bg-secondary border border-frame rounded">
+                          <label className="flex items-center justify-between cursor-pointer">
+                            <span className="text-primary-muted text-xs font-mono">ENABLE RSI REVERSAL SCANNER</span>
+                            <input
+                              type="checkbox"
+                              checked={settings.scanner.rsiReversalScanner.enabled}
+                              onChange={(e) =>
+                                updateScannerSettings({
+                                  rsiReversalScanner: {
+                                    ...settings.scanner.rsiReversalScanner,
+                                    enabled: e.target.checked,
+                                  },
+                                })
+                              }
+                              className="w-4 h-4 accent-primary cursor-pointer"
+                            />
+                          </label>
+                        </div>
+
+                        {settings.scanner.rsiReversalScanner.enabled && (
+                          <>
+                            <div className="p-3 bg-bg-secondary border border-frame rounded space-y-3">
+                              <div className="text-primary font-mono text-xs font-bold mb-2">TIMEFRAMES TO SCAN</div>
+                              <div className="grid grid-cols-2 gap-2">
+                                {(['1m', '5m', '15m', '1h'] as const).map((tf) => (
+                                  <label key={tf} className="flex items-center gap-2 cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={settings.scanner.rsiReversalScanner.timeframes.includes(tf)}
+                                      onChange={(e) => {
+                                        const newTimeframes = e.target.checked
+                                          ? [...settings.scanner.rsiReversalScanner.timeframes, tf]
+                                          : settings.scanner.rsiReversalScanner.timeframes.filter((t) => t !== tf);
+                                        updateScannerSettings({
+                                          rsiReversalScanner: {
+                                            ...settings.scanner.rsiReversalScanner,
+                                            timeframes: newTimeframes,
+                                          },
+                                        });
+                                      }}
+                                      className="w-4 h-4 accent-primary cursor-pointer"
+                                    />
+                                    <span className="text-primary-muted text-xs font-mono">{tf.toUpperCase()}</span>
+                                  </label>
+                                ))}
+                              </div>
+                            </div>
+
+                            <div className="p-3 bg-bg-secondary border border-frame rounded">
+                              <div className="text-primary-muted text-xs font-mono">
+                                Detects RSI exiting overbought ({'>'}{settings.scanner.rsiReversalScanner.overboughtLevel}) or oversold ({'<'}{settings.scanner.rsiReversalScanner.oversoldLevel}) zones (Period: {settings.scanner.rsiReversalScanner.period})
+                              </div>
+                            </div>
+                          </>
+                        )}
+                      </div>
                     )}
                   </div>
                 </>

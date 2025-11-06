@@ -160,6 +160,12 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                 } else if (result.scanType === 'emaAlignment') {
                   const signal = isBullish ? 'crossed up' : 'crossed down';
                   displayText = `${result.symbol}/USD ema ${signal}`;
+                } else if (result.scanType === 'macdReversal') {
+                  const timeframes = result.macdReversals?.map(r => r.timeframe).join(', ') || '';
+                  displayText = `${result.symbol}/USD MACD ${isBullish ? 'bullish' : 'bearish'} ${timeframes}`;
+                } else if (result.scanType === 'rsiReversal') {
+                  const timeframes = result.rsiReversals?.map(r => r.timeframe).join(', ') || '';
+                  displayText = `${result.symbol}/USD RSI ${isBullish ? 'bullish' : 'bearish'} ${timeframes}`;
                 }
 
                 const isPinned = pinnedSymbols.includes(result.symbol);

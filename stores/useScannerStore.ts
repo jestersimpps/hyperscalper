@@ -42,7 +42,7 @@ export const useScannerStore = create<ScannerStore>((set, get) => ({
       const settings = useSettingsStore.getState().settings.scanner;
       const indicatorSettings = useSettingsStore.getState().settings.indicators;
 
-      if (!settings.stochasticScanner.enabled && !settings.emaAlignmentScanner.enabled && !settings.channelScanner.enabled && !settings.divergenceScanner.enabled) {
+      if (!settings.stochasticScanner.enabled && !settings.emaAlignmentScanner.enabled && !settings.channelScanner.enabled && !settings.divergenceScanner.enabled && !settings.macdReversalScanner.enabled && !settings.rsiReversalScanner.enabled) {
         set({
           status: {
             ...get().status,
@@ -101,6 +101,16 @@ export const useScannerStore = create<ScannerStore>((set, get) => ({
         divergenceScanBullish: settings.divergenceScanner.scanBullish,
         divergenceScanBearish: settings.divergenceScanner.scanBearish,
         divergenceScanHidden: settings.divergenceScanner.scanHidden,
+        macdReversalEnabled: settings.macdReversalScanner.enabled,
+        macdTimeframes: settings.macdReversalScanner.timeframes,
+        macdFastPeriod: settings.macdReversalScanner.fastPeriod,
+        macdSlowPeriod: settings.macdReversalScanner.slowPeriod,
+        macdSignalPeriod: settings.macdReversalScanner.signalPeriod,
+        rsiReversalEnabled: settings.rsiReversalScanner.enabled,
+        rsiTimeframes: settings.rsiReversalScanner.timeframes,
+        rsiPeriod: settings.rsiReversalScanner.period,
+        rsiOversoldLevel: settings.rsiReversalScanner.oversoldLevel,
+        rsiOverboughtLevel: settings.rsiReversalScanner.overboughtLevel,
       };
 
       const response = await fetch('/api/scanner', {
