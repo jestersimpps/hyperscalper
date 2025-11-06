@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import ScalpingChart from '@/components/ScalpingChart';
+import MultiTimeframeChart from '@/components/MultiTimeframeChart';
 import TerminalHeader from '@/components/layout/TerminalHeader';
 import RightTradingPanel from '@/components/symbol/RightTradingPanel';
 import { useTradesStore } from '@/stores/useTradesStore';
@@ -29,6 +30,7 @@ function SymbolView({ coin }: SymbolViewProps) {
   const seenTimestampsRef = useRef<Set<number>>(new Set());
   const tradeSoundTimeoutsRef = useRef<NodeJS.Timeout[]>([]);
   const isPanelOpen = useSettingsStore((state) => state.isPanelOpen);
+  const isMultiChartView = useSettingsStore((state) => state.isMultiChartView);
   const playTradeSound = useSettingsStore((state) => state.settings.theme.playTradeSound);
   const orderSettings = useSettingsStore((state) => state.settings.orders);
 
@@ -458,19 +460,25 @@ function SymbolView({ coin }: SymbolViewProps) {
           {/* Header */}
           <TerminalHeader coin={coin} />
 
-          {/* Scalping Chart - Full Screen */}
-          <div className="terminal-border p-1.5 flex flex-col flex-1 min-h-0">
-            <div className="text-[10px] text-primary-muted mb-1 uppercase tracking-wider">█ SCALPING CHART</div>
+          {/* Chart View - Single or Multi-Timeframe */}
+          {isMultiChartView ? (
             <div className="flex-1 min-h-0">
-              <ScalpingChart
-                coin={coin}
-                interval="1m"
-                onPriceUpdate={setCurrentPrice}
-                position={position}
-                orders={orders}
-              />
+              <MultiTimeframeChart coin={coin} />
             </div>
-          </div>
+          ) : (
+            <div className="terminal-border p-1.5 flex flex-col flex-1 min-h-0">
+              <div className="text-[10px] text-primary-muted mb-1 uppercase tracking-wider">█ SCALPING CHART</div>
+              <div className="flex-1 min-h-0">
+                <ScalpingChart
+                  coin={coin}
+                  interval="1m"
+                  onPriceUpdate={setCurrentPrice}
+                  position={position}
+                  orders={orders}
+                />
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Right Sidebar - Trading Panel */}

@@ -7,10 +7,12 @@ type TabType = 'scanner' | 'indicators' | 'orders' | 'ui';
 interface SettingsStore {
   isPanelOpen: boolean;
   activeTab: TabType;
+  isMultiChartView: boolean;
   settings: AppSettings;
   openPanel: () => void;
   closePanel: () => void;
   togglePanel: () => void;
+  toggleMultiChartView: () => void;
   setActiveTab: (tab: TabType) => void;
   updateStochasticSettings: (settings: Partial<StochasticSettings>) => void;
   updateEmaSettings: (settings: Partial<EmaSettings>) => void;
@@ -192,10 +194,12 @@ export const useSettingsStore = create<SettingsStore>()(
     (set) => ({
       isPanelOpen: false,
       activeTab: 'scanner',
+      isMultiChartView: false,
       settings: DEFAULT_SETTINGS,
       openPanel: () => set({ isPanelOpen: true }),
       closePanel: () => set({ isPanelOpen: false }),
       togglePanel: () => set((state) => ({ isPanelOpen: !state.isPanelOpen })),
+      toggleMultiChartView: () => set((state) => ({ isMultiChartView: !state.isMultiChartView })),
       setActiveTab: (tab) => set({ activeTab: tab }),
       updateStochasticSettings: (updates) =>
         set((state) => ({

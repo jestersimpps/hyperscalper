@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { useSettingsStore } from '@/stores/useSettingsStore';
 
 interface TerminalHeaderProps {
@@ -9,8 +8,9 @@ interface TerminalHeaderProps {
 }
 
 export default function TerminalHeader({ coin }: TerminalHeaderProps) {
-  const router = useRouter();
   const togglePanel = useSettingsStore((state) => state.togglePanel);
+  const toggleMultiChartView = useSettingsStore((state) => state.toggleMultiChartView);
+  const isMultiChartView = useSettingsStore((state) => state.isMultiChartView);
   const [currentTime, setCurrentTime] = useState('');
 
   useEffect(() => {
@@ -38,9 +38,11 @@ export default function TerminalHeader({ coin }: TerminalHeaderProps) {
           </div>
           <div className="flex gap-2">
             <button
-              onClick={() => router.push(`/multi-chart/${coin}`)}
-              className="text-primary-muted hover:text-primary transition-colors text-lg leading-none"
-              title="Multi-timeframe view"
+              onClick={toggleMultiChartView}
+              className={`transition-colors text-lg leading-none ${
+                isMultiChartView ? 'text-primary' : 'text-primary-muted hover:text-primary'
+              }`}
+              title={isMultiChartView ? 'Single chart view' : 'Multi-timeframe view'}
             >
               ⊞
             </button>
