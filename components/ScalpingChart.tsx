@@ -293,7 +293,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
             width: 60,
             scaleMargins: {
               top: 0.1,
-              bottom: 0.45,
+              bottom: simplifiedView ? 0.15 : 0.45,
             },
           },
         });
@@ -321,7 +321,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
 
         volumeSeries.priceScale().applyOptions({
           scaleMargins: {
-            top: 0.85,
+            top: simplifiedView ? 0.90 : 0.85,
             bottom: 0,
           },
         });
