@@ -37,6 +37,7 @@ export async function GET(request: NextRequest) {
       const szi = parseFloat(assetPosition.position.szi);
       const entryPrice = parseFloat(assetPosition.position.entryPx || '0');
       const leverage = parseFloat(assetPosition.position.leverage.value);
+      const cumFunding = parseFloat(assetPosition.position.cumFunding?.sinceOpen || '0');
 
       const currentPrice = parseFloat(allMids[coin] || '0');
 
@@ -45,9 +46,11 @@ export async function GET(request: NextRequest) {
 
       const positionValue = size * currentPrice;
       const entryValue = size * entryPrice;
-      const pnl = side === 'long'
+      const rawPnl = side === 'long'
         ? positionValue - entryValue
         : entryValue - positionValue;
+
+      const pnl = rawPnl - cumFunding;
 
       const pnlPercentage = (pnl / entryValue) * 100;
 
