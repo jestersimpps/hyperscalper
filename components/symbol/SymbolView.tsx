@@ -15,6 +15,8 @@ import { KeyBinding } from '@/lib/keyboard-utils';
 import { useSettingsStore } from '@/stores/useSettingsStore';
 import { useSymbolMetaStore } from '@/stores/useSymbolMetaStore';
 import { calculateAverageCandleHeight } from '@/lib/trading-utils';
+import { getStandardTimeWindow } from '@/lib/time-utils';
+import type { TimeInterval } from '@/types';
 
 interface SymbolViewProps {
   coin: string;
@@ -44,6 +46,9 @@ function SymbolView({ coin }: SymbolViewProps) {
 
   const candleKey = `${coin}-1m`;
   const candles = useCandleStore((state) => state.candles[candleKey]) || [];
+  const fetchCandles = useCandleStore((state) => state.fetchCandles);
+  const subscribeToCandles = useCandleStore((state) => state.subscribeToCandles);
+  const unsubscribeFromCandles = useCandleStore((state) => state.unsubscribeFromCandles);
 
   const getDecimals = useSymbolMetaStore((state) => state.getDecimals);
   const decimals = useMemo(() => getDecimals(coin), [getDecimals, coin]);
@@ -60,6 +65,22 @@ function SymbolView({ coin }: SymbolViewProps) {
       unsubscribeFromOrders(coin);
     };
   }, [coin, subscribeToTrades, unsubscribeFromTrades, subscribeToPosition, unsubscribeFromPosition, subscribeToOrders, unsubscribeFromOrders]);
+
+  useEffect(() => {
+    const { startTime, endTime } = getStandardTimeWindow();
+    const timeframes: TimeInterval[] = ['1m', '5m', '15m', '1h'];
+
+    timeframes.forEach((interval) => {
+      fetchCandles(coin, interval, startTime, endTime);
+      subscribeToCandles(coin, interval);
+    });
+
+    return () => {
+      timeframes.forEach((interval) => {
+        unsubscribeFromCandles(coin, interval);
+      });
+    };
+  }, [coin, fetchCandles, subscribeToCandles, unsubscribeFromCandles]);
 
   useEffect(() => {
     if (trades.length === 0) return;
