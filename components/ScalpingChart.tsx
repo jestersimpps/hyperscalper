@@ -341,7 +341,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
         });
 
         const ema3Series = chart.addLineSeries({
-          color: colors.accentGreen,
+          color: colors.statusBullish,
           lineWidth: 2,
           lastValueVisible: false,
           priceLineVisible: false,
@@ -385,7 +385,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
         const macdTimeframeColors: Record<string, { line: string; signal: string }> = {
           '1m': { line: colors.accentBlue, signal: colors.accentRose },
           '5m': { line: colors.primary, signal: colors.statusBullish },
-          '15m': { line: colors.accentGreen, signal: colors.accentRose },
+          '15m': { line: colors.statusBullish, signal: colors.accentRose },
           '1h': { line: colors.accentBlue, signal: colors.accentRose },
         };
 
@@ -464,7 +464,6 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
           }
         }
       } catch (error) {
-        console.error('Error initializing chart:', error);
       }
     };
 
@@ -504,7 +503,6 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
           to: visibleTimeRange.to as any,
         });
       } catch (e) {
-        console.warn('Failed to apply initial synced range:', e);
       }
     } else {
       // Set initial range for other charts to sync to
@@ -538,7 +536,6 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
           to: state.visibleTimeRange.to as any,
         });
       } catch (e) {
-        console.warn('Failed to sync time range:', e);
       }
       setTimeout(() => { isSyncing = false; }, 100);
     });
@@ -702,13 +699,6 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
             currentDivergences.push(...divergences);
           });
 
-          if (currentDivergences.length > 0) {
-            console.log(`[${coin}] New candle divergences detected:`, {
-              time: new Date(lastCandle.time).toLocaleTimeString(),
-              count: currentDivergences.length,
-              types: currentDivergences.map(d => d.type)
-            });
-          }
         }
       }
 
@@ -1113,9 +1103,9 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
 
   const variantColorVars: Record<string, string> = {
     fast9: '#FF10FF',
-    fast14: '#E879F9',
-    fast40: '#A855F7',
-    full60: '#7C3AED',
+    fast14: '#00D9FF',
+    fast40: '#FF8C00',
+    full60: '#00FF7F',
   };
 
   const variantLabels: Record<string, string> = {
@@ -1133,10 +1123,8 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
         </div>
       )}
       <div ref={chartContainerRef} className="flex-1 min-h-0" />
-      <div className="mt-2 mb-1">
-        <ChartLegend />
-      </div>
-      <div className="mt-1 flex gap-3 text-xs flex-wrap">
+      <div className="mt-1 flex gap-3 text-[9px] items-center">
+        <ChartLegend className="flex-shrink-0" />
         {emaSettings.ema1.enabled && (
           <div className="flex items-center gap-1">
             <div className="w-6 h-0.5" style={{ backgroundColor: 'var(--accent-blue)' }}></div>
@@ -1151,21 +1139,9 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
         )}
         {emaSettings.ema3.enabled && (
           <div className="flex items-center gap-1">
-            <div className="w-6 h-0.5" style={{ backgroundColor: 'var(--accent-green)' }}></div>
+            <div className="w-6 h-0.5" style={{ backgroundColor: 'var(--status-bullish)' }}></div>
             <span className="text-primary-muted">EMA {emaSettings.ema3.period}</span>
           </div>
-        )}
-        {emaSettings.ema1.enabled && emaSettings.ema2.enabled && (
-          <>
-            <div className="flex items-center gap-1">
-              <span className="text-bullish">↑</span>
-              <span className="text-primary-muted">EMA BUY</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <span className="text-bearish">↓</span>
-              <span className="text-primary-muted">EMA SELL</span>
-            </div>
-          </>
         )}
         {macdSettings.enabled && (
           <>
