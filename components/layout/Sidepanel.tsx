@@ -118,7 +118,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
               <button
                 onClick={runScan}
                 disabled={status.isScanning}
-                className="px-2 py-1 text-xs bg-primary/10 hover:bg-primary/20 text-primary border border-primary rounded disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="px-2 py-1 text-xs bg-primary/10 hover:bg-primary/20 active:bg-primary/30 active:scale-95 text-primary border border-primary rounded disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 transition-all"
                 title="Run manual scan"
               >
                 {status.isScanning ? '⟳ SCANNING...' : '⟳ SCAN'}
@@ -227,7 +227,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
       <div className="mb-3">
         <button
           onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-          className="w-full terminal-border p-2 hover:bg-primary/5 transition-colors"
+          className="w-full terminal-border p-2 hover:bg-primary/5 active:bg-primary/10 active:scale-[0.99] transition-all"
         >
           <div className="flex items-center justify-between">
             <span className="text-primary-muted text-xs font-mono">ADD FROM TOP 20 BY VOLUME</span>

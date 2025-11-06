@@ -39,7 +39,7 @@ export default function TerminalHeader({ coin }: TerminalHeaderProps) {
           <div className="flex gap-2">
             <button
               onClick={toggleMultiChartView}
-              className={`transition-colors text-2xl leading-none ${
+              className={`transition-all text-2xl leading-none active:scale-90 ${
                 isMultiChartView ? 'text-primary' : 'text-primary-muted hover:text-primary'
               }`}
               title={isMultiChartView ? 'Single chart view' : 'Multi-timeframe view'}
@@ -48,7 +48,7 @@ export default function TerminalHeader({ coin }: TerminalHeaderProps) {
             </button>
             <button
               onClick={togglePanel}
-              className="text-primary-muted hover:text-primary transition-colors text-2xl leading-none"
+              className="text-primary-muted hover:text-primary active:scale-90 transition-all text-2xl leading-none"
               title="Open settings"
             >
               ⚙

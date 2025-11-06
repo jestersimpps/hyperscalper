@@ -71,7 +71,7 @@ export default function SettingsPanel() {
           </div>
           <button
             onClick={closePanel}
-            className="text-primary-muted hover:text-primary transition-colors text-2xl leading-none"
+            className="text-primary-muted hover:text-primary active:scale-90 transition-all text-2xl leading-none"
             title="Close settings"
           >
             ✕
