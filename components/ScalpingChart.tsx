@@ -856,20 +856,18 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
     if (!chartReady || Object.keys(stochSeriesRefsRef.current).length === 0) return;
 
     // Simple stochastic for simplified view
-    if (simplifiedView && simpleStochastic && stochSeriesRefsRef.current['simple']) {
-      if (simpleStochastic.k.length > 0) {
-        const offset = candles.length - simpleStochastic.k.length;
+    if (simplifiedView && simpleStochastic && simpleStochastic.length > 0 && stochSeriesRefsRef.current['simple']) {
+      const offset = candles.length - simpleStochastic.length;
 
-        stochSeriesRefsRef.current['simple'].k.setData(simpleStochastic.k.map((value, i) => ({
-          time: (candles[i + offset].time / 1000) as any,
-          value,
-        })));
+      stochSeriesRefsRef.current['simple'].k.setData(simpleStochastic.map((value, i) => ({
+        time: (candles[i + offset].time / 1000) as any,
+        value: value.k,
+      })));
 
-        stochSeriesRefsRef.current['simple'].d.setData(simpleStochastic.d.map((value, i) => ({
-          time: (candles[i + offset].time / 1000) as any,
-          value,
-        })));
-      }
+      stochSeriesRefsRef.current['simple'].d.setData(simpleStochastic.map((value, i) => ({
+        time: (candles[i + offset].time / 1000) as any,
+        value: value.d,
+      })));
       return;
     }
 
