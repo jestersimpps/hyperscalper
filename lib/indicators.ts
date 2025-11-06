@@ -37,6 +37,15 @@ export interface DivergencePoint {
   endStochValue: number;
 }
 
+export interface ReversalMarker {
+  time: number;
+  price: number;
+  type: 'macd' | 'rsi' | 'stochastic';
+  direction: 'bullish' | 'bearish';
+  label: string;
+  position: 'aboveBar' | 'belowBar';
+}
+
 export function calculateEMA(data: number[], period: number): number[] {
   const k = 2 / (period + 1);
   const emaArray: number[] = [];
@@ -84,6 +93,55 @@ export function calculateMACD(
     signal: signalLine,
     histogram: histogram,
   };
+}
+
+export function calculateRSI(data: number[], period: number = 14): number[] {
+  if (data.length < period + 1) return [];
+
+  const rsi: number[] = [];
+  let avgGain = 0;
+  let avgLoss = 0;
+
+  for (let i = 1; i <= period; i++) {
+    const change = data[i] - data[i - 1];
+    if (change > 0) {
+      avgGain += change;
+    } else {
+      avgLoss += Math.abs(change);
+    }
+  }
+
+  avgGain /= period;
+  avgLoss /= period;
+
+  for (let i = 0; i < period; i++) {
+    rsi.push(50);
+  }
+
+  if (avgLoss === 0) {
+    rsi.push(100);
+  } else {
+    const rs = avgGain / avgLoss;
+    rsi.push(100 - 100 / (1 + rs));
+  }
+
+  for (let i = period + 1; i < data.length; i++) {
+    const change = data[i] - data[i - 1];
+    const gain = change > 0 ? change : 0;
+    const loss = change < 0 ? Math.abs(change) : 0;
+
+    avgGain = (avgGain * (period - 1) + gain) / period;
+    avgLoss = (avgLoss * (period - 1) + loss) / period;
+
+    if (avgLoss === 0) {
+      rsi.push(100);
+    } else {
+      const rs = avgGain / avgLoss;
+      rsi.push(100 - 100 / (1 + rs));
+    }
+  }
+
+  return rsi;
 }
 
 export interface StochasticData {
@@ -466,6 +524,90 @@ export function calculateVolumeFlow(trades: Trade[], periodSeconds: number = 60)
     sellVolume,
     trend: netVolume >= 0 ? 'up' : 'down',
   };
+}
+
+export function detectMacdReversals(
+  macdResult: MacdResult,
+  candles: FullCandleData[]
+): ReversalMarker[] {
+  const reversals: ReversalMarker[] = [];
+
+  if (macdResult.macd.length < 2 || candles.length !== macdResult.macd.length) {
+    return reversals;
+  }
+
+  for (let i = 1; i < macdResult.macd.length; i++) {
+    const prevMacd = macdResult.macd[i - 1];
+    const currMacd = macdResult.macd[i];
+    const prevSignal = macdResult.signal[i - 1];
+    const currSignal = macdResult.signal[i];
+
+    if (prevMacd <= prevSignal && currMacd > currSignal) {
+      reversals.push({
+        time: candles[i].time,
+        price: candles[i].low,
+        type: 'macd',
+        direction: 'bullish',
+        label: 'M↑',
+        position: 'belowBar',
+      });
+    }
+
+    if (prevMacd >= prevSignal && currMacd < currSignal) {
+      reversals.push({
+        time: candles[i].time,
+        price: candles[i].high,
+        type: 'macd',
+        direction: 'bearish',
+        label: 'M↓',
+        position: 'aboveBar',
+      });
+    }
+  }
+
+  return reversals;
+}
+
+export function detectRsiReversals(
+  rsi: number[],
+  candles: FullCandleData[],
+  oversoldLevel: number = 30,
+  overboughtLevel: number = 70
+): ReversalMarker[] {
+  const reversals: ReversalMarker[] = [];
+
+  if (rsi.length < 2 || candles.length !== rsi.length) {
+    return reversals;
+  }
+
+  for (let i = 1; i < rsi.length; i++) {
+    const prevRsi = rsi[i - 1];
+    const currRsi = rsi[i];
+
+    if (prevRsi <= oversoldLevel && currRsi > oversoldLevel) {
+      reversals.push({
+        time: candles[i].time,
+        price: candles[i].low,
+        type: 'rsi',
+        direction: 'bullish',
+        label: 'R↑',
+        position: 'belowBar',
+      });
+    }
+
+    if (prevRsi >= overboughtLevel && currRsi < overboughtLevel) {
+      reversals.push({
+        time: candles[i].time,
+        price: candles[i].high,
+        type: 'rsi',
+        direction: 'bearish',
+        label: 'R↓',
+        position: 'aboveBar',
+      });
+    }
+  }
+
+  return reversals;
 }
 
 export function detectStochasticPivots(

@@ -2,12 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import ScalpingChart from '@/components/ScalpingChart';
-import BTCChart from '@/components/BTCChart';
-import MarketStats from '@/components/MarketStats';
-import PriceTape from '@/components/PriceTape';
 import TerminalHeader from '@/components/layout/TerminalHeader';
-import TradeVolumeTimeline from '@/components/TradeVolumeTimeline';
-import IndicatorSignals from '@/components/IndicatorSignals';
 import RightTradingPanel from '@/components/symbol/RightTradingPanel';
 import { useTradesStore } from '@/stores/useTradesStore';
 import { usePositionStore } from '@/stores/usePositionStore';
@@ -458,52 +453,22 @@ function SymbolView({ coin }: SymbolViewProps) {
   return (
     <div className="h-full flex flex-col bg-bg-primary">
       <div className="flex h-full w-full">
-        {/* Left Column - Charts and Data */}
+        {/* Main Content - Scalping Chart */}
         <div className="flex flex-col flex-1 min-w-0 p-2 gap-2">
           {/* Header */}
           <TerminalHeader coin={coin} />
 
-          {/* Main Content - 3 Column Layout */}
-          <div className="flex gap-2 flex-1 min-h-0">
-            {/* Left - BTC Chart (Full Height) */}
-            <div className="terminal-border p-1.5 flex flex-col flex-1 min-w-0">
-              <div className="flex-1 min-h-0">
-                <BTCChart />
-              </div>
-            </div>
-
-            {/* Right Side - Market Stats, Scalping Chart, Volume/Indicators */}
-            <div className="flex flex-col gap-2 flex-1 min-w-0">
-              {/* Market Stats (Top) */}
-              <MarketStats coin={coin} currentPrice={currentPrice} />
-
-              {/* Scalping Chart (Middle) */}
-              <div className="terminal-border p-1.5 flex flex-col flex-[2] min-h-0">
-                <div className="text-[10px] text-primary-muted mb-1 uppercase tracking-wider">█ SCALPING CHART</div>
-                <div className="flex-1 min-h-0">
-                  <ScalpingChart
-                    coin={coin}
-                    interval="1m"
-                    onPriceUpdate={setCurrentPrice}
-                    position={position}
-                    orders={orders}
-                  />
-                </div>
-              </div>
-
-              {/* Bottom Section - Volume/Indicators */}
-              <div className="flex flex-col gap-2 flex-1 min-h-0">
-                {/* Volume Flow Timeline */}
-                <div className="terminal-border p-1.5 flex flex-col flex-1 min-h-0">
-                  <div className="text-[10px] text-primary-muted mb-1.5 uppercase tracking-wider">█ VOLUME FLOW</div>
-                  <div className="flex-1 min-h-0">
-                    <TradeVolumeTimeline coin={coin} trades={trades} />
-                  </div>
-                </div>
-
-                {/* Indicator Signals */}
-                <IndicatorSignals coin={coin} />
-              </div>
+          {/* Scalping Chart - Full Screen */}
+          <div className="terminal-border p-1.5 flex flex-col flex-1 min-h-0">
+            <div className="text-[10px] text-primary-muted mb-1 uppercase tracking-wider">█ SCALPING CHART</div>
+            <div className="flex-1 min-h-0">
+              <ScalpingChart
+                coin={coin}
+                interval="1m"
+                onPriceUpdate={setCurrentPrice}
+                position={position}
+                orders={orders}
+              />
             </div>
           </div>
         </div>

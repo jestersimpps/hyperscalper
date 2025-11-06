@@ -9,9 +9,11 @@ import { useSettingsStore } from '@/stores/useSettingsStore';
 import { useSymbolMetaStore } from '@/stores/useSymbolMetaStore';
 import { useChartSyncStore } from '@/stores/useChartSyncStore';
 import { getThemeColors } from '@/lib/theme-utils';
+import ChartLegend from '@/components/ChartLegend';
 import {
   calculateEMA,
   calculateMACD,
+  calculateRSI,
   calculateStochastic,
   calculateEMAMemoized,
   calculateMACDMemoized,
@@ -19,10 +21,13 @@ import {
   detectPivots,
   detectStochasticPivots,
   detectDivergence,
+  detectMacdReversals,
+  detectRsiReversals,
   calculateTrendlines,
   calculatePivotLines,
   type StochasticData,
   type DivergencePoint,
+  type ReversalMarker,
 } from '@/lib/indicators';
 import { getStandardTimeWindow } from '@/lib/time-utils';
 
@@ -47,8 +52,17 @@ interface CrossoverMarker {
   text: string;
 }
 
+const SIGNAL_COLORS = {
+  ema: '#00D9FF',
+  macd: '#FF6B35',
+  rsi: '#FFD700',
+  divergence: '#9D4EDD',
+  hiddenDivergence: '#00FF7F',
+  pivot: '#888888',
+};
 
-function detectCrossovers(ema1: number[], ema2: number[], ema3: number[] | null, candles: CandleData[], bullishColor: string, bearishColor: string): any[] {
+
+function detectCrossovers(ema1: number[], ema2: number[], ema3: number[] | null, candles: CandleData[]): any[] {
   const markers: any[] = [];
 
   if (ema3) {
@@ -73,18 +87,18 @@ function detectCrossovers(ema1: number[], ema2: number[], ema3: number[] | null,
         markers.push({
           time: candles[i].time / 1000,
           position: 'belowBar',
-          color: bullishColor,
+          color: SIGNAL_COLORS.ema,
           shape: 'circle',
-          text: 'EMA BULL',
+          text: '',
           id: `buy-${i}`
         });
       } else if (!wasBearish && isBearish) {
         markers.push({
           time: candles[i].time / 1000,
           position: 'aboveBar',
-          color: bearishColor,
+          color: SIGNAL_COLORS.ema,
           shape: 'circle',
-          text: 'EMA BEAR',
+          text: '',
           id: `sell-${i}`
         });
       }
@@ -101,18 +115,18 @@ function detectCrossovers(ema1: number[], ema2: number[], ema3: number[] | null,
         markers.push({
           time: candles[i].time / 1000,
           position: 'belowBar',
-          color: bullishColor,
+          color: SIGNAL_COLORS.ema,
           shape: 'circle',
-          text: 'EMA BULL',
+          text: '',
           id: `buy-${i}`
         });
       } else if (prevEma1 >= prevEma2 && currEma1 < currEma2) {
         markers.push({
           time: candles[i].time / 1000,
           position: 'aboveBar',
-          color: bearishColor,
+          color: SIGNAL_COLORS.ema,
           shape: 'circle',
-          text: 'EMA BEAR',
+          text: '',
           id: `sell-${i}`
         });
       }
@@ -122,7 +136,7 @@ function detectCrossovers(ema1: number[], ema2: number[], ema3: number[] | null,
   return markers;
 }
 
-function createPivotMarkers(candles: CandleData[], colors: any): any[] {
+function createPivotMarkers(candles: CandleData[]): any[] {
   const pivots = detectPivots(candles, 2);
   const markers: any[] = [];
 
@@ -130,7 +144,7 @@ function createPivotMarkers(candles: CandleData[], colors: any): any[] {
     markers.push({
       time: pivot.time / 1000,
       position: pivot.type === 'high' ? 'aboveBar' : 'belowBar',
-      color: pivot.type === 'high' ? colors.statusBearish : colors.statusBullish,
+      color: SIGNAL_COLORS.pivot,
       shape: 'circle',
       text: '',
       id: `pivot-${pivot.type}-${pivot.index}`
@@ -140,7 +154,7 @@ function createPivotMarkers(candles: CandleData[], colors: any): any[] {
   return markers;
 }
 
-function createStochasticPivotMarkers(stochData: StochasticData[], candles: CandleData[], colors: any): any[] {
+function createStochasticPivotMarkers(stochData: StochasticData[], candles: CandleData[]): any[] {
   const pivots = detectStochasticPivots(stochData, candles, 3);
   const markers: any[] = [];
 
@@ -148,7 +162,7 @@ function createStochasticPivotMarkers(stochData: StochasticData[], candles: Cand
     markers.push({
       time: pivot.time / 1000,
       position: pivot.type === 'high' ? 'aboveBar' : 'belowBar',
-      color: pivot.type === 'high' ? colors.statusBearish : colors.statusBullish,
+      color: SIGNAL_COLORS.pivot,
       shape: 'circle',
       text: '',
       id: `stoch-pivot-${pivot.type}-${pivot.index}`
@@ -158,33 +172,28 @@ function createStochasticPivotMarkers(stochData: StochasticData[], candles: Cand
   return markers;
 }
 
-function createDivergenceMarkers(divergences: DivergencePoint[], colors: any): any[] {
+function createDivergenceMarkers(divergences: DivergencePoint[]): any[] {
   const markers: any[] = [];
 
   divergences.forEach((div) => {
-    let text = '';
     let color = '';
     let position: 'aboveBar' | 'belowBar' = 'aboveBar';
 
     switch (div.type) {
       case 'bullish':
-        text = 'BULLISH DIV';
-        color = colors.statusBullish;
+        color = SIGNAL_COLORS.divergence;
         position = 'belowBar';
         break;
       case 'bearish':
-        text = 'BEARISH DIV';
-        color = colors.statusBearish;
+        color = SIGNAL_COLORS.divergence;
         position = 'aboveBar';
         break;
       case 'hidden-bullish':
-        text = 'HIDDEN BULLISH';
-        color = colors.accentBlue;
+        color = SIGNAL_COLORS.hiddenDivergence;
         position = 'belowBar';
         break;
       case 'hidden-bearish':
-        text = 'HIDDEN BEARISH';
-        color = colors.accentRose;
+        color = SIGNAL_COLORS.hiddenDivergence;
         position = 'aboveBar';
         break;
     }
@@ -194,7 +203,7 @@ function createDivergenceMarkers(divergences: DivergencePoint[], colors: any): a
       position: position,
       color: color,
       shape: 'circle',
-      text: text,
+      text: '',
       id: `div-${div.type}-${div.endTime}`
     });
   });
@@ -211,9 +220,6 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
   const ema1SeriesRef = useRef<any>(null);
   const ema2SeriesRef = useRef<any>(null);
   const ema3SeriesRef = useRef<any>(null);
-  const macdLineSeriesRef = useRef<any>(null);
-  const macdSignalSeriesRef = useRef<any>(null);
-  const macdHistogramSeriesRef = useRef<any>(null);
   const stochSeriesRefsRef = useRef<Record<string, { d: any }>>({});
   const macdSeriesRefsRef = useRef<Record<string, { line: any; signal: any; histogram: any }>>({});
   const stochReferenceLinesRef = useRef<any[]>([]);
@@ -339,57 +345,13 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
           priceLineVisible: false,
         });
 
-        // MACD series
-        const macdLineSeries = chart.addLineSeries({
-          color: colors.accentBlue,
-          lineWidth: 2,
-          priceScaleId: 'macd',
-          lastValueVisible: false,
-          priceLineVisible: false,
-        });
-
-        const macdSignalSeries = chart.addLineSeries({
-          color: colors.accentRose,
-          lineWidth: 2,
-          priceScaleId: 'macd',
-          lastValueVisible: false,
-          priceLineVisible: false,
-        });
-
-        const macdHistogramSeries = chart.addHistogramSeries({
-          color: colors.primary,
-          priceScaleId: 'macd',
-          lastValueVisible: false,
-          priceLineVisible: false,
-        });
-
-        macdLineSeries.priceScale().applyOptions({
-          scaleMargins: {
-            top: 0.65,
-            bottom: 0.20,
-          },
-        });
-
-        macdSignalSeries.priceScale().applyOptions({
-          scaleMargins: {
-            top: 0.65,
-            bottom: 0.20,
-          },
-        });
-
-        macdHistogramSeries.priceScale().applyOptions({
-          scaleMargins: {
-            top: 0.65,
-            bottom: 0.20,
-          },
-        });
 
         // Stochastic series for variants
         const variantColors: Record<string, string> = {
           fast9: '#FF10FF',
-          fast14: '#E879F9',
-          fast40: '#A855F7',
-          full60: '#7C3AED',
+          fast14: '#00D9FF',
+          fast40: '#FF8C00',
+          full60: '#00FF7F',
         };
 
         stochSeriesRefsRef.current = {};
@@ -481,9 +443,6 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
         ema1SeriesRef.current = ema1Series;
         ema2SeriesRef.current = ema2Series;
         ema3SeriesRef.current = ema3Series;
-        macdLineSeriesRef.current = macdLineSeries;
-        macdSignalSeriesRef.current = macdSignalSeries;
-        macdHistogramSeriesRef.current = macdHistogramSeries;
 
         resizeHandler = () => {
           if (chartContainerRef.current && chartRef.current) {
@@ -522,9 +481,6 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
         ema1SeriesRef.current = null;
         ema2SeriesRef.current = null;
         ema3SeriesRef.current = null;
-        macdLineSeriesRef.current = null;
-        macdSignalSeriesRef.current = null;
-        macdHistogramSeriesRef.current = null;
         stochSeriesRefsRef.current = {};
       }
     };
@@ -657,6 +613,10 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
       : { macd: [], signal: [], histogram: [] };
   }, [closePrices, macdSettings.showMultiTimeframe, macdSettings.timeframes, interval]);
 
+  const rsi = useMemo(() => {
+    return calculateRSI(closePrices, 14);
+  }, [closePrices]);
+
   useEffect(() => {
     if (!chartReady || !candleSeriesRef.current || candles.length === 0) return;
 
@@ -714,28 +674,6 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
         ema3SeriesRef.current.setData([]);
       }
 
-      if (macdSettings.enabled && macdResult.macd.length > 0) {
-        const macdLineData = macdResult.macd.map((value, i) => ({
-          time: (candles[i].time / 1000) as any,
-          value,
-        }));
-        const macdSignalData = macdResult.signal.map((value, i) => ({
-          time: (candles[i].time / 1000) as any,
-          value,
-        }));
-        const macdHistogramData = macdResult.histogram.map((value, i) => ({
-          time: (candles[i].time / 1000) as any,
-          value,
-          color: value >= 0 ? colors.statusBullish + '80' : colors.statusBearish + '80',
-        }));
-        macdLineSeriesRef.current.setData(macdLineData);
-        macdSignalSeriesRef.current.setData(macdSignalData);
-        macdHistogramSeriesRef.current.setData(macdHistogramData);
-      } else {
-        macdLineSeriesRef.current.setData([]);
-        macdSignalSeriesRef.current.setData([]);
-        macdHistogramSeriesRef.current.setData([]);
-      }
 
       // Detect divergences on new candle
       let currentDivergences: DivergencePoint[] = [];
@@ -772,16 +710,36 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
 
       setDivergencePoints(currentDivergences);
 
-      const pivotMarkers = chartSettings?.showPivotMarkers ? createPivotMarkers(candles, colors) : [];
-      const divergenceMarkers = stochasticSettings.showDivergence && currentDivergences.length > 0 ? createDivergenceMarkers(currentDivergences, colors) : [];
+      const pivotMarkers = chartSettings?.showPivotMarkers ? createPivotMarkers(candles) : [];
+      const divergenceMarkers = stochasticSettings.showDivergence && currentDivergences.length > 0 ? createDivergenceMarkers(currentDivergences) : [];
+
+      const macdReversalMarkers = macdSettings.enabled && macdResult.macd.length > 0
+        ? detectMacdReversals(macdResult, candles).map(r => ({
+            time: r.time / 1000,
+            position: r.position,
+            color: SIGNAL_COLORS.macd,
+            shape: 'circle' as const,
+            text: '',
+          }))
+        : [];
+
+      const rsiReversalMarkers = rsi.length > 0
+        ? detectRsiReversals(rsi, candles, 30, 70).map(r => ({
+            time: r.time / 1000,
+            position: r.position,
+            color: SIGNAL_COLORS.rsi,
+            shape: 'circle' as const,
+            text: '',
+          }))
+        : [];
 
       if (emaSettings.ema1.enabled && emaSettings.ema2.enabled && ema1.length > 0 && ema2.length > 0) {
         const ema3ForDetection = emaSettings.ema3.enabled && ema3.length > 0 ? ema3 : null;
-        const crossoverMarkers = detectCrossovers(ema1, ema2, ema3ForDetection, candles, colors.statusBullish, colors.statusBearish);
-        const allMarkers = [...pivotMarkers, ...divergenceMarkers, ...crossoverMarkers].sort((a, b) => a.time - b.time);
+        const crossoverMarkers = detectCrossovers(ema1, ema2, ema3ForDetection, candles);
+        const allMarkers = [...pivotMarkers, ...divergenceMarkers, ...crossoverMarkers, ...macdReversalMarkers, ...rsiReversalMarkers].sort((a, b) => a.time - b.time);
         candleSeriesRef.current.setMarkers(allMarkers);
       } else {
-        const allMarkers = [...pivotMarkers, ...divergenceMarkers].sort((a, b) => a.time - b.time);
+        const allMarkers = [...pivotMarkers, ...divergenceMarkers, ...macdReversalMarkers, ...rsiReversalMarkers].sort((a, b) => a.time - b.time);
         candleSeriesRef.current.setMarkers(allMarkers);
       }
     } else {
@@ -809,21 +767,6 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
         });
       }
 
-      if (macdSettings.enabled && macdResult.macd.length > 0) {
-        macdLineSeriesRef.current.update({
-          time: (lastCandle.time / 1000) as any,
-          value: macdResult.macd[macdResult.macd.length - 1],
-        });
-        macdSignalSeriesRef.current.update({
-          time: (lastCandle.time / 1000) as any,
-          value: macdResult.signal[macdResult.signal.length - 1],
-        });
-        macdHistogramSeriesRef.current.update({
-          time: (lastCandle.time / 1000) as any,
-          value: macdResult.histogram[macdResult.histogram.length - 1],
-          color: macdResult.histogram[macdResult.histogram.length - 1] >= 0 ? colors.statusBullish + '80' : colors.statusBearish + '80',
-        });
-      }
     }
 
     lastCandleTimeRef.current = lastCandle.time;
@@ -831,7 +774,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
     if (onPriceUpdate) {
       onPriceUpdate(lastCandle.close);
     }
-  }, [candles, chartReady, onPriceUpdate, ema1, ema2, ema3, macdResult, emaSettings.ema1.enabled, emaSettings.ema2.enabled, emaSettings.ema3.enabled, macdSettings.enabled, stochasticSettings.showMultiVariant, stochasticSettings.showDivergence, stochasticSettings.variants, interval, allMacdCandles, coin, isExternalData, chartSettings]);
+  }, [candles, chartReady, onPriceUpdate, ema1, ema2, ema3, macdResult, rsi, emaSettings.ema1.enabled, emaSettings.ema2.enabled, emaSettings.ema3.enabled, macdSettings.enabled, stochasticSettings.showMultiVariant, stochasticSettings.showDivergence, stochasticSettings.variants, interval, allMacdCandles, coin, isExternalData, chartSettings]);
 
 
   // MACD multi-timeframe data update
@@ -1186,6 +1129,9 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
         </div>
       )}
       <div ref={chartContainerRef} className="flex-1 min-h-0" />
+      <div className="mt-2 mb-1">
+        <ChartLegend />
+      </div>
       <div className="mt-1 flex gap-3 text-xs flex-wrap">
         {emaSettings.ema1.enabled && (
           <div className="flex items-center gap-1">
