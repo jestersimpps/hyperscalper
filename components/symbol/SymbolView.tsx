@@ -37,8 +37,6 @@ function SymbolView({ coin }: SymbolViewProps) {
   const orderSettings = useSettingsStore((state) => state.settings.orders);
 
   const position = usePositionStore((state) => state.positions[coin]);
-  const subscribeToPosition = usePositionStore((state) => state.subscribeToPosition);
-  const unsubscribeFromPosition = usePositionStore((state) => state.unsubscribeFromPosition);
 
   const orders = useOrderStore((state) => state.orders[coin]) || [];
   const subscribeToOrders = useOrderStore((state) => state.subscribeToOrders);
@@ -56,15 +54,13 @@ function SymbolView({ coin }: SymbolViewProps) {
   useEffect(() => {
     seenTimestampsRef.current.clear();
     subscribeToTrades(coin);
-    subscribeToPosition(coin);
     subscribeToOrders(coin);
 
     return () => {
       unsubscribeFromTrades(coin);
-      unsubscribeFromPosition(coin);
       unsubscribeFromOrders(coin);
     };
-  }, [coin, subscribeToTrades, unsubscribeFromTrades, subscribeToPosition, unsubscribeFromPosition, subscribeToOrders, unsubscribeFromOrders]);
+  }, [coin, subscribeToTrades, unsubscribeFromTrades, subscribeToOrders, unsubscribeFromOrders]);
 
   useEffect(() => {
     const timeframes: TimeInterval[] = ['1m', '5m', '15m', '1h'];

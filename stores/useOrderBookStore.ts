@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { OrderBookData } from '@/lib/websocket/exchange-websocket.interface';
 import type { ExchangeWebSocketService } from '@/lib/websocket/exchange-websocket.interface';
+import { useWebSocketStatusStore } from '@/stores/useWebSocketStatusStore';
 
 interface OrderBookStore {
   orderBooks: Record<string, OrderBookData>;
@@ -99,13 +100,19 @@ export const useOrderBookStore = create<OrderBookStore>((set, get) => ({
         }
       );
 
-      set((state) => ({
-        wsService: service,
-        subscriptions: {
+      set((state) => {
+        const newSubscriptions = {
           ...state.subscriptions,
           [key]: { subscriptionId, cleanup }
-        },
-      }));
+        };
+        const subscriptionCount = Object.keys(newSubscriptions).length;
+        useWebSocketStatusStore.getState().setStreamSubscriptionCount('orderbook', subscriptionCount);
+
+        return {
+          wsService: service,
+          subscriptions: newSubscriptions,
+        };
+      });
     };
 
     initWebSocket();
@@ -127,6 +134,8 @@ export const useOrderBookStore = create<OrderBookStore>((set, get) => ({
 
     const newSubscriptions = { ...subscriptions };
     delete newSubscriptions[key];
+    const subscriptionCount = Object.keys(newSubscriptions).length;
+    useWebSocketStatusStore.getState().setStreamSubscriptionCount('orderbook', subscriptionCount);
 
     set({ subscriptions: newSubscriptions });
   },

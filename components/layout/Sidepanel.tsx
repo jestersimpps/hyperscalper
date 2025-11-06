@@ -29,7 +29,27 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
   const pinnedSymbols = settings.pinnedSymbols;
   const { subscribe, unsubscribe, getPrice } = useSidebarPricesStore();
   const { startPollingMultiple, stopPollingMultiple, getPosition } = usePositionStore();
+  const positions = usePositionStore((state) => state.positions);
   const orders = useOrderStore((state) => state.orders);
+
+  const symbolsWithOrders = useMemo(() => {
+    return Object.entries(orders)
+      .filter(([_, orderList]) => orderList && orderList.length > 0)
+      .map(([symbol]) => symbol);
+  }, [orders]);
+
+  const symbolsWithPositions = useMemo(() => {
+    return Object.entries(positions)
+      .filter(([_, position]) => position !== null && position.size > 0)
+      .map(([symbol]) => symbol);
+  }, [positions]);
+
+  const allSymbolsToShow = useMemo(() => {
+    const symbolSet = new Set([...pinnedSymbols, ...symbolsWithOrders, ...symbolsWithPositions]);
+    return Array.from(symbolSet);
+  }, [pinnedSymbols, symbolsWithOrders, symbolsWithPositions]);
+
+  const allSymbolsString = allSymbolsToShow.sort().join(',');
 
   useEffect(() => {
     if (settings.scanner.enabled) {
@@ -60,16 +80,17 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
   }, [subscribe, unsubscribe]);
 
   useEffect(() => {
-    if (allSymbolsToShow.length > 0) {
-      startPollingMultiple(allSymbolsToShow);
+    const symbols = allSymbolsString.split(',').filter(s => s.length > 0);
+    if (symbols.length > 0) {
+      startPollingMultiple(symbols);
     }
 
     return () => {
-      if (allSymbolsToShow.length > 0) {
-        stopPollingMultiple(allSymbolsToShow);
+      if (symbols.length > 0) {
+        stopPollingMultiple(symbols);
       }
     };
-  }, [allSymbolsToShow, startPollingMultiple, stopPollingMultiple]);
+  }, [allSymbolsString, startPollingMultiple, stopPollingMultiple]);
 
   const formatTimeSince = (timestamp: number | null) => {
     if (!timestamp) return 'Never';
@@ -109,17 +130,6 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
       </span>
     );
   };
-
-  const symbolsWithOrders = useMemo(() => {
-    return Object.entries(orders)
-      .filter(([_, orderList]) => orderList && orderList.length > 0)
-      .map(([symbol]) => symbol);
-  }, [orders]);
-
-  const allSymbolsToShow = useMemo(() => {
-    const symbolSet = new Set([...pinnedSymbols, ...symbolsWithOrders]);
-    return Array.from(symbolSet);
-  }, [pinnedSymbols, symbolsWithOrders]);
 
   const sortedSymbols = useMemo(() => {
     return [...allSymbolsToShow].sort((a, b) => {
@@ -398,8 +408,6 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
         ) : (
           sortedSymbols.map((symbol) => {
             const isPinned = pinnedSymbols.includes(symbol);
-            const hasOrders = symbolsWithOrders.includes(symbol);
-            const orderCount = orders[symbol]?.length || 0;
 
             return (
             <div
@@ -427,11 +435,6 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                         <span className="text-primary text-xs flex-shrink-0">█</span>
                       )}
                       <span className="text-primary font-bold flex-shrink-0">{symbol}/USD</span>
-                      {hasOrders && (
-                        <span className="text-accent-orange text-[10px] flex-shrink-0" title={`${orderCount} open order${orderCount !== 1 ? 's' : ''}`}>
-                          ✦{orderCount}
-                        </span>
-                      )}
                     </div>
                     <div className="flex-shrink-0">
                       {renderPrice(symbol)}

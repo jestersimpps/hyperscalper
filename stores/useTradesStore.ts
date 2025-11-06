@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { Trade } from '@/types';
 import type { ExchangeWebSocketService } from '@/lib/websocket/exchange-websocket.interface';
+import { useWebSocketStatusStore } from '@/stores/useWebSocketStatusStore';
 import { formatTrade } from '@/lib/format-utils';
 
 interface TradesStore {
@@ -61,13 +62,19 @@ export const useTradesStore = create<TradesStore>((set, get) => ({
         }
       );
 
-      set((state) => ({
-        wsService: service,
-        subscriptions: {
+      set((state) => {
+        const newSubscriptions = {
           ...state.subscriptions,
           [coin]: { subscriptionId, cleanup }
-        },
-      }));
+        };
+        const subscriptionCount = Object.keys(newSubscriptions).length;
+        useWebSocketStatusStore.getState().setStreamSubscriptionCount('trades', subscriptionCount);
+
+        return {
+          wsService: service,
+          subscriptions: newSubscriptions,
+        };
+      });
     };
 
     initWebSocket();
@@ -88,6 +95,8 @@ export const useTradesStore = create<TradesStore>((set, get) => ({
 
     const newSubscriptions = { ...subscriptions };
     delete newSubscriptions[coin];
+    const subscriptionCount = Object.keys(newSubscriptions).length;
+    useWebSocketStatusStore.getState().setStreamSubscriptionCount('trades', subscriptionCount);
 
     set({ subscriptions: newSubscriptions });
   },

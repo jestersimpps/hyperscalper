@@ -17,6 +17,7 @@ import type {
 import { EventClient, WebSocketTransport } from '@nktkas/hyperliquid';
 import type { Candle, Book, Trade } from '@nktkas/hyperliquid';
 import { useSymbolMetaStore } from '@/stores/useSymbolMetaStore';
+import { useWebSocketStatusStore } from '@/stores/useWebSocketStatusStore';
 import { formatPrice, formatSize } from '@/lib/format-utils';
 
 interface Subscription {
@@ -54,10 +55,13 @@ export class HyperliquidWebSocketService implements ExchangeWebSocketService {
     if (this.isInitialized) return;
 
     try {
+      useWebSocketStatusStore.getState().setOverallStatus('connecting');
       this.wsTransport = new WebSocketTransport({ url: this.wsUrl });
       this.eventClient = new EventClient({ transport: this.wsTransport });
       this.isInitialized = true;
+      useWebSocketStatusStore.getState().setOverallStatus('connected');
     } catch (error) {
+      useWebSocketStatusStore.getState().setOverallStatus('error');
       throw error;
     }
   }
@@ -284,6 +288,7 @@ export class HyperliquidWebSocketService implements ExchangeWebSocketService {
 
     this.eventClient = null;
     this.isInitialized = false;
+    useWebSocketStatusStore.getState().setOverallStatus('disconnected');
   }
 
   isConnected(): boolean {

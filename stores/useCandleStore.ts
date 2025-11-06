@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { CandleData, TimeInterval } from '@/types';
 import type { ExchangeWebSocketService } from '@/lib/websocket/exchange-websocket.interface';
+import { useWebSocketStatusStore } from '@/stores/useWebSocketStatusStore';
 import { formatCandle } from '@/lib/format-utils';
 import { MAX_CANDLES } from '@/lib/constants';
 
@@ -117,13 +118,19 @@ export const useCandleStore = create<CandleStore>((set, get) => ({
         }
       );
 
-      set((state) => ({
-        wsService: service,
-        subscriptions: {
+      set((state) => {
+        const newSubscriptions = {
           ...state.subscriptions,
           [key]: { subscriptionId, cleanup, refCount: 1 }
-        },
-      }));
+        };
+        const subscriptionCount = Object.keys(newSubscriptions).length;
+        useWebSocketStatusStore.getState().setStreamSubscriptionCount('candles', subscriptionCount);
+
+        return {
+          wsService: service,
+          subscriptions: newSubscriptions,
+        };
+      });
     };
 
     initWebSocket();
@@ -160,6 +167,8 @@ export const useCandleStore = create<CandleStore>((set, get) => ({
 
     const newSubscriptions = { ...subscriptions };
     delete newSubscriptions[key];
+    const subscriptionCount = Object.keys(newSubscriptions).length;
+    useWebSocketStatusStore.getState().setStreamSubscriptionCount('candles', subscriptionCount);
 
     set({ subscriptions: newSubscriptions });
   },

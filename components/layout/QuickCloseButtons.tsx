@@ -48,7 +48,8 @@ export default function QuickCloseButtons() {
   const handleCloseAllProfitable = async () => {
     if (profitablePositions.length === 0 || isClosing) return;
 
-    if (!confirm(`Close ${profitablePositions.length} profitable positions? (Total: +$${totalProfit.toFixed(2)})`)) return;
+    const positionText = profitablePositions.length === 1 ? 'position' : 'positions';
+    if (!confirm(`Close ${profitablePositions.length} profitable ${positionText}? (Total: +$${totalProfit.toFixed(2)})`)) return;
 
     setIsClosing(true);
     try {
@@ -72,11 +73,11 @@ export default function QuickCloseButtons() {
       </button>
       <button
         onClick={handleCloseAllProfitable}
-        disabled={isClosing || profitablePositions.length < 2}
+        disabled={isClosing || profitablePositions.length === 0}
         className="w-full px-2 py-1.5 text-[10px] font-mono bg-bullish/10 hover:bg-bullish/20 active:bg-bullish/30 active:scale-95 text-bullish border border-bullish rounded-sm disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-all hover:shadow-[0_0_8px_rgba(38,166,154,0.3)]"
-        title={profitablePositions.length > 1 ? `Close ${profitablePositions.length} profitable positions (Shift+C)` : 'Need 2+ profitable positions (Shift+C)'}
+        title={profitablePositions.length > 0 ? `Close ${profitablePositions.length} profitable ${profitablePositions.length === 1 ? 'position' : 'positions'} (Shift+C)` : 'No profitable positions (Shift+C)'}
       >
-        {isClosing ? '⟳' : profitablePositions.length > 1 ? `⇧C ALL (${profitablePositions.length}) +$${totalProfit.toFixed(2)}` : '⇧C ---'}
+        {isClosing ? '⟳' : `⇧C ALL (${profitablePositions.length}) +$${totalProfit.toFixed(2)}`}
       </button>
     </div>
   );

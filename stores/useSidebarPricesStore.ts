@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { ExchangeWebSocketService } from '@/lib/websocket/exchange-websocket.interface';
 import { HyperliquidWebSocketService } from '@/lib/websocket/hyperliquid-websocket.service';
+import { useWebSocketStatusStore } from '@/stores/useWebSocketStatusStore';
 
 interface SidebarPricesStore {
   prices: Record<string, number>;
@@ -30,6 +31,7 @@ export const useSidebarPricesStore = create<SidebarPricesStore>((set, get) => ({
       set({ prices: mids });
     });
 
+    useWebSocketStatusStore.getState().setStreamSubscriptionCount('prices', 1);
     set({ isSubscribed: true, subscriptionId });
   },
 
@@ -41,6 +43,7 @@ export const useSidebarPricesStore = create<SidebarPricesStore>((set, get) => ({
     }
 
     wsService.unsubscribe(subscriptionId);
+    useWebSocketStatusStore.getState().setStreamSubscriptionCount('prices', 0);
     set({ isSubscribed: false, subscriptionId: null, prices: {} });
   },
 
