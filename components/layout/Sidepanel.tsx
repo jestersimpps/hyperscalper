@@ -2,7 +2,6 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useMemo } from 'react';
-import { useAutoAnimate } from '@formkit/auto-animate/react';
 import { useScannerStore } from '@/stores/useScannerStore';
 import { useSettingsStore } from '@/stores/useSettingsStore';
 import { useTopSymbolsStore } from '@/stores/useTopSymbolsStore';
@@ -19,7 +18,6 @@ interface SidepanelProps {
 export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelProps) {
   const router = useRouter();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [animationParent] = useAutoAnimate();
 
   const { results, status, runScan, startAutoScanWithDelay, stopAutoScan } = useScannerStore();
   const { settings, pinSymbol, unpinSymbol } = useSettingsStore();
@@ -324,7 +322,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
       </div>
 
       {/* Pinned Symbols List */}
-      <div ref={animationParent} className="flex flex-col gap-1">
+      <div className="flex flex-col gap-1">
         {sortedPinnedSymbols.length === 0 ? (
           <div className="terminal-border p-3 text-center">
             <span className="text-primary-muted text-xs font-mono">
