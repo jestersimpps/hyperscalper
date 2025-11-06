@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useSettingsStore } from '@/stores/useSettingsStore';
 
 interface TerminalHeaderProps {
@@ -8,6 +9,7 @@ interface TerminalHeaderProps {
 }
 
 export default function TerminalHeader({ coin }: TerminalHeaderProps) {
+  const router = useRouter();
   const togglePanel = useSettingsStore((state) => state.togglePanel);
   const [currentTime, setCurrentTime] = useState('');
 
@@ -34,13 +36,22 @@ export default function TerminalHeader({ coin }: TerminalHeaderProps) {
             <div className="text-primary font-bold">{coin}/USD</div>
             <div className="text-primary-muted">{currentTime || '--'}</div>
           </div>
-          <button
-            onClick={togglePanel}
-            className="text-primary-muted hover:text-primary transition-colors text-lg leading-none"
-            title="Open settings"
-          >
-            ⚙
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => router.push(`/multi-chart/${coin}`)}
+              className="text-primary-muted hover:text-primary transition-colors text-lg leading-none"
+              title="Multi-timeframe view"
+            >
+              ⊞
+            </button>
+            <button
+              onClick={togglePanel}
+              className="text-primary-muted hover:text-primary transition-colors text-lg leading-none"
+              title="Open settings"
+            >
+              ⚙
+            </button>
+          </div>
         </div>
       </div>
     </div>
