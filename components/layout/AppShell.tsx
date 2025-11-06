@@ -11,7 +11,7 @@ export default function AppShell({ sidepanel, children }: AppShellProps) {
   return (
     <div className="flex h-screen bg-bg-primary text-primary font-mono">
       {/* Sidepanel */}
-      <aside className="w-80 border-r-2 border-border-frame overflow-y-auto">
+      <aside className="w-[640px] border-r-2 border-border-frame overflow-y-auto">
         {sidepanel}
       </aside>
 

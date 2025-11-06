@@ -17,6 +17,22 @@
   --status-bearish-bg: #633737;
 }
 
+[data-theme="hyper-black"] {
+  --background-primary: #000000;
+  --background-secondary: #000000;
+  --border-frame: #273035;
+  --primary: #44baba;
+  --primary-muted: #537270;
+  --primary-dark: #244140;
+  --accent-blue: #3274aa;
+  --accent-blue-dark: #29486b;
+  --accent-rose: #c2968d;
+  --accent-dark-blue: #22303d;
+  --status-bullish: #26a69a;
+  --status-bearish: #ef5350;
+  --status-bearish-bg: #633737;
+}
+
 [data-theme="dark"] {
   --background-primary: #000000;
   --background-secondary: #0a0a0a;

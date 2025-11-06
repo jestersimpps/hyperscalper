@@ -115,7 +115,7 @@ export interface OrderSettings {
   bigPercentage: number;
 }
 
-export type ThemeName = 'dark' | 'hyper' | 'midnight' | 'light' | 'dark-blue';
+export type ThemeName = 'dark' | 'hyper' | 'hyper-black' | 'midnight' | 'light' | 'dark-blue';
 
 export interface ThemeSettings {
   selected: ThemeName;

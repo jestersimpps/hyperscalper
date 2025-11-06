@@ -133,122 +133,19 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
   }, [pinnedSymbols, getPosition]);
 
   return (
-    <div className="p-2 h-full flex flex-col overflow-y-auto">
-      {settings.scanner.enabled && (
+    <div className="p-2 h-full flex gap-2 overflow-hidden">
+      {/* Left Column - Pinned Symbols */}
+      <div className="flex-1 flex flex-col overflow-hidden">
         <div className="mb-4">
-          <div className="terminal-border p-2 mb-2">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-primary text-xs font-bold tracking-wider">█ SCANNER</span>
-              <button
-                onClick={runScan}
-                disabled={status.isScanning}
-                className="px-2 py-1 text-xs bg-primary/10 hover:bg-primary/20 active:bg-primary/30 active:scale-95 text-primary border border-primary rounded disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 transition-all"
-                title="Run manual scan"
-              >
-                {status.isScanning ? '⟳ SCANNING...' : '⟳ SCAN'}
-              </button>
-            </div>
-
-            <div className="text-xs text-primary-muted font-mono space-y-1">
-              <div className="flex justify-between">
-                <span>Status:</span>
-                <span className={status.isRunning ? 'text-success' : 'text-primary-muted'}>
-                  {status.isRunning ? '● AUTO' : '○ MANUAL'}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span>Last scan:</span>
-                <span>{formatTimeSince(status.lastScanTime)}</span>
-              </div>
-              {status.error && (
-                <div className="text-error text-[10px] mt-1">{status.error}</div>
-              )}
+          <div className="terminal-border p-1.5">
+            <div className="terminal-text text-center">
+              <span className="text-primary text-xs font-bold tracking-wider">█ SYMBOLS</span>
             </div>
           </div>
-
-          {results.length > 0 && (
-            <div className="space-y-1 mb-4">
-              <div className="text-xs text-primary-muted font-mono px-1">
-                {results.length} match{results.length !== 1 ? 'es' : ''}
-              </div>
-              {results.map((result, index) => {
-                const isBullish = result.signalType === 'bullish';
-                const bgColor = isBullish ? 'bg-bullish/5' : 'bg-bearish/5';
-                const borderColor = isBullish ? 'border-bullish' : 'border-bearish';
-                const textColor = isBullish ? 'text-bullish' : 'text-bearish';
-
-                let displayText = '';
-                if (result.scanType === 'stochastic') {
-                  const signal = isBullish ? 'bottomed' : 'topped';
-                  displayText = `${result.symbol}/USD stochastics ${signal}`;
-                } else if (result.scanType === 'emaAlignment') {
-                  const signal = isBullish ? 'crossed up' : 'crossed down';
-                  displayText = `${result.symbol}/USD ema ${signal}`;
-                } else if (result.scanType === 'macdReversal') {
-                  const timeframes = result.macdReversals?.map(r => r.timeframe).join(', ') || '';
-                  displayText = `${result.symbol}/USD MACD ${isBullish ? 'bullish' : 'bearish'} ${timeframes}`;
-                } else if (result.scanType === 'rsiReversal') {
-                  const timeframes = result.rsiReversals?.map(r => r.timeframe).join(', ') || '';
-                  displayText = `${result.symbol}/USD RSI ${isBullish ? 'bullish' : 'bearish'} ${timeframes}`;
-                }
-
-                const isPinned = pinnedSymbols.includes(result.symbol);
-
-                return (
-                  <div key={`${result.symbol}-${result.scanType}-${index}`} className={`terminal-border ${bgColor} ${borderColor}`}>
-                    <div className="flex items-center">
-                      <button
-                        onClick={() => {
-                          if (onSymbolSelect) {
-                            onSymbolSelect(result.symbol);
-                          } else {
-                            router.push(`/${result.symbol}`);
-                          }
-                        }}
-                        className="flex-1 text-left p-2"
-                      >
-                        <div className="flex justify-between items-center gap-2">
-                          <div className={`text-xs font-mono ${textColor} flex-1 min-w-0`}>
-                            {displayText}
-                          </div>
-                          <div className="flex-shrink-0">
-                            {renderPrice(result.symbol)}
-                          </div>
-                        </div>
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (isPinned) {
-                            unpinSymbol(result.symbol);
-                          } else {
-                            pinSymbol(result.symbol);
-                          }
-                        }}
-                        className="p-2 text-primary-muted hover:text-primary transition-colors"
-                        title={isPinned ? "Unpin symbol" : "Pin symbol"}
-                      >
-                        <span className="text-lg font-bold">{isPinned ? '−' : '+'}</span>
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
         </div>
-      )}
 
-      <div className="mb-4">
-        <div className="terminal-border p-1.5">
-          <div className="terminal-text text-center">
-            <span className="text-primary text-xs font-bold tracking-wider">█ SYMBOLS</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Top Symbols Dropdown Selector */}
-      <div className="mb-3">
+        {/* Top Symbols Dropdown Selector */}
+        <div className="mb-3 flex-shrink-0">
         <button
           onClick={() => setIsDropdownOpen(!isDropdownOpen)}
           className="w-full terminal-border p-2 hover:bg-primary/5 active:bg-primary/10 active:scale-[0.99] transition-all"
@@ -319,10 +216,10 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
             )}
           </div>
         )}
-      </div>
+        </div>
 
-      {/* Pinned Symbols List */}
-      <div className="flex flex-col gap-1">
+        {/* Pinned Symbols List */}
+        <div className="flex-1 flex flex-col gap-1 overflow-y-auto">
         {sortedPinnedSymbols.length === 0 ? (
           <div className="terminal-border p-3 text-center">
             <span className="text-primary-muted text-xs font-mono">
@@ -386,7 +283,141 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
             </div>
           ))
         )}
+        </div>
       </div>
+
+      {/* Right Column - Scanner */}
+      {settings.scanner.enabled && (
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <div className="terminal-border p-2 mb-2 flex-shrink-0">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-primary text-xs font-bold tracking-wider">█ SCANNER</span>
+              <button
+                onClick={runScan}
+                disabled={status.isScanning}
+                className="px-2 py-1 text-xs bg-primary/10 hover:bg-primary/20 active:bg-primary/30 active:scale-95 text-primary border border-primary rounded disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 transition-all"
+                title="Run manual scan"
+              >
+                {status.isScanning ? '⟳ SCANNING...' : '⟳ SCAN'}
+              </button>
+            </div>
+
+            <div className="text-xs text-primary-muted font-mono space-y-1">
+              <div className="flex justify-between">
+                <span>Status:</span>
+                <span className={status.isRunning ? 'text-success' : 'text-primary-muted'}>
+                  {status.isRunning ? '● AUTO' : '○ MANUAL'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span>Last scan:</span>
+                <span>{formatTimeSince(status.lastScanTime)}</span>
+              </div>
+              {status.error && (
+                <div className="text-error text-[10px] mt-1">{status.error}</div>
+              )}
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto">
+            {results.length > 0 && (() => {
+              const groupedBySymbol = results.reduce((acc, result) => {
+                if (!acc[result.symbol]) {
+                  acc[result.symbol] = [];
+                }
+                acc[result.symbol].push(result);
+                return acc;
+              }, {} as Record<string, typeof results>);
+
+              return (
+                <div className="space-y-1">
+                <div className="text-xs text-primary-muted font-mono px-1">
+                  {Object.keys(groupedBySymbol).length} symbol{Object.keys(groupedBySymbol).length !== 1 ? 's' : ''} ({results.length} signal{results.length !== 1 ? 's' : ''})
+                </div>
+                {Object.entries(groupedBySymbol).map(([symbol, symbolResults]) => {
+                  const isBullish = symbolResults[0].signalType === 'bullish';
+                  const bgColor = isBullish ? 'bg-bullish/5' : 'bg-bearish/5';
+                  const borderColor = isBullish ? 'border-bullish' : 'border-bearish';
+                  const textColor = isBullish ? 'text-bullish' : 'text-bearish';
+
+                  const signals: string[] = [];
+
+                  symbolResults.forEach(result => {
+                    const resultBullish = result.signalType === 'bullish';
+                    if (result.scanType === 'stochastic') {
+                      const signal = resultBullish ? 'bottomed' : 'topped';
+                      signals.push(`stoch ${signal}`);
+                    } else if (result.scanType === 'emaAlignment') {
+                      const signal = resultBullish ? 'up' : 'down';
+                      signals.push(`ema ${signal}`);
+                    } else if (result.scanType === 'macdReversal') {
+                      const timeframes = [...new Set(result.macdReversals?.map(r => r.timeframe))].join(',');
+                      signals.push(`MACD ${timeframes}`);
+                    } else if (result.scanType === 'rsiReversal') {
+                      const timeframes = [...new Set(result.rsiReversals?.map(r => r.timeframe))].join(',');
+                      signals.push(`RSI ${timeframes}`);
+                    } else if (result.scanType === 'channel') {
+                      const channels = result.channels || [];
+                      const types = [...new Set(channels.map(c => c.channelType))].join(',');
+                      const timeframes = [...new Set(channels.map(c => c.timeframe))].join(',');
+                      signals.push(`${types} ch ${timeframes}`);
+                    } else if (result.scanType === 'divergence') {
+                      const divergences = result.divergences || [];
+                      const variants = [...new Set(divergences.map(d => d.variant))].join(',');
+                      const divType = divergences[0]?.isHidden ? 'hidden ' : '';
+                      signals.push(`${divType}div ${variants}`);
+                    }
+                  });
+
+                  const displayText = `${symbol}/USD ${signals.join(' • ')}`;
+                  const isPinned = pinnedSymbols.includes(symbol);
+
+                  return (
+                    <div key={symbol} className={`terminal-border ${bgColor} ${borderColor}`}>
+                      <div className="flex items-center">
+                        <button
+                          onClick={() => {
+                            if (onSymbolSelect) {
+                              onSymbolSelect(symbol);
+                            } else {
+                              router.push(`/${symbol}`);
+                            }
+                          }}
+                          className="flex-1 text-left p-2"
+                        >
+                          <div className="flex justify-between items-center gap-2">
+                            <div className={`text-xs font-mono ${textColor} flex-1 min-w-0`}>
+                              {displayText}
+                            </div>
+                            <div className="flex-shrink-0">
+                              {renderPrice(symbol)}
+                            </div>
+                          </div>
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (isPinned) {
+                              unpinSymbol(symbol);
+                            } else {
+                              pinSymbol(symbol);
+                            }
+                          }}
+                          className="p-2 text-primary-muted hover:text-primary transition-colors"
+                          title={isPinned ? "Unpin symbol" : "Pin symbol"}
+                        >
+                          <span className="text-lg font-bold">{isPinned ? '−' : '+'}</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              );
+            })()}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1100,7 +1100,7 @@ export default function SettingsPanel() {
                   Choose a color theme for the application. Changes apply instantly.
                 </p>
                 <div className="space-y-2">
-                  {(['hyper', 'dark', 'dark-blue', 'midnight', 'light'] as ThemeName[]).map((themeName) => (
+                  {(['hyper', 'hyper-black', 'dark', 'dark-blue', 'midnight', 'light'] as ThemeName[]).map((themeName) => (
                     <label
                       key={themeName}
                       className="flex items-center gap-3 p-3 bg-bg-primary border border-frame rounded cursor-pointer hover:border-primary/50 transition-colors"
@@ -1117,6 +1117,7 @@ export default function SettingsPanel() {
                         <div className="text-primary font-mono text-xs capitalize">{themeName.replace('-', ' ')}</div>
                         <div className="text-primary-muted text-[10px] mt-0.5">
                           {themeName === 'hyper' && 'Teal/cyan theme (current default)'}
+                          {themeName === 'hyper-black' && 'Hyper theme with pure black background'}
                           {themeName === 'dark' && 'Pure black with blue-gray accents'}
                           {themeName === 'dark-blue' && 'Soft navy blue, easy on the eyes'}
                           {themeName === 'midnight' && 'Deep blue with purple accents'}
