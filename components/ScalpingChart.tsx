@@ -278,8 +278,8 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
             textColor: colors.primaryMuted,
           },
           grid: {
-            vertLines: { color: colors.primaryDark },
-            horzLines: { color: colors.primaryDark },
+            vertLines: { color: colors.borderFrame + '50' },
+            horzLines: { color: colors.borderFrame + '50' },
           },
           timeScale: {
             timeVisible: true,

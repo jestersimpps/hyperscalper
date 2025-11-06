@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useSettingsStore } from '@/stores/useSettingsStore';
+import QuickCloseButtons from '@/components/layout/QuickCloseButtons';
 
 interface TerminalHeaderProps {
   coin: string;
@@ -35,10 +36,11 @@ export default function TerminalHeader({ coin }: TerminalHeaderProps) {
           <div className="text-right text-[10px]">
             <div className="text-primary-muted">{currentTime || '--'}</div>
           </div>
+          <QuickCloseButtons />
           <div className="flex gap-2">
             <button
               onClick={toggleMultiChartView}
-              className={`transition-all text-2xl leading-none active:scale-90 ${
+              className={`transition-all text-2xl leading-none active:scale-90 cursor-pointer ${
                 isMultiChartView ? 'text-primary' : 'text-primary-muted hover:text-primary'
               }`}
               title={isMultiChartView ? 'Single chart view' : 'Multi-timeframe view'}
@@ -47,7 +49,7 @@ export default function TerminalHeader({ coin }: TerminalHeaderProps) {
             </button>
             <button
               onClick={togglePanel}
-              className="text-primary-muted hover:text-primary active:scale-90 transition-all text-2xl leading-none"
+              className="text-primary-muted hover:text-primary active:scale-90 cursor-pointer transition-all text-2xl leading-none"
               title="Open settings"
             >
               ⚙

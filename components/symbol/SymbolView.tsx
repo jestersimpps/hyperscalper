@@ -140,7 +140,6 @@ function SymbolView({ coin }: SymbolViewProps) {
     playNotificationSound('bullish', 'cloud');
     try {
       if (candles.length < 5) {
-        console.error('Insufficient candle data for buy cloud');
         return;
       }
 
@@ -158,10 +157,9 @@ function SymbolView({ coin }: SymbolViewProps) {
           percentage: orderSettings.cloudPercentage
         }),
       });
-      const data = await response.json();
-      console.log('Buy Cloud response:', data);
+      await response.json();
     } catch (error) {
-      console.error('Error executing buy cloud:', error);
+      // Error executing buy cloud
     }
   }, [coin, candles, orderSettings.cloudPercentage]);
 
@@ -169,7 +167,6 @@ function SymbolView({ coin }: SymbolViewProps) {
     playNotificationSound('bearish', 'cloud');
     try {
       if (candles.length < 5) {
-        console.error('Insufficient candle data for sell cloud');
         return;
       }
 
@@ -187,10 +184,9 @@ function SymbolView({ coin }: SymbolViewProps) {
           percentage: orderSettings.cloudPercentage
         }),
       });
-      const data = await response.json();
-      console.log('Sell Cloud response:', data);
+      await response.json();
     } catch (error) {
-      console.error('Error executing sell cloud:', error);
+      // Error executing sell cloud
     }
   }, [coin, candles, orderSettings.cloudPercentage]);
 
@@ -198,7 +194,6 @@ function SymbolView({ coin }: SymbolViewProps) {
     playNotificationSound('bullish', 'standard');
     try {
       if (candles.length < 5) {
-        console.error('Insufficient candle data for sm long');
         return;
       }
 
@@ -216,10 +211,9 @@ function SymbolView({ coin }: SymbolViewProps) {
           percentage: orderSettings.smallPercentage
         }),
       });
-      const data = await response.json();
-      console.log('SM Long response:', data);
+      await response.json();
     } catch (error) {
-      console.error('Error executing sm long:', error);
+      // Error executing sm long
     }
   }, [coin, candles, orderSettings.smallPercentage]);
 
@@ -227,7 +221,6 @@ function SymbolView({ coin }: SymbolViewProps) {
     playNotificationSound('bearish', 'standard');
     try {
       if (candles.length < 5) {
-        console.error('Insufficient candle data for sm short');
         return;
       }
 
@@ -245,10 +238,9 @@ function SymbolView({ coin }: SymbolViewProps) {
           percentage: orderSettings.smallPercentage
         }),
       });
-      const data = await response.json();
-      console.log('SM Short response:', data);
+      await response.json();
     } catch (error) {
-      console.error('Error executing sm short:', error);
+      // Error executing sm short
     }
   }, [coin, candles, orderSettings.smallPercentage]);
 
@@ -256,7 +248,6 @@ function SymbolView({ coin }: SymbolViewProps) {
     playNotificationSound('bullish', 'big');
     try {
       if (candles.length < 5) {
-        console.error('Insufficient candle data for big long');
         return;
       }
 
@@ -274,10 +265,9 @@ function SymbolView({ coin }: SymbolViewProps) {
           percentage: orderSettings.bigPercentage
         }),
       });
-      const data = await response.json();
-      console.log('Big Long response:', data);
+      await response.json();
     } catch (error) {
-      console.error('Error executing big long:', error);
+      // Error executing big long
     }
   }, [coin, candles, orderSettings.bigPercentage]);
 
@@ -285,7 +275,6 @@ function SymbolView({ coin }: SymbolViewProps) {
     playNotificationSound('bearish', 'big');
     try {
       if (candles.length < 5) {
-        console.error('Insufficient candle data for big short');
         return;
       }
 
@@ -303,10 +292,9 @@ function SymbolView({ coin }: SymbolViewProps) {
           percentage: orderSettings.bigPercentage
         }),
       });
-      const data = await response.json();
-      console.log('Big Short response:', data);
+      await response.json();
     } catch (error) {
-      console.error('Error executing big short:', error);
+      // Error executing big short
     }
   }, [coin, candles, orderSettings.bigPercentage]);
 
@@ -317,10 +305,9 @@ function SymbolView({ coin }: SymbolViewProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ symbol: coin, percentage: 25 }),
       });
-      const data = await response.json();
-      console.log('Close 25% response:', data);
+      await response.json();
     } catch (error) {
-      console.error('Error closing 25% position:', error);
+      // Error closing 25% position
     }
   }, [coin]);
 
@@ -331,10 +318,9 @@ function SymbolView({ coin }: SymbolViewProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ symbol: coin, percentage: 50 }),
       });
-      const data = await response.json();
-      console.log('Close 50% response:', data);
+      await response.json();
     } catch (error) {
-      console.error('Error closing 50% position:', error);
+      // Error closing 50% position
     }
   }, [coin]);
 
@@ -345,10 +331,9 @@ function SymbolView({ coin }: SymbolViewProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ symbol: coin, percentage: 75 }),
       });
-      const data = await response.json();
-      console.log('Close 75% response:', data);
+      await response.json();
     } catch (error) {
-      console.error('Error closing 75% position:', error);
+      // Error closing 75% position
     }
   }, [coin]);
 
@@ -359,12 +344,60 @@ function SymbolView({ coin }: SymbolViewProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ symbol: coin, percentage: 100 }),
       });
-      const data = await response.json();
-      console.log('Close 100% response:', data);
+      await response.json();
     } catch (error) {
-      console.error('Error closing 100% position:', error);
+      // Error closing 100% position
     }
   }, [coin]);
+
+  const handleCloseBest = useCallback(async () => {
+    const positions = usePositionStore.getState().positions;
+    const profitablePositions = Object.entries(positions)
+      .filter(([_, pos]) => pos && pos.pnl > 0)
+      .map(([symbol, pos]) => ({ symbol, ...pos! }))
+      .sort((a, b) => b.pnl - a.pnl);
+
+    const mostProfitable = profitablePositions[0];
+    if (!mostProfitable) return;
+
+    if (!confirm(`Close ${mostProfitable.symbol} position? (+$${mostProfitable.pnl.toFixed(2)})`)) return;
+
+    try {
+      const response = await fetch('/api/positions/close', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ symbol: mostProfitable.symbol, percentage: 100 }),
+      });
+      await response.json();
+    } catch (error) {
+      // Error closing best position
+    }
+  }, []);
+
+  const handleCloseAllProfitable = useCallback(async () => {
+    const positions = usePositionStore.getState().positions;
+    const profitablePositions = Object.entries(positions)
+      .filter(([_, pos]) => pos && pos.pnl > 0)
+      .map(([symbol, pos]) => ({ symbol, ...pos! }));
+
+    if (profitablePositions.length === 0) return;
+
+    const totalProfit = profitablePositions.reduce((sum, pos) => sum + pos.pnl, 0);
+    if (!confirm(`Close ${profitablePositions.length} profitable positions? (Total: +$${totalProfit.toFixed(2)})`)) return;
+
+    try {
+      for (const pos of profitablePositions) {
+        const response = await fetch('/api/positions/close', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ symbol: pos.symbol, percentage: 100 }),
+        });
+        await response.json();
+      }
+    } catch (error) {
+      // Error closing profitable positions
+    }
+  }, []);
 
   const handleCancelEntryOrders = useCallback(async () => {
     playNotificationSound('bearish', 'standard');
@@ -374,10 +407,9 @@ function SymbolView({ coin }: SymbolViewProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ symbol: coin }),
       });
-      const data = await response.json();
-      console.log('Cancel entry orders response:', data);
+      await response.json();
     } catch (error) {
-      console.error('Error cancelling entry orders:', error);
+      // Error cancelling entry orders
     }
   }, [coin]);
 
@@ -389,13 +421,12 @@ function SymbolView({ coin }: SymbolViewProps) {
         body: JSON.stringify({ symbol: coin }),
       });
       const data = await response.json();
-      console.log('Cancel all orders response:', data);
 
       if (data.success) {
         playNotificationSound('bearish', 'standard');
       }
     } catch (error) {
-      console.error('Error cancelling all orders:', error);
+      // Error cancelling all orders
     }
   }, [coin]);
 
@@ -406,10 +437,9 @@ function SymbolView({ coin }: SymbolViewProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ coin, percentage: 25 }),
       });
-      const data = await response.json();
-      console.log('Move SL 25% response:', data);
+      await response.json();
     } catch (error) {
-      console.error('Error moving stop loss 25%:', error);
+      // Error moving stop loss 25%
     }
   }, [coin]);
 
@@ -420,10 +450,9 @@ function SymbolView({ coin }: SymbolViewProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ coin, percentage: 50 }),
       });
-      const data = await response.json();
-      console.log('Move SL 50% response:', data);
+      await response.json();
     } catch (error) {
-      console.error('Error moving stop loss 50%:', error);
+      // Error moving stop loss 50%
     }
   }, [coin]);
 
@@ -434,10 +463,9 @@ function SymbolView({ coin }: SymbolViewProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ coin, percentage: 75 }),
       });
-      const data = await response.json();
-      console.log('Move SL 75% response:', data);
+      await response.json();
     } catch (error) {
-      console.error('Error moving stop loss 75%:', error);
+      // Error moving stop loss 75%
     }
   }, [coin]);
 
@@ -448,10 +476,9 @@ function SymbolView({ coin }: SymbolViewProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ coin, percentage: 0 }),
       });
-      const data = await response.json();
-      console.log('Move SL to breakeven response:', data);
+      await response.json();
     } catch (error) {
-      console.error('Error moving stop loss to breakeven:', error);
+      // Error moving stop loss to breakeven
     }
   }, [coin]);
 
@@ -470,6 +497,8 @@ function SymbolView({ coin }: SymbolViewProps) {
     { key: '6', action: handleMoveSL50, description: 'Move SL 50%' },
     { key: '7', action: handleMoveSL75, description: 'Move SL 75%' },
     { key: '8', action: handleMoveSLBreakeven, description: 'Move SL to Breakeven' },
+    { key: 'x', modifiers: { shift: true }, action: handleCloseBest, description: 'Close Best Position' },
+    { key: 'c', modifiers: { shift: true }, action: handleCloseAllProfitable, description: 'Close All Profitable' },
   ];
 
   useKeyboardShortcuts(keyBindings, !isPanelOpen);

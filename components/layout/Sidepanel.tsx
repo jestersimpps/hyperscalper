@@ -18,7 +18,6 @@ interface SidepanelProps {
 export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelProps) {
   const router = useRouter();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [closingPosition, setClosingPosition] = useState<string | null>(null);
 
   const { results, status, runScan, startAutoScanWithDelay, stopAutoScan } = useScannerStore();
   const { settings, pinSymbol, unpinSymbol } = useSettingsStore();
@@ -133,30 +132,6 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
     });
   }, [pinnedSymbols, getPosition]);
 
-  const handleClosePosition = async (symbol: string) => {
-    if (closingPosition) return;
-
-    if (!confirm(`Close 100% of ${symbol} position?`)) return;
-
-    setClosingPosition(symbol);
-    try {
-      const response = await fetch('/api/positions/close', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbol, percentage: 100 }),
-      });
-
-      const data = await response.json();
-      if (!data.success) {
-        alert(`Failed to close position: ${data.message}`);
-      }
-    } catch (error) {
-      alert(`Error closing position: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    } finally {
-      setClosingPosition(null);
-    }
-  };
-
   return (
     <div className="p-2 h-full flex gap-2 overflow-hidden">
       {/* Left Column - Scanner */}
@@ -168,7 +143,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
               <button
                 onClick={runScan}
                 disabled={status.isScanning}
-                className="px-2 py-1 text-xs bg-primary/10 hover:bg-primary/20 active:bg-primary/30 active:scale-95 text-primary border border-primary rounded disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 transition-all"
+                className="px-2 py-1 text-xs bg-primary/10 hover:bg-primary/20 active:bg-primary/30 active:scale-95 text-primary border border-primary rounded disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 cursor-pointer transition-all"
                 title="Run manual scan"
               >
                 {status.isScanning ? '⟳ SCANNING...' : '⟳ SCAN'}
@@ -299,7 +274,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                               pinSymbol(symbol);
                             }
                           }}
-                          className="p-1 text-primary-muted hover:text-primary transition-colors flex-shrink-0"
+                          className="p-1 text-primary-muted hover:text-primary transition-colors flex-shrink-0 cursor-pointer"
                           title={isPinned ? "Unpin symbol" : "Pin symbol"}
                         >
                           <span className="text-base font-bold">{isPinned ? '−' : '+'}</span>
@@ -329,7 +304,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
         <div className="mb-3 flex-shrink-0">
         <button
           onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-          className="w-full terminal-border p-2 hover:bg-primary/5 active:bg-primary/10 active:scale-[0.99] transition-all"
+          className="w-full terminal-border p-2 hover:bg-primary/5 active:bg-primary/10 active:scale-[0.99] cursor-pointer transition-all"
         >
           <div className="flex items-center justify-between">
             <span className="text-primary-muted text-xs font-mono">ADD FROM TOP 20 BY VOLUME</span>
@@ -385,7 +360,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                             pinSymbol(symbolData.name);
                           }
                         }}
-                        className="p-2 text-primary-muted hover:text-primary transition-colors"
+                        className="p-2 text-primary-muted hover:text-primary cursor-pointer transition-colors"
                         title={isPinned ? 'Unpin symbol' : 'Pin symbol'}
                       >
                         <span className="text-lg font-bold">{isPinned ? '−' : '+'}</span>
@@ -443,20 +418,9 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    handleClosePosition(symbol);
-                  }}
-                  disabled={closingPosition === symbol}
-                  className="p-2 text-bearish hover:text-bearish/80 active:scale-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
-                  title="Close position (100%)"
-                >
-                  <span className="text-lg font-bold">{closingPosition === symbol ? '⟳' : '$'}</span>
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
                     unpinSymbol(symbol);
                   }}
-                  className="p-2 text-primary-muted hover:text-bearish transition-colors"
+                  className="p-2 text-primary-muted hover:text-bearish cursor-pointer transition-colors"
                   title="Unpin symbol"
                 >
                   <span className="text-lg font-bold">−</span>
@@ -466,7 +430,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                     e.stopPropagation();
                     window.open(`/chart-popup/${symbol}`, '_blank', 'width=1200,height=800');
                   }}
-                  className="p-2 text-primary-muted hover:text-primary transition-colors"
+                  className="p-2 text-primary-muted hover:text-primary cursor-pointer transition-colors"
                   title="Open in new window"
                 >
                   <span className="text-lg">⧉</span>
