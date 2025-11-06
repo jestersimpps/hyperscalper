@@ -4,7 +4,8 @@ import { use, useState, useMemo, useEffect } from 'react';
 import ScalpingChart from '@/components/ScalpingChart';
 import { useSymbolMetaStore } from '@/stores/useSymbolMetaStore';
 import { useCandleStore } from '@/stores/useCandleStore';
-import { getStandardTimeWindow } from '@/lib/time-utils';
+import { getCandleTimeWindow } from '@/lib/time-utils';
+import { DEFAULT_CANDLE_COUNT } from '@/lib/constants';
 import type { TimeInterval, CandleData } from '@/types';
 
 interface ChartPopupPageProps {
@@ -31,10 +32,10 @@ export default function ChartPopupPage({ params }: ChartPopupPageProps) {
   const candles15m = useCandleStore((state) => state.candles[`${coin}-15m`] || []);
 
   useEffect(() => {
-    const { startTime, endTime } = getStandardTimeWindow();
     const intervals: TimeInterval[] = ['1m', '5m', '15m'];
 
     intervals.forEach((interval) => {
+      const { startTime, endTime } = getCandleTimeWindow(interval, DEFAULT_CANDLE_COUNT);
       fetchCandles(coin, interval, startTime, endTime);
       subscribeToCandles(coin, interval);
     });

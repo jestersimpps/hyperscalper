@@ -29,7 +29,8 @@ import {
   type DivergencePoint,
   type ReversalMarker,
 } from '@/lib/indicators';
-import { getStandardTimeWindow } from '@/lib/time-utils';
+import { getCandleTimeWindow } from '@/lib/time-utils';
+import { DEFAULT_CANDLE_COUNT } from '@/lib/constants';
 
 interface ScalpingChartProps {
   coin: string;
@@ -550,7 +551,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
   useEffect(() => {
     if (!chartReady || isExternalData) return;
 
-    const { startTime, endTime } = getStandardTimeWindow();
+    const { startTime, endTime } = getCandleTimeWindow(interval, DEFAULT_CANDLE_COUNT);
     const { fetchCandles, subscribeToCandles, unsubscribeFromCandles } = useCandleStore.getState();
     fetchCandles(coin, interval, startTime, endTime);
     subscribeToCandles(coin, interval);
@@ -558,14 +559,16 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
     // Fetch MACD data
     if (macdSettings.showMultiTimeframe) {
       enabledMacdTimeframes.forEach(tf => {
-        fetchCandles(coin, tf, startTime, endTime);
+        const { startTime: tfStart, endTime: tfEnd } = getCandleTimeWindow(tf, DEFAULT_CANDLE_COUNT);
+        fetchCandles(coin, tf, tfStart, tfEnd);
         subscribeToCandles(coin, tf);
       });
     }
 
     // Fetch 1m data for stochastics
     if (stochasticSettings.showMultiVariant && interval !== '1m') {
-      fetchCandles(coin, '1m', startTime, endTime);
+      const { startTime: stochStart, endTime: stochEnd } = getCandleTimeWindow('1m', DEFAULT_CANDLE_COUNT);
+      fetchCandles(coin, '1m', stochStart, stochEnd);
       subscribeToCandles(coin, '1m');
     }
 

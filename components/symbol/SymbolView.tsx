@@ -15,7 +15,8 @@ import { KeyBinding } from '@/lib/keyboard-utils';
 import { useSettingsStore } from '@/stores/useSettingsStore';
 import { useSymbolMetaStore } from '@/stores/useSymbolMetaStore';
 import { calculateAverageCandleHeight } from '@/lib/trading-utils';
-import { getStandardTimeWindow } from '@/lib/time-utils';
+import { getCandleTimeWindow } from '@/lib/time-utils';
+import { DEFAULT_CANDLE_COUNT } from '@/lib/constants';
 import type { TimeInterval } from '@/types';
 
 interface SymbolViewProps {
@@ -67,10 +68,10 @@ function SymbolView({ coin }: SymbolViewProps) {
   }, [coin, subscribeToTrades, unsubscribeFromTrades, subscribeToPosition, unsubscribeFromPosition, subscribeToOrders, unsubscribeFromOrders]);
 
   useEffect(() => {
-    const { startTime, endTime } = getStandardTimeWindow();
     const timeframes: TimeInterval[] = ['1m', '5m', '15m', '1h'];
 
     timeframes.forEach((interval) => {
+      const { startTime, endTime } = getCandleTimeWindow(interval, DEFAULT_CANDLE_COUNT);
       fetchCandles(coin, interval, startTime, endTime);
       subscribeToCandles(coin, interval);
     });
