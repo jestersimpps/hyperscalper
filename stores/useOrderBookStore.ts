@@ -68,11 +68,8 @@ export const useOrderBookStore = create<OrderBookStore>((set, get) => ({
     const key = `${coin}${nSigFigs ? `_${nSigFigs}` : ''}`;
 
     if (subscriptions[key]) {
-      console.log(`[OrderBookStore] Already subscribed to ${key}`);
       return;
     }
-
-    console.log(`[OrderBookStore] Subscribing to ${key}`);
 
     const initWebSocket = async () => {
       const { useWebSocketService } = await import('@/lib/websocket/websocket-singleton');
@@ -84,7 +81,6 @@ export const useOrderBookStore = create<OrderBookStore>((set, get) => ({
         { coin, nSigFigs, mantissa },
         (data) => {
           if (!data || !data.bids || !data.asks) {
-            console.warn('[OrderBookStore] Invalid order book data received');
             return;
           }
 
@@ -110,8 +106,6 @@ export const useOrderBookStore = create<OrderBookStore>((set, get) => ({
           [key]: { subscriptionId, cleanup }
         },
       }));
-
-      console.log(`[OrderBookStore] Subscribed to ${key} with ID: ${subscriptionId}`);
     };
 
     initWebSocket();
@@ -123,11 +117,8 @@ export const useOrderBookStore = create<OrderBookStore>((set, get) => ({
 
     const subscription = subscriptions[key];
     if (!subscription) {
-      console.warn(`[OrderBookStore] No subscription found for ${key}`);
       return;
     }
-
-    console.log(`[OrderBookStore] Unsubscribing from ${key}`);
 
     if (wsService) {
       wsService.unsubscribe(subscription.subscriptionId);
@@ -138,8 +129,6 @@ export const useOrderBookStore = create<OrderBookStore>((set, get) => ({
     delete newSubscriptions[key];
 
     set({ subscriptions: newSubscriptions });
-
-    console.log(`[OrderBookStore] Unsubscribed from ${key}`);
   },
 
   cleanup: () => {

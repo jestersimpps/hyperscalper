@@ -45,7 +45,6 @@ export const useSymbolMetaStore = create<SymbolMetaStore>((set, get) => ({
 
       set({ metadata, loading: false });
     } catch (error) {
-      console.error('Error fetching symbol metadata:', error);
       set({
         error: error instanceof Error ? error.message : 'Unknown error',
         loading: false

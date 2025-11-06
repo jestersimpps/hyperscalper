@@ -40,7 +40,6 @@ export async function playNotificationSound(
         oscillator.start(startTime);
         oscillator.stop(startTime + 0.06);
       }
-      console.log(`Playing ${signalType} cloud sound (5 beeps) at ${frequency}Hz`);
     } else if (style === 'big') {
       const oscillator = ctx.createOscillator();
       const gainNode = ctx.createGain();
@@ -56,8 +55,6 @@ export async function playNotificationSound(
 
       oscillator.start(ctx.currentTime);
       oscillator.stop(ctx.currentTime + 0.6);
-
-      console.log(`Playing ${signalType} big order sound (long) at ${frequency}Hz`);
     } else {
       const oscillator = ctx.createOscillator();
       const gainNode = ctx.createGain();
@@ -73,10 +70,7 @@ export async function playNotificationSound(
 
       oscillator.start(ctx.currentTime);
       oscillator.stop(ctx.currentTime + 0.3);
-
-      console.log(`Playing ${signalType} standard sound at ${frequency}Hz`);
     }
   } catch (error) {
-    console.error('Failed to play notification sound:', error);
   }
 }

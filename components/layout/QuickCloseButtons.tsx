@@ -61,27 +61,23 @@ export default function QuickCloseButtons() {
   };
 
   return (
-    <div className="flex gap-2">
-      {mostProfitable && (
-        <button
-          onClick={handleCloseBest}
-          disabled={isClosing}
-          className="px-2 py-1 text-[10px] bg-bullish/10 hover:bg-bullish/20 active:bg-bullish/30 active:scale-95 text-bullish border border-bullish rounded disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-all"
-          title={`Close ${mostProfitable.symbol} (Shift+X)`}
-        >
-          {isClosing ? '⟳' : `⇧X +$${mostProfitable.pnl.toFixed(2)}`}
-        </button>
-      )}
-      {profitablePositions.length > 1 && (
-        <button
-          onClick={handleCloseAllProfitable}
-          disabled={isClosing}
-          className="px-2 py-1 text-[10px] bg-bullish/10 hover:bg-bullish/20 active:bg-bullish/30 active:scale-95 text-bullish border border-bullish rounded disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-all"
-          title={`Close ${profitablePositions.length} profitable positions (Shift+C)`}
-        >
-          {isClosing ? '⟳' : `⇧C +$${totalProfit.toFixed(2)}`}
-        </button>
-      )}
+    <div className="flex flex-col gap-1.5">
+      <button
+        onClick={handleCloseBest}
+        disabled={isClosing || !mostProfitable}
+        className="w-full px-2 py-1.5 text-[10px] font-mono bg-bullish/10 hover:bg-bullish/20 active:bg-bullish/30 active:scale-95 text-bullish border border-bullish rounded-sm disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-all hover:shadow-[0_0_8px_rgba(38,166,154,0.3)]"
+        title={mostProfitable ? `Close ${mostProfitable.symbol} (Shift+X)` : 'No profitable positions (Shift+X)'}
+      >
+        {isClosing ? '⟳' : mostProfitable ? `⇧X ${mostProfitable.symbol} +$${mostProfitable.pnl.toFixed(2)}` : '⇧X ---'}
+      </button>
+      <button
+        onClick={handleCloseAllProfitable}
+        disabled={isClosing || profitablePositions.length < 2}
+        className="w-full px-2 py-1.5 text-[10px] font-mono bg-bullish/10 hover:bg-bullish/20 active:bg-bullish/30 active:scale-95 text-bullish border border-bullish rounded-sm disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-all hover:shadow-[0_0_8px_rgba(38,166,154,0.3)]"
+        title={profitablePositions.length > 1 ? `Close ${profitablePositions.length} profitable positions (Shift+C)` : 'Need 2+ profitable positions (Shift+C)'}
+      >
+        {isClosing ? '⟳' : profitablePositions.length > 1 ? `⇧C ALL (${profitablePositions.length}) +$${totalProfit.toFixed(2)}` : '⇧C ---'}
+      </button>
     </div>
   );
 }

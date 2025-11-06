@@ -57,9 +57,7 @@ export class HyperliquidWebSocketService implements ExchangeWebSocketService {
       this.wsTransport = new WebSocketTransport({ url: this.wsUrl });
       this.eventClient = new EventClient({ transport: this.wsTransport });
       this.isInitialized = true;
-      console.log('[HyperliquidWS] Initialized');
     } catch (error) {
-      console.error('[HyperliquidWS] Failed to initialize:', error);
       throw error;
     }
   }
@@ -69,7 +67,6 @@ export class HyperliquidWebSocketService implements ExchangeWebSocketService {
 
     this.initialize().then(() => {
       if (!this.eventClient) {
-        console.error('[HyperliquidWS] EventClient not initialized');
         return;
       }
 
@@ -87,7 +84,7 @@ export class HyperliquidWebSocketService implements ExchangeWebSocketService {
             };
             callback(candleData);
           } catch (error) {
-            console.error('[HyperliquidWS] Error processing candle:', error);
+            // Error processing candle
           }
         }
       );
@@ -101,9 +98,7 @@ export class HyperliquidWebSocketService implements ExchangeWebSocketService {
       };
 
       this.subscriptions.set(subscriptionId, subscription);
-    }).catch((error) => {
-      console.error('[HyperliquidWS] Failed to subscribe to candles:', error);
-    });
+    }).catch(() => {});
 
     return subscriptionId;
   }
@@ -114,7 +109,6 @@ export class HyperliquidWebSocketService implements ExchangeWebSocketService {
 
     this.initialize().then(() => {
       if (!this.eventClient) {
-        console.error('[HyperliquidWS] EventClient not initialized');
         return;
       }
 
@@ -159,7 +153,7 @@ export class HyperliquidWebSocketService implements ExchangeWebSocketService {
 
             callback(formattedBook);
           } catch (error) {
-            console.error('[HyperliquidWS] Error processing order book:', error);
+            // Error processing order book
           }
         }
       );
@@ -173,9 +167,7 @@ export class HyperliquidWebSocketService implements ExchangeWebSocketService {
       };
 
       this.subscriptions.set(subscriptionId, subscription);
-    }).catch((error) => {
-      console.error('[HyperliquidWS] Failed to subscribe to order book:', error);
-    });
+    }).catch(() => {});
 
     return subscriptionId;
   }
@@ -185,7 +177,6 @@ export class HyperliquidWebSocketService implements ExchangeWebSocketService {
 
     this.initialize().then(() => {
       if (!this.eventClient) {
-        console.error('[HyperliquidWS] EventClient not initialized');
         return;
       }
 
@@ -201,7 +192,7 @@ export class HyperliquidWebSocketService implements ExchangeWebSocketService {
             }));
             callback(tradeBatch);
           } catch (error) {
-            console.error('[HyperliquidWS] Error processing trade:', error);
+            // Error processing trade
           }
         }
       );
@@ -215,9 +206,7 @@ export class HyperliquidWebSocketService implements ExchangeWebSocketService {
       };
 
       this.subscriptions.set(subscriptionId, subscription);
-    }).catch((error) => {
-      console.error('[HyperliquidWS] Failed to subscribe to trades:', error);
-    });
+    }).catch(() => {});
 
     return subscriptionId;
   }
@@ -227,7 +216,6 @@ export class HyperliquidWebSocketService implements ExchangeWebSocketService {
 
     this.initialize().then(() => {
       if (!this.eventClient) {
-        console.error('[HyperliquidWS] EventClient not initialized');
         return;
       }
 
@@ -240,7 +228,7 @@ export class HyperliquidWebSocketService implements ExchangeWebSocketService {
             });
             callback(prices);
           } catch (error) {
-            console.error('[HyperliquidWS] Error processing allMids:', error);
+            // Error processing allMids
           }
         }
       );
@@ -254,9 +242,7 @@ export class HyperliquidWebSocketService implements ExchangeWebSocketService {
       };
 
       this.subscriptions.set(subscriptionId, subscription);
-    }).catch((error) => {
-      console.error('[HyperliquidWS] Failed to subscribe to allMids:', error);
-    });
+    }).catch(() => {});
 
     return subscriptionId;
   }
@@ -269,7 +255,7 @@ export class HyperliquidWebSocketService implements ExchangeWebSocketService {
           subscription.unsubscribeFn();
         }
       } catch (error) {
-        console.error('[HyperliquidWS] Error unsubscribing:', error);
+        // Error unsubscribing
       }
       this.subscriptions.delete(subscriptionId);
     }
@@ -282,7 +268,7 @@ export class HyperliquidWebSocketService implements ExchangeWebSocketService {
           sub.unsubscribeFn();
         }
       } catch (error) {
-        console.error('[HyperliquidWS] Error during cleanup:', error);
+        // Error during cleanup
       }
     });
     this.subscriptions.clear();
@@ -298,7 +284,6 @@ export class HyperliquidWebSocketService implements ExchangeWebSocketService {
 
     this.eventClient = null;
     this.isInitialized = false;
-    console.log('[HyperliquidWS] Disconnected');
   }
 
   isConnected(): boolean {

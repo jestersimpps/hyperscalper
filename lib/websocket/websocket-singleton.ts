@@ -48,7 +48,6 @@ class WebSocketServiceManager {
 
       this.disconnectTimeout = setTimeout(() => {
         if (this.activeSubscriptions === 0 && this.instance) {
-          console.log('[WebSocket Manager] Disconnecting after 1s idle');
           this.instance.disconnect();
           this.instance = null;
         }

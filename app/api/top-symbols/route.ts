@@ -32,7 +32,6 @@ export async function GET() {
 
     return NextResponse.json(symbolsWithVolume);
   } catch (error) {
-    console.error('[TopSymbols] Error fetching top symbols:', error);
     return NextResponse.json(
       { error: 'Failed to fetch top symbols' },
       { status: 500 }

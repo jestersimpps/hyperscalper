@@ -20,9 +20,6 @@ export async function GET(request: NextRequest) {
     const service = getHyperliquidService();
     const allOrders = await service.getOpenOrders();
 
-    const coinOrders = allOrders.filter((o: any) => o.coin === coin);
-    console.log(`Raw orders for ${coin}:`, JSON.stringify(coinOrders, null, 2));
-
     const orders: Order[] = allOrders
       .filter((order: any) => order.coin === coin)
       .map((order: any) => {
@@ -69,14 +66,11 @@ export async function GET(request: NextRequest) {
         };
       });
 
-    console.log(`Mapped orders for ${coin}:`, orders);
-
     return NextResponse.json({
       success: true,
       orders,
     });
   } catch (error) {
-    console.error('Error fetching orders:', error);
     return NextResponse.json(
       {
         success: false,

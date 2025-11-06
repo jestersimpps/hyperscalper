@@ -66,7 +66,6 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(formattedBook);
   } catch (error) {
-    console.error('Error fetching order book:', error);
     return NextResponse.json(
       { error: 'Failed to fetch order book' },
       { status: 500 }

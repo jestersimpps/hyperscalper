@@ -48,7 +48,6 @@ export class HyperliquidService implements IHyperliquidService {
           isTestnet
         });
       } catch (error) {
-        console.warn('[HyperliquidService] Failed to initialize wallet client:', error);
       }
     }
   }
@@ -341,15 +340,8 @@ export class HyperliquidService implements IHyperliquidService {
     if (!address) {
       throw new Error('No wallet address available');
     }
-    console.log(`[getOpenPositions] Fetching positions for address: ${address}`);
     const state = await this.publicClient.clearinghouseState({ user: address });
-    console.log(`[getOpenPositions] Total asset positions: ${state.assetPositions.length}`);
-    console.log(`[getOpenPositions] All asset positions:`, state.assetPositions.map(p => ({
-      coin: p.position.coin,
-      szi: p.position.szi
-    })));
     const openPositions = state.assetPositions.filter(pos => parseFloat(pos.position.szi) !== 0);
-    console.log(`[getOpenPositions] Open positions (szi !== 0): ${openPositions.length}`);
     return openPositions;
   }
 
@@ -372,7 +364,6 @@ export class HyperliquidService implements IHyperliquidService {
       throw new Error('No wallet address available');
     }
     const orders = await this.publicClient.frontendOpenOrders({ user: address });
-    console.log('[getOpenOrders] Raw frontendOpenOrders response:', JSON.stringify(orders, null, 2));
     return orders;
   }
 
@@ -424,8 +415,6 @@ export class HyperliquidService implements IHyperliquidService {
 
       return true;
     });
-
-    console.log(`[cancelEntryOrders] Total orders: ${coinOrders.length}, Entry orders: ${entryOrders.length}, TP/SL orders: ${coinOrders.length - entryOrders.length}`);
 
     if (entryOrders.length === 0) {
       return { status: 'ok', response: { type: 'default', data: { statuses: [] } } };
@@ -485,7 +474,6 @@ export class HyperliquidService implements IHyperliquidService {
         leverage
       });
     } catch (error) {
-      console.warn(`[HyperliquidService] Could not set leverage for ${coin}:`, (error as Error).message);
       return null;
     }
   }

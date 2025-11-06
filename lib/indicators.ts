@@ -1358,10 +1358,6 @@ export function calculatePivotLines(candles: FullCandleData[]): Trendlines {
   const tops = pivots.filter(p => p.type === 'high');
   const bottoms = pivots.filter(p => p.type === 'low');
 
-  console.log('[PivotLines] Total pivots detected:', pivots.length);
-  console.log('[PivotLines] Tops found:', tops.length);
-  console.log('[PivotLines] Bottoms found:', bottoms.length);
-
   const supportLine: TrendlineWithStyle[] = [];
   for (let i = 1; i < bottoms.length; i++) {
     supportLine.push({
@@ -1399,10 +1395,6 @@ export function calculateStochasticPivotLines(
 
   const tops = pivots.filter(p => p.type === 'high');
   const bottoms = pivots.filter(p => p.type === 'low');
-
-  console.log('[StochPivotLines] Total pivots detected:', pivots.length);
-  console.log('[StochPivotLines] Tops found:', tops.length);
-  console.log('[StochPivotLines] Bottoms found:', bottoms.length);
 
   const supportLine: TrendlineWithStyle[] = [];
   for (let i = 1; i < bottoms.length; i++) {

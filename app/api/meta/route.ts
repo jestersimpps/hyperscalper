@@ -8,7 +8,6 @@ export async function GET() {
 
     return NextResponse.json(data);
   } catch (error) {
-    console.error('Error fetching symbol metadata:', error);
     return NextResponse.json(
       { error: 'Failed to fetch symbol metadata' },
       { status: 500 }

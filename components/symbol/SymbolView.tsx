@@ -4,7 +4,6 @@ import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import ScalpingChart from '@/components/ScalpingChart';
 import MultiTimeframeChart from '@/components/MultiTimeframeChart';
 import TerminalHeader from '@/components/layout/TerminalHeader';
-import RightTradingPanel from '@/components/symbol/RightTradingPanel';
 import { useTradesStore } from '@/stores/useTradesStore';
 import { usePositionStore } from '@/stores/usePositionStore';
 import { useOrderStore } from '@/stores/useOrderStore';
@@ -505,56 +504,29 @@ function SymbolView({ coin }: SymbolViewProps) {
 
   return (
     <div className="h-full flex flex-col bg-bg-primary">
-      <div className="flex h-full w-full">
-        {/* Main Content - Scalping Chart */}
-        <div className="flex flex-col flex-1 min-w-0 p-2 gap-2">
-          {/* Header */}
-          <TerminalHeader coin={coin} />
+      <div className="flex flex-col h-full w-full p-2 gap-2">
+        {/* Header */}
+        <TerminalHeader coin={coin} />
 
-          {/* Chart View - Single or Multi-Timeframe */}
-          {isMultiChartView ? (
+        {/* Chart View - Single or Multi-Timeframe */}
+        {isMultiChartView ? (
+          <div className="flex-1 min-h-0">
+            <MultiTimeframeChart coin={coin} />
+          </div>
+        ) : (
+          <div className="terminal-border p-1.5 flex flex-col flex-1 min-h-0">
+            <div className="text-[10px] text-primary-muted mb-1 uppercase tracking-wider">█ SCALPING CHART</div>
             <div className="flex-1 min-h-0">
-              <MultiTimeframeChart coin={coin} />
+              <ScalpingChart
+                coin={coin}
+                interval="1m"
+                onPriceUpdate={setCurrentPrice}
+                position={position}
+                orders={orders}
+              />
             </div>
-          ) : (
-            <div className="terminal-border p-1.5 flex flex-col flex-1 min-h-0">
-              <div className="text-[10px] text-primary-muted mb-1 uppercase tracking-wider">█ SCALPING CHART</div>
-              <div className="flex-1 min-h-0">
-                <ScalpingChart
-                  coin={coin}
-                  interval="1m"
-                  onPriceUpdate={setCurrentPrice}
-                  position={position}
-                  orders={orders}
-                />
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Right Sidebar - Trading Panel */}
-        <RightTradingPanel
-          coin={coin}
-          position={position}
-          orders={orders}
-          decimals={decimals}
-          onBuyCloud={handleBuyCloud}
-          onSellCloud={handleSellCloud}
-          onSmLong={handleSmLong}
-          onSmShort={handleSmShort}
-          onBigLong={handleBigLong}
-          onBigShort={handleBigShort}
-          onClose25={handleClose25}
-          onClose50={handleClose50}
-          onClose75={handleClose75}
-          onClose100={handleClose100}
-          onMoveSL25={handleMoveSL25}
-          onMoveSL50={handleMoveSL50}
-          onMoveSL75={handleMoveSL75}
-          onMoveSLBreakeven={handleMoveSLBreakeven}
-          onCancelEntryOrders={handleCancelEntryOrders}
-          onCancelAllOrders={handleCancelAllOrders}
-        />
+          </div>
+        )}
       </div>
     </div>
   );

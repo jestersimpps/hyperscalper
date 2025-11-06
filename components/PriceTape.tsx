@@ -194,7 +194,6 @@ function PriceTape({ coin, position, orders = [] }: PriceTapeProps) {
 
         window.addEventListener('resize', resizeHandler);
       } catch (error) {
-        console.error('[PriceTape] Failed to initialize chart:', error);
       }
     };
 

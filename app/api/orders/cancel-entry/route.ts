@@ -28,7 +28,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       data: result,
     });
   } catch (error) {
-    console.error('Error cancelling entry orders:', error);
     return NextResponse.json(
       {
         success: false,

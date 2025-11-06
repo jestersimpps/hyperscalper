@@ -36,7 +36,6 @@ async function fetchSymbolMetadata() {
 
     return await response.json();
   } catch (error) {
-    console.error('Error fetching symbol metadata:', error);
     return null;
   }
 }

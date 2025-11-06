@@ -70,7 +70,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       for (const slOrder of stopLossOrders) {
         const orderId = parseInt(slOrder.oid);
         await hlService.cancelOrder(coin, orderId);
-        console.log(`Cancelled existing stop loss order ${orderId} for ${coin}`);
       }
     }
 
@@ -100,7 +99,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       },
     });
   } catch (error) {
-    console.error('Error moving stop loss:', error);
     return NextResponse.json(
       {
         success: false,

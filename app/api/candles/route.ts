@@ -23,7 +23,6 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(candles);
   } catch (error) {
-    console.error('Error fetching candles:', error);
     return NextResponse.json(
       { error: 'Failed to fetch candles' },
       { status: 500 }

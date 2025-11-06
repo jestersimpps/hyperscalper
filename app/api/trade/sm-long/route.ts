@@ -75,7 +75,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       },
     });
   } catch (error) {
-    console.error('Error executing sm long:', error);
     return NextResponse.json(
       {
         success: false,

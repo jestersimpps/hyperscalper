@@ -128,7 +128,6 @@ function TradeVolumeTimeline({ coin, trades }: TradeVolumeTimelineProps) {
 
         window.addEventListener('resize', resizeHandler);
       } catch (error) {
-        console.error('[TradeVolumeTimeline] Failed to initialize chart:', error);
       }
     };
 

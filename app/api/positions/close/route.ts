@@ -26,9 +26,6 @@ export async function POST(request: NextRequest): Promise<NextResponse<ClosePosi
       timestamp: Date.now(),
     };
 
-    console.log('Closing', percentage + '% of position for', symbol);
-    console.log('Close position data:', closeData);
-
     return NextResponse.json({
       success: true,
       message: `Closed ${percentage}% of ${symbol} position`,
@@ -39,7 +36,6 @@ export async function POST(request: NextRequest): Promise<NextResponse<ClosePosi
       },
     });
   } catch (error) {
-    console.error('Error closing position:', error);
     return NextResponse.json(
       {
         success: false,

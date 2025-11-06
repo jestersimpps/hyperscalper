@@ -119,7 +119,6 @@ const mergeSettings = (storedSettings: any): AppSettings => {
 
           // Migrate old structure to new structure
           if (storedMacd && 'enabled' in storedMacd) {
-            console.log('Migrating old MACD settings to new multi-timeframe structure');
             return {
               showMultiTimeframe: false,
               timeframes: {
@@ -198,7 +197,6 @@ const mergeSettings = (storedSettings: any): AppSettings => {
       pinnedSymbols: storedSettings.pinnedSymbols ?? DEFAULT_SETTINGS.pinnedSymbols,
     };
   } catch (error) {
-    console.error('Error merging settings, using defaults:', error);
     return DEFAULT_SETTINGS;
   }
 };
@@ -321,11 +319,6 @@ export const useSettingsStore = create<SettingsStore>()(
           ...currentState,
           settings: mergeSettings(persisted?.settings),
         };
-      },
-      onRehydrateStorage: () => (state) => {
-        if (state) {
-          console.log('Settings loaded from localStorage');
-        }
       },
     }
   )

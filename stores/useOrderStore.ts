@@ -40,7 +40,6 @@ export const useOrderStore = create<OrderStore>((set, get) => ({
       }));
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.error(`Error fetching orders for ${coin}:`, errorMessage);
 
       set((state) => ({
         loading: { ...state.loading, [coin]: false },

@@ -28,11 +28,8 @@ export const useTradesStore = create<TradesStore>((set, get) => ({
     const { subscriptions } = get();
 
     if (subscriptions[coin]) {
-      console.log(`[TradesStore] Already subscribed to ${coin}`);
       return;
     }
-
-    console.log(`[TradesStore] Subscribing to ${coin}`);
 
     const initWebSocket = async () => {
       const { useWebSocketService } = await import('@/lib/websocket/websocket-singleton');
@@ -71,8 +68,6 @@ export const useTradesStore = create<TradesStore>((set, get) => ({
           [coin]: { subscriptionId, cleanup }
         },
       }));
-
-      console.log(`[TradesStore] Subscribed to ${coin} with ID: ${subscriptionId}`);
     };
 
     initWebSocket();
@@ -83,11 +78,8 @@ export const useTradesStore = create<TradesStore>((set, get) => ({
 
     const subscription = subscriptions[coin];
     if (!subscription) {
-      console.warn(`[TradesStore] No subscription found for ${coin}`);
       return;
     }
-
-    console.log(`[TradesStore] Unsubscribing from ${coin}`);
 
     if (wsService) {
       wsService.unsubscribe(subscription.subscriptionId);
@@ -98,8 +90,6 @@ export const useTradesStore = create<TradesStore>((set, get) => ({
     delete newSubscriptions[coin];
 
     set({ subscriptions: newSubscriptions });
-
-    console.log(`[TradesStore] Unsubscribed from ${coin}`);
   },
 
   cleanup: () => {

@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { useSettingsStore } from '@/stores/useSettingsStore';
-import QuickCloseButtons from '@/components/layout/QuickCloseButtons';
 
 interface TerminalHeaderProps {
   coin: string;
@@ -36,7 +35,6 @@ export default function TerminalHeader({ coin }: TerminalHeaderProps) {
           <div className="text-right text-[10px]">
             <div className="text-primary-muted">{currentTime || '--'}</div>
           </div>
-          <QuickCloseButtons />
           <div className="flex gap-2">
             <button
               onClick={toggleMultiChartView}

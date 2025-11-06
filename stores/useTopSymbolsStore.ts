@@ -40,7 +40,6 @@ export const useTopSymbolsStore = create<TopSymbolsStore>((set, get) => ({
         error: err instanceof Error ? err.message : 'Unknown error',
         isLoading: false,
       });
-      console.error('[TopSymbolsStore] Error:', err);
     }
   },
 
@@ -48,11 +47,9 @@ export const useTopSymbolsStore = create<TopSymbolsStore>((set, get) => ({
     const { intervalId, fetchTopSymbols } = get();
 
     if (intervalId) {
-      console.log('[TopSymbolsStore] Auto-refresh already running');
       return;
     }
 
-    console.log('[TopSymbolsStore] Starting auto-refresh');
     fetchTopSymbols();
 
     const newIntervalId = setInterval(() => {
@@ -66,7 +63,6 @@ export const useTopSymbolsStore = create<TopSymbolsStore>((set, get) => ({
     const { intervalId } = get();
 
     if (intervalId) {
-      console.log('[TopSymbolsStore] Stopping auto-refresh');
       clearInterval(intervalId);
       set({ intervalId: null });
     }

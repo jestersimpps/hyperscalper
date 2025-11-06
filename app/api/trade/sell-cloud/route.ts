@@ -97,7 +97,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       },
     });
   } catch (error) {
-    console.error('Error executing sell cloud:', error);
     return NextResponse.json(
       {
         success: false,

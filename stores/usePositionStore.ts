@@ -6,8 +6,11 @@ interface PositionStore {
   loading: Record<string, boolean>;
   errors: Record<string, string | null>;
   pollingIntervals: Record<string, NodeJS.Timeout>;
+  batchPollingInterval: NodeJS.Timeout | null;
+  batchPollingCoins: string[];
 
   fetchPosition: (coin: string) => Promise<void>;
+  fetchAllPositions: (coins?: string[]) => Promise<void>;
   subscribeToPosition: (coin: string) => void;
   unsubscribeFromPosition: (coin: string) => void;
   startPolling: (coin: string, interval: number) => void;
@@ -22,6 +25,8 @@ export const usePositionStore = create<PositionStore>((set, get) => ({
   loading: {},
   errors: {},
   pollingIntervals: {},
+  batchPollingInterval: null,
+  batchPollingCoins: [],
 
   fetchPosition: async (coin: string) => {
     set((state) => ({
@@ -43,11 +48,56 @@ export const usePositionStore = create<PositionStore>((set, get) => ({
       }));
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.error(`Error fetching position for ${coin}:`, errorMessage);
 
       set((state) => ({
         loading: { ...state.loading, [coin]: false },
         errors: { ...state.errors, [coin]: errorMessage },
+      }));
+    }
+  },
+
+  fetchAllPositions: async (coins?: string[]) => {
+    const targetCoins = coins || get().batchPollingCoins;
+
+    if (targetCoins.length === 0) return;
+
+    const loadingState = targetCoins.reduce((acc, coin) => ({ ...acc, [coin]: true }), {});
+    const errorState = targetCoins.reduce((acc, coin) => ({ ...acc, [coin]: null }), {});
+
+    set((state) => ({
+      loading: { ...state.loading, ...loadingState },
+      errors: { ...state.errors, ...errorState },
+    }));
+
+    try {
+      const response = await fetch('/api/positions');
+      const data = await response.json();
+
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to fetch positions');
+      }
+
+      const positionMap: Record<string, Position | null> = {};
+      const positionLoadingState: Record<string, boolean> = {};
+
+      targetCoins.forEach(coin => {
+        const position = data.positions.find((p: Position) => p.symbol === coin);
+        positionMap[coin] = position || null;
+        positionLoadingState[coin] = false;
+      });
+
+      set((state) => ({
+        positions: { ...state.positions, ...positionMap },
+        loading: { ...state.loading, ...positionLoadingState },
+      }));
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorStateUpdate = targetCoins.reduce((acc, coin) => ({ ...acc, [coin]: errorMessage }), {});
+      const loadingStateUpdate = targetCoins.reduce((acc, coin) => ({ ...acc, [coin]: false }), {});
+
+      set((state) => ({
+        loading: { ...state.loading, ...loadingStateUpdate },
+        errors: { ...state.errors, ...errorStateUpdate },
       }));
     }
   },
@@ -83,7 +133,12 @@ export const usePositionStore = create<PositionStore>((set, get) => ({
   },
 
   subscribeToPosition: (coin: string) => {
-    const { startPolling } = get();
+    const { batchPollingCoins, startPolling } = get();
+
+    if (batchPollingCoins.includes(coin)) {
+      return;
+    }
+
     startPolling(coin, 5000);
   },
 
@@ -93,13 +148,30 @@ export const usePositionStore = create<PositionStore>((set, get) => ({
   },
 
   startPollingMultiple: (coins: string[], interval: number = 5000) => {
-    const { startPolling } = get();
-    coins.forEach(coin => startPolling(coin, interval));
+    const { batchPollingInterval, fetchAllPositions } = get();
+
+    if (batchPollingInterval) {
+      clearInterval(batchPollingInterval);
+    }
+
+    set({ batchPollingCoins: coins });
+
+    fetchAllPositions(coins);
+
+    const intervalId = setInterval(() => {
+      fetchAllPositions(coins);
+    }, interval);
+
+    set({ batchPollingInterval: intervalId });
   },
 
   stopPollingMultiple: (coins: string[]) => {
-    const { stopPolling } = get();
-    coins.forEach(coin => stopPolling(coin));
+    const { batchPollingInterval } = get();
+
+    if (batchPollingInterval) {
+      clearInterval(batchPollingInterval);
+      set({ batchPollingInterval: null, batchPollingCoins: [] });
+    }
   },
 
   getPosition: (coin: string) => {

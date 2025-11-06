@@ -68,7 +68,6 @@ export const useCandleStore = create<CandleStore>((set, get) => ({
     const { subscriptions } = get();
 
     if (subscriptions[key]) {
-      console.log(`[Store] Already subscribed to ${key}, incrementing refCount (${subscriptions[key].refCount} -> ${subscriptions[key].refCount + 1})`);
       set((state) => ({
         subscriptions: {
           ...state.subscriptions,
@@ -80,8 +79,6 @@ export const useCandleStore = create<CandleStore>((set, get) => ({
       }));
       return;
     }
-
-    console.log(`[Store] Subscribing to ${key} (refCount: 1)`);
 
     const initWebSocket = async () => {
       const { useWebSocketService } = await import('@/lib/websocket/websocket-singleton');
@@ -127,8 +124,6 @@ export const useCandleStore = create<CandleStore>((set, get) => ({
           [key]: { subscriptionId, cleanup, refCount: 1 }
         },
       }));
-
-      console.log(`[Store] Subscribed to ${key} with ID: ${subscriptionId}`);
     };
 
     initWebSocket();
@@ -140,12 +135,10 @@ export const useCandleStore = create<CandleStore>((set, get) => ({
 
     const subscription = subscriptions[key];
     if (!subscription) {
-      console.warn(`[Store] No subscription found for ${key}`);
       return;
     }
 
     const newRefCount = subscription.refCount - 1;
-    console.log(`[Store] Unsubscribing from ${key}, decrementing refCount (${subscription.refCount} -> ${newRefCount})`);
 
     if (newRefCount > 0) {
       set((state) => ({
@@ -157,11 +150,8 @@ export const useCandleStore = create<CandleStore>((set, get) => ({
           }
         }
       }));
-      console.log(`[Store] Keeping subscription to ${key} alive (refCount: ${newRefCount})`);
       return;
     }
-
-    console.log(`[Store] Fully unsubscribing from ${key} (refCount reached 0)`);
 
     if (wsService) {
       wsService.unsubscribe(subscription.subscriptionId);
@@ -172,8 +162,6 @@ export const useCandleStore = create<CandleStore>((set, get) => ({
     delete newSubscriptions[key];
 
     set({ subscriptions: newSubscriptions });
-
-    console.log(`[Store] Fully unsubscribed from ${key}`);
   },
 
   cleanup: () => {
