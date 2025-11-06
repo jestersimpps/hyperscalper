@@ -250,7 +250,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
   const chartSettings = useSettingsStore((state) => state.settings.chart);
 
   const enabledMacdTimeframes = Object.entries(macdSettings.timeframes || {})
-    .filter(([_, config]) => config.enabled && macdSettings.showMultiTimeframe)
+    .filter(([_, config]) => config.enabled && !simplifiedView && macdSettings.showMultiTimeframe)
     .map(([tf]) => tf as TimeInterval);
 
   const storeMacdCandles = useCandleStore((state) => state.candles);
@@ -358,7 +358,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
 
         stochSeriesRefsRef.current = {};
 
-        if (stochasticSettings.showMultiVariant) {
+        if (!simplifiedView && stochasticSettings.showMultiVariant) {
           Object.entries(stochasticSettings.variants).forEach(([variantName, settings]) => {
             if (!settings.enabled) return;
 
@@ -612,10 +612,10 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
 
   const macdResult = useMemo(() => {
     const macdIntervalConfig = macdSettings.timeframes?.[interval];
-    return (!macdSettings.showMultiTimeframe && macdIntervalConfig?.enabled)
+    return ((!macdSettings.showMultiTimeframe || simplifiedView) && macdIntervalConfig?.enabled)
       ? calculateMACDMemoized(closePrices, macdIntervalConfig.fastPeriod, macdIntervalConfig.slowPeriod, macdIntervalConfig.signalPeriod)
       : { macd: [], signal: [], histogram: [] };
-  }, [closePrices, macdSettings.showMultiTimeframe, macdSettings.timeframes, interval]);
+  }, [closePrices, macdSettings.showMultiTimeframe, macdSettings.timeframes, interval, simplifiedView]);
 
   const rsi = useMemo(() => {
     return calculateRSI(closePrices, 14);
@@ -681,7 +681,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
 
       // Detect divergences on new candle
       let currentDivergences: DivergencePoint[] = [];
-      if (stochasticSettings.showMultiVariant && stochasticSettings.showDivergence) {
+      if (!simplifiedView && stochasticSettings.showMultiVariant && stochasticSettings.showDivergence) {
         const stochCandles = interval === '1m' ? candles : (isExternalData ? allMacdCandles['1m'] : useCandleStore.getState().candles[`${coin}-1m`]);
 
         if (stochCandles && stochCandles.length >= 50) {
@@ -784,7 +784,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
   // MACD multi-timeframe data update
   useEffect(() => {
     if (!chartReady || Object.keys(macdSeriesRefsRef.current).length === 0) return;
-    if (!macdSettings.showMultiTimeframe) return;
+    if (simplifiedView || !macdSettings.showMultiTimeframe) return;
 
     const colors = getThemeColors();
 
@@ -826,7 +826,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
   // Stochastic multi-variant data update
   useEffect(() => {
     if (!chartReady || Object.keys(stochSeriesRefsRef.current).length === 0) return;
-    if (!stochasticSettings.showMultiVariant) return;
+    if (simplifiedView || !stochasticSettings.showMultiVariant) return;
 
     const stochCandles = interval === '1m' ? candles : (isExternalData ? allMacdCandles['1m'] : useCandleStore.getState().candles[`${coin}-1m`]);
     if (!stochCandles || stochCandles.length === 0) return;
@@ -866,7 +866,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
   // Stochastic reference lines (0 and 100)
   useEffect(() => {
     if (!chartReady || Object.keys(stochSeriesRefsRef.current).length === 0) return;
-    if (!stochasticSettings.showMultiVariant) return;
+    if (simplifiedView || !stochasticSettings.showMultiVariant) return;
 
     stochReferenceLinesRef.current.forEach((line) => {
       try {
@@ -1180,7 +1180,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
             </div>
           </>
         )}
-        {stochasticSettings.showMultiVariant && Object.entries(stochasticSettings.variants).some(([_, v]) => v.enabled) && (
+        {!simplifiedView && stochasticSettings.showMultiVariant && Object.entries(stochasticSettings.variants).some(([_, v]) => v.enabled) && (
           <>
             <div className="w-px h-4 bg-frame mx-1"></div>
             {Object.entries(stochasticSettings.variants)
