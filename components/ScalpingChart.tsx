@@ -43,6 +43,7 @@ interface ScalpingChartProps {
   position?: Position | null;
   orders?: Order[];
   syncZoom?: boolean;
+  simplifiedView?: boolean;
 }
 
 interface CrossoverMarker {
@@ -213,7 +214,7 @@ function createDivergenceMarkers(divergences: DivergencePoint[]): any[] {
 }
 
 
-export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartReady, candleData, isExternalData = false, macdCandleData, position, orders, syncZoom = false }: ScalpingChartProps) {
+export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartReady, candleData, isExternalData = false, macdCandleData, position, orders, syncZoom = false, simplifiedView = false }: ScalpingChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<any>(null);
   const candleSeriesRef = useRef<any>(null);
@@ -556,8 +557,8 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
     fetchCandles(coin, interval, startTime, endTime);
     subscribeToCandles(coin, interval);
 
-    // Fetch MACD data
-    if (macdSettings.showMultiTimeframe) {
+    // Fetch MACD data (skip in simplified view)
+    if (!simplifiedView && macdSettings.showMultiTimeframe) {
       enabledMacdTimeframes.forEach(tf => {
         const { startTime: tfStart, endTime: tfEnd } = getCandleTimeWindow(tf, DEFAULT_CANDLE_COUNT);
         fetchCandles(coin, tf, tfStart, tfEnd);
@@ -565,8 +566,8 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
       });
     }
 
-    // Fetch 1m data for stochastics
-    if (stochasticSettings.showMultiVariant && interval !== '1m') {
+    // Fetch 1m data for stochastics (skip in simplified view)
+    if (!simplifiedView && stochasticSettings.showMultiVariant && interval !== '1m') {
       const { startTime: stochStart, endTime: stochEnd } = getCandleTimeWindow('1m', DEFAULT_CANDLE_COUNT);
       fetchCandles(coin, '1m', stochStart, stochEnd);
       subscribeToCandles(coin, '1m');
@@ -576,17 +577,17 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
       const { unsubscribeFromCandles } = useCandleStore.getState();
       unsubscribeFromCandles(coin, interval);
 
-      if (macdSettings.showMultiTimeframe) {
+      if (!simplifiedView && macdSettings.showMultiTimeframe) {
         enabledMacdTimeframes.forEach(tf => {
           unsubscribeFromCandles(coin, tf);
         });
       }
 
-      if (stochasticSettings.showMultiVariant && interval !== '1m') {
+      if (!simplifiedView && stochasticSettings.showMultiVariant && interval !== '1m') {
         unsubscribeFromCandles(coin, '1m');
       }
     };
-  }, [coin, interval, chartReady, isExternalData, enabledMacdTimeframes.join(','), macdSettings.showMultiTimeframe, stochasticSettings.showMultiVariant]);
+  }, [coin, interval, chartReady, isExternalData, simplifiedView, enabledMacdTimeframes.join(','), macdSettings.showMultiTimeframe, stochasticSettings.showMultiVariant]);
 
   useEffect(() => {
     lastCandleTimeRef.current = null;

@@ -23,6 +23,7 @@ function MultiTimeframeChart({ coin }: MultiTimeframeChartProps) {
               coin={coin}
               interval={interval}
               syncZoom={false}
+              simplifiedView={true}
             />
           </div>
         </div>
