@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ExchangeFactory } from '@/lib/exchange-factory';
-import { calculateStochastic, detectEmaAlignment, detectChannels, detectPivots, detectStochasticPivots, detectDivergence } from '@/lib/indicators';
+import { calculateStochastic, calculateMACD, calculateRSI, detectEmaAlignment, detectChannels, detectPivots, detectStochasticPivots, detectDivergence, detectMacdReversals, detectRsiReversals } from '@/lib/indicators';
 import type { TimeInterval, CandleData } from '@/types';
-import type { StochasticValue, EmaAlignmentValue, ChannelValue, DivergenceValue } from '@/models/Scanner';
+import type { StochasticValue, EmaAlignmentValue, ChannelValue, DivergenceValue, MacdReversalValue, RsiReversalValue } from '@/models/Scanner';
 import type { PerpsMetaAndAssetCtxs } from '@nktkas/hyperliquid';
 
 export const runtime = 'nodejs';
@@ -41,6 +41,16 @@ interface ScanParams {
   divergenceScanBullish: boolean;
   divergenceScanBearish: boolean;
   divergenceScanHidden: boolean;
+  macdReversalEnabled: boolean;
+  macdTimeframes: TimeInterval[];
+  macdFastPeriod: number;
+  macdSlowPeriod: number;
+  macdSignalPeriod: number;
+  rsiReversalEnabled: boolean;
+  rsiTimeframes: TimeInterval[];
+  rsiPeriod: number;
+  rsiOversoldLevel: number;
+  rsiOverboughtLevel: number;
 }
 
 interface SymbolWithVolume {
@@ -147,6 +157,16 @@ export async function POST(request: NextRequest) {
       divergenceScanBullish: body.divergenceScanBullish ?? true,
       divergenceScanBearish: body.divergenceScanBearish ?? true,
       divergenceScanHidden: body.divergenceScanHidden ?? false,
+      macdReversalEnabled: body.macdReversalEnabled ?? false,
+      macdTimeframes: body.macdTimeframes ?? ['1m', '5m', '15m', '1h'],
+      macdFastPeriod: body.macdFastPeriod ?? 5,
+      macdSlowPeriod: body.macdSlowPeriod ?? 13,
+      macdSignalPeriod: body.macdSignalPeriod ?? 5,
+      rsiReversalEnabled: body.rsiReversalEnabled ?? false,
+      rsiTimeframes: body.rsiTimeframes ?? ['1m', '5m', '15m', '1h'],
+      rsiPeriod: body.rsiPeriod ?? 14,
+      rsiOversoldLevel: body.rsiOversoldLevel ?? 30,
+      rsiOverboughtLevel: body.rsiOverboughtLevel ?? 70,
     };
 
     console.log('🔍 Scanner started:', {
@@ -155,8 +175,12 @@ export async function POST(request: NextRequest) {
       emaAlignmentEnabled: params.emaAlignmentEnabled,
       channelEnabled: params.channelEnabled,
       divergenceEnabled: params.divergenceEnabled,
+      macdReversalEnabled: params.macdReversalEnabled,
+      rsiReversalEnabled: params.rsiReversalEnabled,
       emaTimeframes: params.emaTimeframes,
       channelTimeframes: params.channelTimeframes,
+      macdTimeframes: params.macdTimeframes,
+      rsiTimeframes: params.rsiTimeframes,
       topMarkets: params.topMarkets,
     });
 
@@ -479,6 +503,101 @@ export async function POST(request: NextRequest) {
               signalType,
               description,
               scanType: 'divergence' as const,
+            });
+          }
+        }
+
+        if (params.macdReversalEnabled) {
+          const macdReversals: MacdReversalValue[] = [];
+
+          for (const timeframe of params.macdTimeframes) {
+            const timeframeMinutes = getTimeframeMinutes(timeframe);
+            const aggregatedCandles = aggregateCandles(candles1m, timeframeMinutes);
+
+            if (aggregatedCandles.length < 50) continue;
+
+            const closePrices = aggregatedCandles.map(c => c.close);
+            const macdResult = calculateMACD(closePrices, params.macdFastPeriod, params.macdSlowPeriod, params.macdSignalPeriod);
+
+            if (macdResult.macd.length > 0) {
+              const reversals = detectMacdReversals(macdResult, aggregatedCandles);
+              const recentReversals = reversals.filter(r => aggregatedCandles.length - aggregatedCandles.findIndex(c => c.time === r.time) <= 3);
+
+              recentReversals.forEach(reversal => {
+                macdReversals.push({
+                  direction: reversal.direction,
+                  timeframe,
+                  time: reversal.time,
+                  price: reversal.price,
+                  macdValue: macdResult.macd[macdResult.macd.length - 1],
+                  signalValue: macdResult.signal[macdResult.signal.length - 1],
+                });
+              });
+            }
+          }
+
+          if (macdReversals.length > 0) {
+            const latestReversal = macdReversals[macdReversals.length - 1];
+            const signalType = latestReversal.direction;
+            const timeframeSummary = macdReversals.map(r => r.timeframe).join(', ');
+            const description = `MACD ${signalType} reversal on ${timeframeSummary}`;
+
+            console.log(`  ✅ ${symbol}: MACD REVERSAL MATCH! ${description}`);
+            results.push({
+              symbol,
+              macdReversals,
+              matchedAt: Date.now(),
+              signalType,
+              description,
+              scanType: 'macdReversal' as const,
+            });
+          }
+        }
+
+        if (params.rsiReversalEnabled) {
+          const rsiReversals: RsiReversalValue[] = [];
+
+          for (const timeframe of params.rsiTimeframes) {
+            const timeframeMinutes = getTimeframeMinutes(timeframe);
+            const aggregatedCandles = aggregateCandles(candles1m, timeframeMinutes);
+
+            if (aggregatedCandles.length < 50) continue;
+
+            const closePrices = aggregatedCandles.map(c => c.close);
+            const rsi = calculateRSI(closePrices, params.rsiPeriod);
+
+            if (rsi.length > 0) {
+              const reversals = detectRsiReversals(rsi, aggregatedCandles, params.rsiOversoldLevel, params.rsiOverboughtLevel);
+              const recentReversals = reversals.filter(r => aggregatedCandles.length - aggregatedCandles.findIndex(c => c.time === r.time) <= 3);
+
+              recentReversals.forEach(reversal => {
+                const zone = reversal.direction === 'bullish' ? 'oversold' : 'overbought';
+                rsiReversals.push({
+                  direction: reversal.direction,
+                  timeframe,
+                  time: reversal.time,
+                  price: reversal.price,
+                  rsiValue: rsi[rsi.length - 1],
+                  zone,
+                });
+              });
+            }
+          }
+
+          if (rsiReversals.length > 0) {
+            const latestReversal = rsiReversals[rsiReversals.length - 1];
+            const signalType = latestReversal.direction;
+            const timeframeSummary = rsiReversals.map(r => r.timeframe).join(', ');
+            const description = `RSI ${signalType} reversal (exiting ${latestReversal.zone}) on ${timeframeSummary}`;
+
+            console.log(`  ✅ ${symbol}: RSI REVERSAL MATCH! ${description}`);
+            results.push({
+              symbol,
+              rsiReversals,
+              matchedAt: Date.now(),
+              signalType,
+              description,
+              scanType: 'rsiReversal' as const,
             });
           }
         }
