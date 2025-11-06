@@ -352,10 +352,10 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                 >
                   <div className="flex justify-between items-center gap-2">
                     <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <span className="text-primary font-bold w-20 flex-shrink-0">{symbol}/USD</span>
                       {selectedSymbol === symbol && (
                         <span className="text-primary text-xs flex-shrink-0">█</span>
                       )}
+                      <span className="text-primary font-bold flex-shrink-0">{symbol}/USD</span>
                     </div>
                     <div className="flex-shrink-0">
                       {renderPrice(symbol)}
