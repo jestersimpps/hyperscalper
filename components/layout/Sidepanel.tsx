@@ -204,7 +204,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                         className="p-2 text-primary-muted hover:text-primary transition-colors"
                         title={isPinned ? "Unpin symbol" : "Pin symbol"}
                       >
-                        <span className="text-sm font-bold">{isPinned ? '−' : '+'}</span>
+                        <span className="text-lg font-bold">{isPinned ? '−' : '+'}</span>
                       </button>
                     </div>
                   </div>
@@ -231,7 +231,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
         >
           <div className="flex items-center justify-between">
             <span className="text-primary-muted text-xs font-mono">ADD FROM TOP 20 BY VOLUME</span>
-            <span className="text-primary text-xs">{isDropdownOpen ? '▼' : '▶'}</span>
+            <span className="text-primary text-base">{isDropdownOpen ? '▼' : '▶'}</span>
           </div>
         </button>
 
@@ -286,7 +286,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                         className="p-2 text-primary-muted hover:text-primary transition-colors"
                         title={isPinned ? 'Unpin symbol' : 'Pin symbol'}
                       >
-                        <span className="text-sm font-bold">{isPinned ? '−' : '+'}</span>
+                        <span className="text-lg font-bold">{isPinned ? '−' : '+'}</span>
                       </button>
                     </div>
                   );
@@ -346,7 +346,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                   className="p-2 text-primary-muted hover:text-bearish transition-colors"
                   title="Unpin symbol"
                 >
-                  <span className="text-sm font-bold">−</span>
+                  <span className="text-lg font-bold">−</span>
                 </button>
                 <button
                   onClick={(e) => {
@@ -356,7 +356,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                   className="p-2 text-primary-muted hover:text-primary transition-colors"
                   title="Open in new window"
                 >
-                  <span className="text-sm">⧉</span>
+                  <span className="text-lg">⧉</span>
                 </button>
               </div>
             </div>

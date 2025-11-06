@@ -66,12 +66,12 @@ export default function SettingsPanel() {
         {/* Header */}
         <div className="p-4 border-b border-frame flex justify-between items-center">
           <div className="flex items-center gap-2">
-            <span className="text-primary text-lg">⚙</span>
+            <span className="text-primary text-2xl">⚙</span>
             <h2 className="text-primary text-sm font-bold uppercase tracking-wider">Settings</h2>
           </div>
           <button
             onClick={closePanel}
-            className="text-primary-muted hover:text-primary transition-colors text-xl leading-none"
+            className="text-primary-muted hover:text-primary transition-colors text-2xl leading-none"
             title="Close settings"
           >
             ✕
@@ -186,7 +186,7 @@ export default function SettingsPanel() {
                       <div className="flex items-center gap-2">
                         <span className="text-primary font-mono text-xs font-bold">█ STOCHASTIC SCANNER</span>
                       </div>
-                      <span className="text-primary text-sm">{isScannerStochExpanded ? '▼' : '▶'}</span>
+                      <span className="text-primary text-base">{isScannerStochExpanded ? '▼' : '▶'}</span>
                     </button>
 
                     {isScannerStochExpanded && (
@@ -268,7 +268,7 @@ export default function SettingsPanel() {
                       <div className="flex items-center gap-2">
                         <span className="text-primary font-mono text-xs font-bold">█ EMA ALIGNMENT SCANNER</span>
                       </div>
-                      <span className="text-primary text-sm">{isScannerEmaExpanded ? '▼' : '▶'}</span>
+                      <span className="text-primary text-base">{isScannerEmaExpanded ? '▼' : '▶'}</span>
                     </button>
 
                     {isScannerEmaExpanded && (
@@ -368,7 +368,7 @@ export default function SettingsPanel() {
                       <div className="flex items-center gap-2">
                         <span className="text-primary font-mono text-xs font-bold">█ DIVERGENCE SCANNER</span>
                       </div>
-                      <span className="text-primary text-sm">{isScannerDivExpanded ? '▼' : '▶'}</span>
+                      <span className="text-primary text-base">{isScannerDivExpanded ? '▼' : '▶'}</span>
                     </button>
 
                     {isScannerDivExpanded && (
@@ -468,7 +468,7 @@ export default function SettingsPanel() {
                       <div className="flex items-center gap-2">
                         <span className="text-primary font-mono text-xs font-bold">█ MACD REVERSAL SCANNER</span>
                       </div>
-                      <span className="text-primary text-sm">{isScannerMacdExpanded ? '▼' : '▶'}</span>
+                      <span className="text-primary text-base">{isScannerMacdExpanded ? '▼' : '▶'}</span>
                     </button>
 
                     {isScannerMacdExpanded && (
@@ -541,7 +541,7 @@ export default function SettingsPanel() {
                       <div className="flex items-center gap-2">
                         <span className="text-primary font-mono text-xs font-bold">█ RSI REVERSAL SCANNER</span>
                       </div>
-                      <span className="text-primary text-sm">{isScannerRsiExpanded ? '▼' : '▶'}</span>
+                      <span className="text-primary text-base">{isScannerRsiExpanded ? '▼' : '▶'}</span>
                     </button>
 
                     {isScannerRsiExpanded && (
@@ -620,7 +620,7 @@ export default function SettingsPanel() {
                   <div className="flex items-center gap-2">
                     <span className="text-primary font-mono text-xs font-bold">█ MULTI-TIMEFRAME STOCHASTIC</span>
                   </div>
-                  <span className="text-primary text-sm">{isStochasticExpanded ? '▼' : '▶'}</span>
+                  <span className="text-primary text-base">{isStochasticExpanded ? '▼' : '▶'}</span>
                 </button>
 
                 {isStochasticExpanded && (
@@ -774,7 +774,7 @@ export default function SettingsPanel() {
                   <div className="flex items-center gap-2">
                     <span className="text-primary font-mono text-xs font-bold">█ EXPONENTIAL MOVING AVERAGES</span>
                   </div>
-                  <span className="text-primary text-sm">{isEmaExpanded ? '▼' : '▶'}</span>
+                  <span className="text-primary text-base">{isEmaExpanded ? '▼' : '▶'}</span>
                 </button>
 
                 {isEmaExpanded && (
@@ -899,7 +899,7 @@ export default function SettingsPanel() {
                   <div className="flex items-center gap-2">
                     <span className="text-primary font-mono text-xs font-bold">█ MULTI-TIMEFRAME MACD</span>
                   </div>
-                  <span className="text-primary text-sm">{isMacdExpanded ? '▼' : '▶'}</span>
+                  <span className="text-primary text-base">{isMacdExpanded ? '▼' : '▶'}</span>
                 </button>
 
                 {isMacdExpanded && (
