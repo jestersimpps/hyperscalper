@@ -518,7 +518,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
         stochSeriesRefsRef.current = {};
       }
     };
-  }, [enabledMacdTimeframes.join(','), macdSettings.showMultiTimeframe, stochasticSettings.showMultiVariant, Object.entries(stochasticSettings.variants).filter(([_, v]) => v.enabled).map(([k]) => k).join(','), simplifiedView]);
+  }, [simplifiedView, macdSettings.showMultiTimeframe, stochasticSettings.showMultiVariant, enabledMacdTimeframes.join(','), Object.entries(stochasticSettings.variants).filter(([_, v]) => v.enabled).map(([k]) => k).join(',')]);
 
   useEffect(() => {
     if (!syncZoom || !chartRef.current || !chartReady) return;
