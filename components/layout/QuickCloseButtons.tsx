@@ -35,8 +35,6 @@ export default function QuickCloseButtons() {
   const handleCloseBest = async () => {
     if (!mostProfitable || isClosing) return;
 
-    if (!confirm(`Close ${mostProfitable.symbol} position? (+$${mostProfitable.pnl.toFixed(2)})`)) return;
-
     setIsClosing(true);
     try {
       await closePosition(mostProfitable.symbol);
@@ -47,9 +45,6 @@ export default function QuickCloseButtons() {
 
   const handleCloseAllProfitable = async () => {
     if (profitablePositions.length === 0 || isClosing) return;
-
-    const positionText = profitablePositions.length === 1 ? 'position' : 'positions';
-    if (!confirm(`Close ${profitablePositions.length} profitable ${positionText}? (Total: +$${totalProfit.toFixed(2)})`)) return;
 
     setIsClosing(true);
     try {

@@ -293,7 +293,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
             width: 60,
             scaleMargins: {
               top: 0.1,
-              bottom: simplifiedView ? 0.15 : 0.45,
+              bottom: 0.45,
             },
           },
         });
@@ -321,7 +321,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
 
         volumeSeries.priceScale().applyOptions({
           scaleMargins: {
-            top: simplifiedView ? 0.90 : 0.85,
+            top: 0.85,
             bottom: 0,
           },
         });
@@ -358,7 +358,40 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
 
         stochSeriesRefsRef.current = {};
 
-        if (!simplifiedView && stochasticSettings.showMultiVariant) {
+        if (simplifiedView) {
+          const kSeries = chart.addLineSeries({
+            color: colors.accentGreen,
+            lineWidth: 1,
+            priceScaleId: 'stoch',
+            lastValueVisible: false,
+            priceLineVisible: false,
+            lineStyle: 2,
+          });
+
+          const dSeries = chart.addLineSeries({
+            color: colors.accentPurple,
+            lineWidth: 2,
+            priceScaleId: 'stoch',
+            lastValueVisible: false,
+            priceLineVisible: false,
+          });
+
+          kSeries.priceScale().applyOptions({
+            scaleMargins: {
+              top: 0.70,
+              bottom: 0.05,
+            },
+          });
+
+          dSeries.priceScale().applyOptions({
+            scaleMargins: {
+              top: 0.70,
+              bottom: 0.05,
+            },
+          });
+
+          stochSeriesRefsRef.current['simple'] = { k: kSeries, d: dSeries };
+        } else if (stochasticSettings.showMultiVariant) {
           Object.entries(stochasticSettings.variants).forEach(([variantName, settings]) => {
             if (!settings.enabled) return;
 
@@ -485,7 +518,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
         stochSeriesRefsRef.current = {};
       }
     };
-  }, [enabledMacdTimeframes.join(','), macdSettings.showMultiTimeframe, stochasticSettings.showMultiVariant, Object.entries(stochasticSettings.variants).filter(([_, v]) => v.enabled).map(([k]) => k).join(',')]);
+  }, [enabledMacdTimeframes.join(','), macdSettings.showMultiTimeframe, stochasticSettings.showMultiVariant, Object.entries(stochasticSettings.variants).filter(([_, v]) => v.enabled).map(([k]) => k).join(','), simplifiedView]);
 
   useEffect(() => {
     if (!syncZoom || !chartRef.current || !chartReady) return;
@@ -563,7 +596,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
       });
     }
 
-    // Fetch 1m data for stochastics (skip in simplified view)
+    // Fetch 1m data for stochastics (skip in simplified view - use chart's own data)
     if (!simplifiedView && stochasticSettings.showMultiVariant && interval !== '1m') {
       const { startTime: stochStart, endTime: stochEnd } = getCandleTimeWindow('1m', DEFAULT_CANDLE_COUNT);
       fetchCandles(coin, '1m', stochStart, stochEnd);
@@ -617,6 +650,11 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
   const rsi = useMemo(() => {
     return calculateRSI(closePrices, 14);
   }, [closePrices]);
+
+  const simpleStochastic = useMemo(() => {
+    if (!simplifiedView) return null;
+    return calculateStochasticMemoized(candles, 14, 3, 3);
+  }, [candles, simplifiedView]);
 
   useEffect(() => {
     if (!chartReady || !candleSeriesRef.current || candles.length === 0) return;
@@ -813,10 +851,30 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
     });
   }, [chartReady, enabledMacdTimeframes.join(','), allMacdCandles, macdSettings, coin, isExternalData]);
 
-  // Stochastic multi-variant data update
+  // Stochastic data update (simple for simplified view, multi-variant otherwise)
   useEffect(() => {
     if (!chartReady || Object.keys(stochSeriesRefsRef.current).length === 0) return;
-    if (simplifiedView || !stochasticSettings.showMultiVariant) return;
+
+    // Simple stochastic for simplified view
+    if (simplifiedView && simpleStochastic && stochSeriesRefsRef.current['simple']) {
+      if (simpleStochastic.k.length > 0) {
+        const offset = candles.length - simpleStochastic.k.length;
+
+        stochSeriesRefsRef.current['simple'].k.setData(simpleStochastic.k.map((value, i) => ({
+          time: (candles[i + offset].time / 1000) as any,
+          value,
+        })));
+
+        stochSeriesRefsRef.current['simple'].d.setData(simpleStochastic.d.map((value, i) => ({
+          time: (candles[i + offset].time / 1000) as any,
+          value,
+        })));
+      }
+      return;
+    }
+
+    // Multi-variant stochastic for normal view
+    if (!stochasticSettings.showMultiVariant) return;
 
     const stochCandles = interval === '1m' ? candles : (isExternalData ? allMacdCandles['1m'] : useCandleStore.getState().candles[`${coin}-1m`]);
     if (!stochCandles || stochCandles.length === 0) return;
@@ -851,9 +909,59 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
         : [];
       stochSeriesRefsRef.current[variantName].d.setMarkers(stochMarkers);
     }
-  }, [chartReady, candles, interval, allMacdCandles, stochasticSettings, chartSettings, coin, isExternalData]);
+  }, [chartReady, candles, interval, allMacdCandles, stochasticSettings, chartSettings, coin, isExternalData, simplifiedView, simpleStochastic]);
 
-  // Stochastic reference lines (0 and 100)
+  // Simple stochastic reference lines (20 and 80)
+  useEffect(() => {
+    if (!chartReady || !simplifiedView || !stochSeriesRefsRef.current['simple']) return;
+
+    stochReferenceLinesRef.current.forEach((line) => {
+      try {
+        if (stochSeriesRefsRef.current['simple']?.d) {
+          stochSeriesRefsRef.current['simple'].d.removePriceLine(line);
+        }
+      } catch (e) {}
+    });
+    stochReferenceLinesRef.current = [];
+
+    const dSeries = stochSeriesRefsRef.current['simple']?.d;
+    if (dSeries) {
+      const colors = getThemeColors();
+
+      const line20 = dSeries.createPriceLine({
+        price: 20,
+        color: colors.statusBearish + '60',
+        lineWidth: 1,
+        lineStyle: 2,
+        axisLabelVisible: false,
+        title: '',
+      });
+
+      const line80 = dSeries.createPriceLine({
+        price: 80,
+        color: colors.statusBullish + '60',
+        lineWidth: 1,
+        lineStyle: 2,
+        axisLabelVisible: false,
+        title: '',
+      });
+
+      stochReferenceLinesRef.current.push(line20, line80);
+    }
+
+    return () => {
+      stochReferenceLinesRef.current.forEach((line) => {
+        try {
+          if (stochSeriesRefsRef.current['simple']?.d) {
+            stochSeriesRefsRef.current['simple'].d.removePriceLine(line);
+          }
+        } catch (e) {}
+      });
+      stochReferenceLinesRef.current = [];
+    };
+  }, [chartReady, simplifiedView]);
+
+  // Multi-variant stochastic reference lines (0 and 100)
   useEffect(() => {
     if (!chartReady || Object.keys(stochSeriesRefsRef.current).length === 0) return;
     if (simplifiedView || !stochasticSettings.showMultiVariant) return;
@@ -1153,6 +1261,19 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
             <div className="flex items-center gap-1">
               <div className="w-6 h-0.5" style={{ backgroundColor: 'var(--accent-rose)' }}></div>
               <span className="text-primary-muted">Signal</span>
+            </div>
+          </>
+        )}
+        {simplifiedView && simpleStochastic && (
+          <>
+            <div className="w-px h-4 bg-frame mx-1"></div>
+            <div className="flex items-center gap-1">
+              <div className="w-3 h-0.5 bg-accent-green"></div>
+              <span className="text-primary-muted">Stoch K</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="w-3 h-0.5 bg-accent-purple"></div>
+              <span className="text-primary-muted">Stoch D</span>
             </div>
           </>
         )}
