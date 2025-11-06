@@ -11,6 +11,7 @@ export default function SettingsPanel() {
   const [isMacdExpanded, setIsMacdExpanded] = useState(false);
   const [isScannerStochExpanded, setIsScannerStochExpanded] = useState(false);
   const [isScannerEmaExpanded, setIsScannerEmaExpanded] = useState(false);
+  const [isScannerDivExpanded, setIsScannerDivExpanded] = useState(false);
 
   const handleBackdropClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget) {
@@ -349,6 +350,105 @@ export default function SettingsPanel() {
                                 <div className="text-primary-muted text-xs font-mono mt-1">
                                   How many bars back to check for recent alignment
                                 </div>
+                              </div>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="border border-frame rounded overflow-hidden">
+                    <button
+                      onClick={() => setIsScannerDivExpanded(!isScannerDivExpanded)}
+                      className="w-full p-3 bg-bg-secondary flex items-center justify-between hover:bg-primary/5 transition-colors"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-primary font-mono text-xs font-bold">█ DIVERGENCE SCANNER</span>
+                      </div>
+                      <span className="text-primary text-sm">{isScannerDivExpanded ? '▼' : '▶'}</span>
+                    </button>
+
+                    {isScannerDivExpanded && (
+                      <div className="p-4 space-y-4 bg-bg-primary">
+                        <div className="p-3 bg-bg-secondary border border-frame rounded">
+                          <label className="flex items-center justify-between cursor-pointer">
+                            <span className="text-primary-muted text-xs font-mono">ENABLE DIVERGENCE SCANNER</span>
+                            <input
+                              type="checkbox"
+                              checked={settings.scanner.divergenceScanner.enabled}
+                              onChange={(e) =>
+                                updateScannerSettings({
+                                  divergenceScanner: {
+                                    ...settings.scanner.divergenceScanner,
+                                    enabled: e.target.checked,
+                                  },
+                                })
+                              }
+                              className="w-4 h-4 accent-primary cursor-pointer"
+                            />
+                          </label>
+                        </div>
+
+                        {settings.scanner.divergenceScanner.enabled && (
+                          <>
+                            <div className="p-3 bg-bg-secondary border border-frame rounded">
+                              <div className="text-primary font-mono text-xs font-bold mb-3">DIVERGENCE TYPES TO SCAN</div>
+                              <div className="space-y-2">
+                                <label className="flex items-center justify-between cursor-pointer">
+                                  <span className="text-primary-muted text-xs font-mono">BULLISH DIVERGENCE</span>
+                                  <input
+                                    type="checkbox"
+                                    checked={settings.scanner.divergenceScanner.scanBullish}
+                                    onChange={(e) =>
+                                      updateScannerSettings({
+                                        divergenceScanner: {
+                                          ...settings.scanner.divergenceScanner,
+                                          scanBullish: e.target.checked,
+                                        },
+                                      })
+                                    }
+                                    className="w-4 h-4 accent-primary cursor-pointer"
+                                  />
+                                </label>
+                                <label className="flex items-center justify-between cursor-pointer">
+                                  <span className="text-primary-muted text-xs font-mono">BEARISH DIVERGENCE</span>
+                                  <input
+                                    type="checkbox"
+                                    checked={settings.scanner.divergenceScanner.scanBearish}
+                                    onChange={(e) =>
+                                      updateScannerSettings({
+                                        divergenceScanner: {
+                                          ...settings.scanner.divergenceScanner,
+                                          scanBearish: e.target.checked,
+                                        },
+                                      })
+                                    }
+                                    className="w-4 h-4 accent-primary cursor-pointer"
+                                  />
+                                </label>
+                                <label className="flex items-center justify-between cursor-pointer">
+                                  <span className="text-primary-muted text-xs font-mono">HIDDEN DIVERGENCES</span>
+                                  <input
+                                    type="checkbox"
+                                    checked={settings.scanner.divergenceScanner.scanHidden}
+                                    onChange={(e) =>
+                                      updateScannerSettings({
+                                        divergenceScanner: {
+                                          ...settings.scanner.divergenceScanner,
+                                          scanHidden: e.target.checked,
+                                        },
+                                      })
+                                    }
+                                    className="w-4 h-4 accent-primary cursor-pointer"
+                                  />
+                                </label>
+                              </div>
+                            </div>
+
+                            <div className="p-3 bg-bg-secondary border border-frame rounded">
+                              <div className="text-primary-muted text-xs font-mono">
+                                Uses enabled stochastic variants from Indicator Settings (Fast9, Fast14, Fast40, Full60)
                               </div>
                             </div>
                           </>
@@ -877,6 +977,32 @@ export default function SettingsPanel() {
                       </div>
                     </label>
                   ))}
+                </div>
+              </div>
+
+              <div className="p-3 bg-bg-secondary border border-frame rounded">
+                <div className="text-primary font-mono text-xs font-bold mb-3">█ CHART</div>
+                <p className="text-primary-muted text-[10px] mb-4 leading-relaxed">
+                  Configure chart display options.
+                </p>
+                <div className="p-3 bg-bg-primary border border-frame rounded">
+                  <label className="flex items-center justify-between cursor-pointer">
+                    <div>
+                      <span className="text-primary-muted text-xs font-mono block">SHOW PIVOT MARKERS</span>
+                      <span className="text-primary-muted text-[10px] block mt-1">
+                        Display red and green dots at pivot highs/lows on price and stochastic charts
+                      </span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={Boolean(settings.chart?.showPivotMarkers ?? true)}
+                      onChange={(e) => {
+                        const { updateSettings } = useSettingsStore.getState();
+                        updateSettings({ chart: { showPivotMarkers: e.target.checked } });
+                      }}
+                      className="w-4 h-4 accent-primary cursor-pointer"
+                    />
+                  </label>
                 </div>
               </div>
 

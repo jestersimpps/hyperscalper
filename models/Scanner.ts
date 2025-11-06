@@ -28,14 +28,26 @@ export interface ChannelValue {
   timeframe: TimeInterval;
 }
 
+export interface DivergenceValue {
+  type: 'bullish' | 'bearish' | 'hidden-bullish' | 'hidden-bearish';
+  startTime: number;
+  endTime: number;
+  startPriceValue: number;
+  endPriceValue: number;
+  startStochValue: number;
+  endStochValue: number;
+  variant: 'fast9' | 'fast14' | 'fast40' | 'full60';
+}
+
 export type SignalType = 'bullish' | 'bearish';
-export type ScanType = 'stochastic' | 'emaAlignment' | 'channel';
+export type ScanType = 'stochastic' | 'emaAlignment' | 'channel' | 'divergence';
 
 export interface ScanResult {
   symbol: string;
   stochastics?: StochasticValue[];
   emaAlignments?: EmaAlignmentValue[];
   channels?: ChannelValue[];
+  divergences?: DivergenceValue[];
   matchedAt: number;
   signalType: SignalType;
   description: string;

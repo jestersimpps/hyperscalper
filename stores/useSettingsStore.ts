@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { AppSettings, DEFAULT_SETTINGS, StochasticSettings, EmaSettings, MacdSettings, ScannerSettings, OrderSettings, ThemeSettings } from '@/models/Settings';
+import { AppSettings, DEFAULT_SETTINGS, StochasticSettings, EmaSettings, MacdSettings, ScannerSettings, OrderSettings, ThemeSettings, ChartSettings } from '@/models/Settings';
 
 type TabType = 'scanner' | 'indicators' | 'orders' | 'ui';
 
@@ -18,6 +18,7 @@ interface SettingsStore {
   updateScannerSettings: (settings: Partial<ScannerSettings>) => void;
   updateOrderSettings: (settings: Partial<OrderSettings>) => void;
   updateThemeSettings: (settings: Partial<ThemeSettings>) => void;
+  updateSettings: (settings: Partial<AppSettings>) => void;
   pinSymbol: (symbol: string) => void;
   unpinSymbol: (symbol: string) => void;
   resetSettings: () => void;
@@ -33,6 +34,8 @@ const mergeSettings = (storedSettings: any): AppSettings => {
       indicators: {
         stochastic: {
           showMultiVariant: storedSettings.indicators?.stochastic?.showMultiVariant ?? storedSettings.indicators?.stochastic?.showMultiTimeframe ?? DEFAULT_SETTINGS.indicators.stochastic.showMultiVariant,
+          showDivergence: storedSettings.indicators?.stochastic?.showDivergence ?? DEFAULT_SETTINGS.indicators.stochastic.showDivergence,
+          divergenceVariant: storedSettings.indicators?.stochastic?.divergenceVariant ?? DEFAULT_SETTINGS.indicators.stochastic.divergenceVariant,
           overboughtLevel: storedSettings.indicators?.stochastic?.overboughtLevel ?? DEFAULT_SETTINGS.indicators.stochastic.overboughtLevel,
           oversoldLevel: storedSettings.indicators?.stochastic?.oversoldLevel ?? DEFAULT_SETTINGS.indicators.stochastic.oversoldLevel,
           variants: {
@@ -157,6 +160,12 @@ const mergeSettings = (storedSettings: any): AppSettings => {
           pivotStrength: storedSettings.scanner?.channelScanner?.pivotStrength ?? DEFAULT_SETTINGS.scanner.channelScanner.pivotStrength,
           lookbackBars: storedSettings.scanner?.channelScanner?.lookbackBars ?? DEFAULT_SETTINGS.scanner.channelScanner.lookbackBars,
         },
+        divergenceScanner: {
+          enabled: storedSettings.scanner?.divergenceScanner?.enabled ?? DEFAULT_SETTINGS.scanner.divergenceScanner.enabled,
+          scanBullish: storedSettings.scanner?.divergenceScanner?.scanBullish ?? DEFAULT_SETTINGS.scanner.divergenceScanner.scanBullish,
+          scanBearish: storedSettings.scanner?.divergenceScanner?.scanBearish ?? DEFAULT_SETTINGS.scanner.divergenceScanner.scanBearish,
+          scanHidden: storedSettings.scanner?.divergenceScanner?.scanHidden ?? DEFAULT_SETTINGS.scanner.divergenceScanner.scanHidden,
+        },
       },
       orders: {
         cloudPercentage: storedSettings.orders?.cloudPercentage ?? DEFAULT_SETTINGS.orders.cloudPercentage,
@@ -166,6 +175,9 @@ const mergeSettings = (storedSettings: any): AppSettings => {
       theme: {
         selected: storedSettings.theme?.selected ?? DEFAULT_SETTINGS.theme.selected,
         playTradeSound: storedSettings.theme?.playTradeSound ?? DEFAULT_SETTINGS.theme.playTradeSound,
+      },
+      chart: {
+        showPivotMarkers: storedSettings.chart?.showPivotMarkers ?? DEFAULT_SETTINGS.chart.showPivotMarkers,
       },
       pinnedSymbols: storedSettings.pinnedSymbols ?? DEFAULT_SETTINGS.pinnedSymbols,
     };
@@ -252,6 +264,13 @@ export const useSettingsStore = create<SettingsStore>()(
               ...state.settings.theme,
               ...updates,
             },
+          },
+        })),
+      updateSettings: (updates) =>
+        set((state) => ({
+          settings: {
+            ...state.settings,
+            ...updates,
           },
         })),
       pinSymbol: (symbol) =>

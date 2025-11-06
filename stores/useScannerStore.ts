@@ -42,7 +42,7 @@ export const useScannerStore = create<ScannerStore>((set, get) => ({
       const settings = useSettingsStore.getState().settings.scanner;
       const indicatorSettings = useSettingsStore.getState().settings.indicators;
 
-      if (!settings.stochasticScanner.enabled && !settings.emaAlignmentScanner.enabled && !settings.channelScanner.enabled) {
+      if (!settings.stochasticScanner.enabled && !settings.emaAlignmentScanner.enabled && !settings.channelScanner.enabled && !settings.divergenceScanner.enabled) {
         set({
           status: {
             ...get().status,
@@ -97,6 +97,10 @@ export const useScannerStore = create<ScannerStore>((set, get) => ({
         channelMinTouches: settings.channelScanner.minTouches,
         channelPivotStrength: settings.channelScanner.pivotStrength,
         channelLookbackBars: settings.channelScanner.lookbackBars,
+        divergenceEnabled: settings.divergenceScanner.enabled,
+        divergenceScanBullish: settings.divergenceScanner.scanBullish,
+        divergenceScanBearish: settings.divergenceScanner.scanBearish,
+        divergenceScanHidden: settings.divergenceScanner.scanHidden,
       };
 
       const response = await fetch('/api/scanner', {

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ExchangeFactory } from '@/lib/exchange-factory';
-import { calculateStochastic, detectEmaAlignment, detectChannels } from '@/lib/indicators';
+import { calculateStochastic, detectEmaAlignment, detectChannels, detectPivots, detectStochasticPivots, detectDivergence } from '@/lib/indicators';
 import type { TimeInterval, CandleData } from '@/types';
-import type { StochasticValue, EmaAlignmentValue, ChannelValue } from '@/models/Scanner';
+import type { StochasticValue, EmaAlignmentValue, ChannelValue, DivergenceValue } from '@/models/Scanner';
 import type { PerpsMetaAndAssetCtxs } from '@nktkas/hyperliquid';
 
 export const runtime = 'nodejs';
@@ -37,6 +37,10 @@ interface ScanParams {
   channelMinTouches: number;
   channelPivotStrength: number;
   channelLookbackBars: number;
+  divergenceEnabled: boolean;
+  divergenceScanBullish: boolean;
+  divergenceScanBearish: boolean;
+  divergenceScanHidden: boolean;
 }
 
 interface SymbolWithVolume {
@@ -139,6 +143,10 @@ export async function POST(request: NextRequest) {
       channelMinTouches: body.channelMinTouches ?? 3,
       channelPivotStrength: body.channelPivotStrength ?? 3,
       channelLookbackBars: body.channelLookbackBars ?? 50,
+      divergenceEnabled: body.divergenceEnabled ?? false,
+      divergenceScanBullish: body.divergenceScanBullish ?? true,
+      divergenceScanBearish: body.divergenceScanBearish ?? true,
+      divergenceScanHidden: body.divergenceScanHidden ?? false,
     };
 
     console.log('🔍 Scanner started:', {
@@ -146,6 +154,7 @@ export async function POST(request: NextRequest) {
       stochasticVariants: Object.entries(params.stochasticVariants).filter(([_, v]) => v.enabled).map(([k]) => k),
       emaAlignmentEnabled: params.emaAlignmentEnabled,
       channelEnabled: params.channelEnabled,
+      divergenceEnabled: params.divergenceEnabled,
       emaTimeframes: params.emaTimeframes,
       channelTimeframes: params.channelTimeframes,
       topMarkets: params.topMarkets,
@@ -398,6 +407,78 @@ export async function POST(request: NextRequest) {
               signalType,
               description,
               scanType: 'channel' as const,
+            });
+          }
+        }
+
+        if (params.divergenceEnabled) {
+          const allDivergences: Array<DivergenceValue> = [];
+
+          for (const [variantName, variantConfig] of Object.entries(params.stochasticVariants)) {
+            if (!variantConfig.enabled) continue;
+
+            const stochData = calculateStochastic(candles1m, variantConfig.period, variantConfig.smoothK, variantConfig.smoothD);
+
+            if (stochData.length > 0) {
+              const offset = candles1m.length - stochData.length;
+              const alignedCandles = candles1m.slice(offset);
+
+              const pricePivots = detectPivots(alignedCandles, 3);
+              const stochPivots = detectStochasticPivots(stochData, alignedCandles, 3);
+              const divergences = detectDivergence(pricePivots, stochPivots, alignedCandles);
+
+              const filteredDivergences = divergences.filter(div => {
+                if (div.type === 'bullish' && params.divergenceScanBullish) return true;
+                if (div.type === 'bearish' && params.divergenceScanBearish) return true;
+                if ((div.type === 'hidden-bullish' || div.type === 'hidden-bearish') && params.divergenceScanHidden) return true;
+                return false;
+              });
+
+              filteredDivergences.forEach(div => {
+                allDivergences.push({
+                  type: div.type,
+                  startTime: div.startTime,
+                  endTime: div.endTime,
+                  startPriceValue: div.startPriceValue,
+                  endPriceValue: div.endPriceValue,
+                  startStochValue: div.startStochValue,
+                  endStochValue: div.endStochValue,
+                  variant: variantName as 'fast9' | 'fast14' | 'fast40' | 'full60',
+                });
+              });
+            }
+          }
+
+          if (allDivergences.length > 0) {
+            const latestDivergence = allDivergences[allDivergences.length - 1];
+            const signalType = latestDivergence.type === 'bullish' || latestDivergence.type === 'hidden-bullish' ? 'bullish' : 'bearish';
+
+            const divergenceTypeLabels: Record<string, string> = {
+              'bullish': 'Bullish',
+              'bearish': 'Bearish',
+              'hidden-bullish': 'Hidden Bullish',
+              'hidden-bearish': 'Hidden Bearish'
+            };
+
+            const variantCounts: Record<string, number> = {};
+            allDivergences.forEach(div => {
+              variantCounts[div.variant] = (variantCounts[div.variant] || 0) + 1;
+            });
+
+            const variantSummary = Object.entries(variantCounts)
+              .map(([variant, count]) => `${variant.toUpperCase()}:${count}`)
+              .join(', ');
+
+            const description = `${divergenceTypeLabels[latestDivergence.type]} divergence detected (${allDivergences.length} total across ${variantSummary})`;
+
+            console.log(`  ✅ ${symbol}: DIVERGENCE MATCH! ${description}`);
+            results.push({
+              symbol,
+              divergences: allDivergences,
+              matchedAt: Date.now(),
+              signalType,
+              description,
+              scanType: 'divergence' as const,
             });
           }
         }

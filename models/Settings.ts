@@ -73,6 +73,13 @@ export interface ChannelScannerConfig {
   lookbackBars: number;
 }
 
+export interface DivergenceScannerConfig {
+  enabled: boolean;
+  scanBullish: boolean;
+  scanBearish: boolean;
+  scanHidden: boolean;
+}
+
 export interface ScannerSettings {
   enabled: boolean;
   scanInterval: number;
@@ -81,6 +88,7 @@ export interface ScannerSettings {
   stochasticScanner: StochasticScannerConfig;
   emaAlignmentScanner: EmaAlignmentScannerConfig;
   channelScanner: ChannelScannerConfig;
+  divergenceScanner: DivergenceScannerConfig;
 }
 
 export interface OrderSettings {
@@ -96,11 +104,16 @@ export interface ThemeSettings {
   playTradeSound: boolean;
 }
 
+export interface ChartSettings {
+  showPivotMarkers: boolean;
+}
+
 export interface AppSettings {
   indicators: IndicatorSettings;
   scanner: ScannerSettings;
   orders: OrderSettings;
   theme: ThemeSettings;
+  chart: ChartSettings;
   pinnedSymbols: string[];
 }
 
@@ -143,7 +156,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   indicators: {
     stochastic: {
       showMultiVariant: true,
-      showDivergence: false,
+      showDivergence: true,
       divergenceVariant: 'fast14',
       overboughtLevel: 80,
       oversoldLevel: 20,
@@ -171,7 +184,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   },
   scanner: {
     enabled: false,
-    scanInterval: 2,
+    scanInterval: 1,
     topMarkets: 20,
     playSound: true,
     stochasticScanner: {
@@ -191,6 +204,12 @@ export const DEFAULT_SETTINGS: AppSettings = {
       pivotStrength: 3,
       lookbackBars: 50,
     },
+    divergenceScanner: {
+      enabled: false,
+      scanBullish: true,
+      scanBearish: true,
+      scanHidden: false,
+    },
   },
   orders: {
     cloudPercentage: 5,
@@ -200,6 +219,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
   theme: {
     selected: 'hyper',
     playTradeSound: false,
+  },
+  chart: {
+    showPivotMarkers: true,
   },
   pinnedSymbols: [],
 };

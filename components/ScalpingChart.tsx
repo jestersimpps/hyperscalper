@@ -74,8 +74,8 @@ function detectCrossovers(ema1: number[], ema2: number[], ema3: number[] | null,
           time: candles[i].time / 1000,
           position: 'belowBar',
           color: bullishColor,
-          shape: 'arrowUp',
-          text: 'EMA BUY',
+          shape: 'circle',
+          text: 'EMA BULL',
           id: `buy-${i}`
         });
       } else if (!wasBearish && isBearish) {
@@ -83,8 +83,8 @@ function detectCrossovers(ema1: number[], ema2: number[], ema3: number[] | null,
           time: candles[i].time / 1000,
           position: 'aboveBar',
           color: bearishColor,
-          shape: 'arrowDown',
-          text: 'EMA SELL',
+          shape: 'circle',
+          text: 'EMA BEAR',
           id: `sell-${i}`
         });
       }
@@ -102,8 +102,8 @@ function detectCrossovers(ema1: number[], ema2: number[], ema3: number[] | null,
           time: candles[i].time / 1000,
           position: 'belowBar',
           color: bullishColor,
-          shape: 'arrowUp',
-          text: 'EMA BUY',
+          shape: 'circle',
+          text: 'EMA BULL',
           id: `buy-${i}`
         });
       } else if (prevEma1 >= prevEma2 && currEma1 < currEma2) {
@@ -111,8 +111,8 @@ function detectCrossovers(ema1: number[], ema2: number[], ema3: number[] | null,
           time: candles[i].time / 1000,
           position: 'aboveBar',
           color: bearishColor,
-          shape: 'arrowDown',
-          text: 'EMA SELL',
+          shape: 'circle',
+          text: 'EMA BEAR',
           id: `sell-${i}`
         });
       }
@@ -158,6 +158,50 @@ function createStochasticPivotMarkers(stochData: StochasticData[], candles: Cand
   return markers;
 }
 
+function createDivergenceMarkers(divergences: DivergencePoint[], colors: any): any[] {
+  const markers: any[] = [];
+
+  divergences.forEach((div) => {
+    let text = '';
+    let color = '';
+    let position: 'aboveBar' | 'belowBar' = 'aboveBar';
+
+    switch (div.type) {
+      case 'bullish':
+        text = 'BULLISH DIV';
+        color = colors.statusBullish;
+        position = 'belowBar';
+        break;
+      case 'bearish':
+        text = 'BEARISH DIV';
+        color = colors.statusBearish;
+        position = 'aboveBar';
+        break;
+      case 'hidden-bullish':
+        text = 'HIDDEN BULLISH';
+        color = colors.accentBlue;
+        position = 'belowBar';
+        break;
+      case 'hidden-bearish':
+        text = 'HIDDEN BEARISH';
+        color = colors.accentRose;
+        position = 'aboveBar';
+        break;
+    }
+
+    markers.push({
+      time: div.endTime / 1000,
+      position: position,
+      color: color,
+      shape: 'circle',
+      text: text,
+      id: `div-${div.type}-${div.endTime}`
+    });
+  });
+
+  return markers;
+}
+
 
 export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartReady, candleData, isExternalData = false, macdCandleData, position, orders, syncZoom = false }: ScalpingChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
@@ -172,7 +216,6 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
   const macdHistogramSeriesRef = useRef<any>(null);
   const stochSeriesRefsRef = useRef<Record<string, { d: any }>>({});
   const macdSeriesRefsRef = useRef<Record<string, { line: any; signal: any; histogram: any }>>({});
-  const divergencePriceSeriesRef = useRef<any[]>([]);
   const stochReferenceLinesRef = useRef<any[]>([]);
   const supportLineSeriesRef = useRef<any[]>([]);
   const resistanceLineSeriesRef = useRef<any[]>([]);
@@ -181,6 +224,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
   const cachedTrendlinesRef = useRef<{ supportLine: any[]; resistanceLine: any[] }>({ supportLine: [], resistanceLine: [] });
   const lastTrendlineCalculationRef = useRef<number>(0);
   const [chartReady, setChartReady] = useState(false);
+  const [divergencePoints, setDivergencePoints] = useState<DivergencePoint[]>([]);
   const candlesBufferRef = useRef<CandleData[]>([]);
   const lastCandleTimeRef = useRef<number | null>(null);
 
@@ -195,6 +239,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
   const emaSettings = useSettingsStore((state) => state.settings.indicators.ema);
   const stochasticSettings = useSettingsStore((state) => state.settings.indicators.stochastic);
   const macdSettings = useSettingsStore((state) => state.settings.indicators.macd);
+  const chartSettings = useSettingsStore((state) => state.settings.chart);
 
   const enabledMacdTimeframes = Object.entries(macdSettings.timeframes || {})
     .filter(([_, config]) => config.enabled && macdSettings.showMultiTimeframe)
@@ -341,10 +386,10 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
 
         // Stochastic series for variants
         const variantColors: Record<string, string> = {
-          fast9: colors.accentBlue,
-          fast14: colors.accentRose,
-          fast40: colors.accentGreen,
-          full60: '#FFA500',
+          fast9: '#FF10FF',
+          fast14: '#E879F9',
+          fast40: '#A855F7',
+          full60: '#7C3AED',
         };
 
         stochSeriesRefsRef.current = {};
@@ -692,15 +737,52 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
         macdHistogramSeriesRef.current.setData([]);
       }
 
-      const pivotMarkers = createPivotMarkers(candles, colors);
+      // Detect divergences on new candle
+      let currentDivergences: DivergencePoint[] = [];
+      if (stochasticSettings.showMultiVariant && stochasticSettings.showDivergence) {
+        const stochCandles = interval === '1m' ? candles : (isExternalData ? allMacdCandles['1m'] : useCandleStore.getState().candles[`${coin}-1m`]);
+
+        if (stochCandles && stochCandles.length >= 50) {
+          // Check all enabled stochastic variants
+          Object.entries(stochasticSettings.variants).forEach(([variantName, variantConfig]) => {
+            if (!variantConfig.enabled) return;
+
+            const stochData = calculateStochasticMemoized(stochCandles, variantConfig.period, variantConfig.smoothK, variantConfig.smoothD);
+            if (stochData.length === 0) return;
+
+            const offset = stochCandles.length - stochData.length;
+            const alignedCandles = stochCandles.slice(offset);
+
+            const pricePivots = detectPivots(alignedCandles, 3);
+            const stochPivots = detectStochasticPivots(stochData, alignedCandles, 3);
+            const divergences = detectDivergence(pricePivots, stochPivots, alignedCandles);
+
+            currentDivergences.push(...divergences);
+          });
+
+          if (currentDivergences.length > 0) {
+            console.log(`[${coin}] New candle divergences detected:`, {
+              time: new Date(lastCandle.time).toLocaleTimeString(),
+              count: currentDivergences.length,
+              types: currentDivergences.map(d => d.type)
+            });
+          }
+        }
+      }
+
+      setDivergencePoints(currentDivergences);
+
+      const pivotMarkers = chartSettings?.showPivotMarkers ? createPivotMarkers(candles, colors) : [];
+      const divergenceMarkers = stochasticSettings.showDivergence && currentDivergences.length > 0 ? createDivergenceMarkers(currentDivergences, colors) : [];
 
       if (emaSettings.ema1.enabled && emaSettings.ema2.enabled && ema1.length > 0 && ema2.length > 0) {
         const ema3ForDetection = emaSettings.ema3.enabled && ema3.length > 0 ? ema3 : null;
         const crossoverMarkers = detectCrossovers(ema1, ema2, ema3ForDetection, candles, colors.statusBullish, colors.statusBearish);
-        const allMarkers = [...pivotMarkers, ...crossoverMarkers].sort((a, b) => a.time - b.time);
+        const allMarkers = [...pivotMarkers, ...divergenceMarkers, ...crossoverMarkers].sort((a, b) => a.time - b.time);
         candleSeriesRef.current.setMarkers(allMarkers);
       } else {
-        candleSeriesRef.current.setMarkers(pivotMarkers);
+        const allMarkers = [...pivotMarkers, ...divergenceMarkers].sort((a, b) => a.time - b.time);
+        candleSeriesRef.current.setMarkers(allMarkers);
       }
     } else {
       candleSeriesRef.current.update(candleData[candleData.length - 1]);
@@ -749,7 +831,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
     if (onPriceUpdate) {
       onPriceUpdate(lastCandle.close);
     }
-  }, [candles, chartReady, onPriceUpdate, ema1, ema2, ema3, macdResult, emaSettings.ema1.enabled, emaSettings.ema2.enabled, emaSettings.ema3.enabled, macdSettings.enabled]);
+  }, [candles, chartReady, onPriceUpdate, ema1, ema2, ema3, macdResult, emaSettings.ema1.enabled, emaSettings.ema2.enabled, emaSettings.ema3.enabled, macdSettings.enabled, stochasticSettings.showMultiVariant, stochasticSettings.showDivergence, stochasticSettings.variants, interval, allMacdCandles, coin, isExternalData, chartSettings]);
 
 
   // MACD multi-timeframe data update
@@ -827,10 +909,12 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
 
     if (slowestVariant) {
       const [variantName, { stochData, offset }] = slowestVariant;
-      const stochMarkers = createStochasticPivotMarkers(stochData, stochCandles.slice(offset), colors);
+      const stochMarkers = chartSettings?.showPivotMarkers
+        ? createStochasticPivotMarkers(stochData, stochCandles.slice(offset), colors)
+        : [];
       stochSeriesRefsRef.current[variantName].d.setMarkers(stochMarkers);
     }
-  }, [chartReady, candles, interval, allMacdCandles, stochasticSettings, coin, isExternalData]);
+  }, [chartReady, candles, interval, allMacdCandles, stochasticSettings, chartSettings, coin, isExternalData]);
 
   // Stochastic reference lines (0 and 100)
   useEffect(() => {
@@ -884,81 +968,6 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
       stochReferenceLinesRef.current = [];
     };
   }, [chartReady, stochasticSettings.showMultiVariant, Object.entries(stochasticSettings.variants).filter(([_, v]) => v.enabled).map(([k]) => k).join(',')]);
-
-  const divergenceData = useMemo(() => {
-    if (!stochasticSettings.showMultiVariant || !stochasticSettings.showDivergence) {
-      return { divergences: [], enabled: false };
-    }
-
-    const stochCandles = interval === '1m' ? candles : (isExternalData ? allMacdCandles['1m'] : useCandleStore.getState().candles[`${coin}-1m`]);
-    if (!stochCandles || stochCandles.length < 50) {
-      return { divergences: [], enabled: false };
-    }
-
-    const variantToUse = stochasticSettings.divergenceVariant || 'fast14';
-    const variantConfig = stochasticSettings.variants[variantToUse];
-
-    if (!variantConfig || !variantConfig.enabled) {
-      return { divergences: [], enabled: false };
-    }
-
-    const stochData = calculateStochasticMemoized(stochCandles, variantConfig.period, variantConfig.smoothK, variantConfig.smoothD);
-    if (stochData.length === 0) {
-      return { divergences: [], enabled: false };
-    }
-
-    const pricePivots = detectPivots(stochCandles, 3);
-    const stochPivots = detectStochasticPivots(stochData, stochCandles, 3);
-    const divergences = detectDivergence(pricePivots, stochPivots, stochCandles);
-
-    return { divergences, enabled: true };
-  }, [candles.length, interval, allMacdCandles, stochasticSettings.showMultiVariant, stochasticSettings.showDivergence, stochasticSettings.divergenceVariant, coin, isExternalData]);
-
-  useEffect(() => {
-    if (!chartReady || !chartRef.current || !divergenceData.enabled) return;
-
-    divergencePriceSeriesRef.current.forEach((series) => {
-      try {
-        chartRef.current?.removeSeries(series);
-      } catch (e) {}
-    });
-    divergencePriceSeriesRef.current = [];
-
-    const colors = getThemeColors();
-    const colorMap = {
-      'bullish': colors.statusBullish,
-      'bearish': colors.statusBearish,
-      'hidden-bullish': colors.accentBlue,
-      'hidden-bearish': colors.accentRose,
-    };
-
-    divergenceData.divergences.forEach((div) => {
-      const priceSeries = chartRef.current?.addLineSeries({
-        color: colorMap[div.type],
-        lineWidth: 2,
-        lineStyle: 2,
-        lastValueVisible: false,
-        priceLineVisible: false,
-      });
-
-      if (priceSeries) {
-        priceSeries.setData([
-          { time: (div.startTime / 1000) as any, value: div.startPriceValue },
-          { time: (div.endTime / 1000) as any, value: div.endPriceValue },
-        ]);
-        divergencePriceSeriesRef.current.push(priceSeries);
-      }
-    });
-
-    return () => {
-      divergencePriceSeriesRef.current.forEach((series) => {
-        try {
-          chartRef.current?.removeSeries(series);
-        } catch (e) {}
-      });
-      divergencePriceSeriesRef.current = [];
-    };
-  }, [chartReady, divergenceData]);
 
   const trendlines = useMemo(() => {
     const currentLength = candles.length;
@@ -1156,10 +1165,10 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
   }, [orders, chartReady]);
 
   const variantColorVars: Record<string, string> = {
-    fast9: 'var(--accent-blue)',
-    fast14: 'var(--accent-rose)',
-    fast40: 'var(--accent-green)',
-    full60: '#FFA500',
+    fast9: '#FF10FF',
+    fast14: '#E879F9',
+    fast40: '#A855F7',
+    full60: '#7C3AED',
   };
 
   const variantLabels: Record<string, string> = {
