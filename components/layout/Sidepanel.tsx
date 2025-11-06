@@ -18,6 +18,7 @@ interface SidepanelProps {
 export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelProps) {
   const router = useRouter();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [closingPosition, setClosingPosition] = useState<string | null>(null);
 
   const { results, status, runScan, startAutoScanWithDelay, stopAutoScan } = useScannerStore();
   const { settings, pinSymbol, unpinSymbol } = useSettingsStore();
@@ -132,9 +133,189 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
     });
   }, [pinnedSymbols, getPosition]);
 
+  const handleClosePosition = async (symbol: string) => {
+    if (closingPosition) return;
+
+    if (!confirm(`Close 100% of ${symbol} position?`)) return;
+
+    setClosingPosition(symbol);
+    try {
+      const response = await fetch('/api/positions/close', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ symbol, percentage: 100 }),
+      });
+
+      const data = await response.json();
+      if (!data.success) {
+        alert(`Failed to close position: ${data.message}`);
+      }
+    } catch (error) {
+      alert(`Error closing position: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setClosingPosition(null);
+    }
+  };
+
   return (
     <div className="p-2 h-full flex gap-2 overflow-hidden">
-      {/* Left Column - Pinned Symbols */}
+      {/* Left Column - Scanner */}
+      {settings.scanner.enabled && (
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <div className="terminal-border p-2 mb-2 flex-shrink-0">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-primary text-xs font-bold tracking-wider">█ SCANNER</span>
+              <button
+                onClick={runScan}
+                disabled={status.isScanning}
+                className="px-2 py-1 text-xs bg-primary/10 hover:bg-primary/20 active:bg-primary/30 active:scale-95 text-primary border border-primary rounded disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 transition-all"
+                title="Run manual scan"
+              >
+                {status.isScanning ? '⟳ SCANNING...' : '⟳ SCAN'}
+              </button>
+            </div>
+
+            <div className="text-xs text-primary-muted font-mono space-y-1">
+              <div className="flex justify-between">
+                <span>Status:</span>
+                <span className={status.isRunning ? 'text-success' : 'text-primary-muted'}>
+                  {status.isRunning ? '● AUTO' : '○ MANUAL'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span>Last scan:</span>
+                <span>{formatTimeSince(status.lastScanTime)}</span>
+              </div>
+              {status.error && (
+                <div className="text-error text-[10px] mt-1">{status.error}</div>
+              )}
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto">
+            {results.length > 0 && (() => {
+              const groupedBySymbol = results.reduce((acc, result) => {
+                if (!acc[result.symbol]) {
+                  acc[result.symbol] = [];
+                }
+                acc[result.symbol].push(result);
+                return acc;
+              }, {} as Record<string, typeof results>);
+
+              return (
+                <div className="space-y-1">
+                <div className="text-xs text-primary-muted font-mono px-1">
+                  {Object.keys(groupedBySymbol).length} symbol{Object.keys(groupedBySymbol).length !== 1 ? 's' : ''} ({results.length} signal{results.length !== 1 ? 's' : ''})
+                </div>
+                {Object.entries(groupedBySymbol).map(([symbol, symbolResults]) => {
+                  const isBullish = symbolResults[0].signalType === 'bullish';
+                  const bgColor = isBullish ? 'bg-bullish/5' : 'bg-bearish/5';
+                  const borderColor = isBullish ? 'border-bullish' : 'border-bearish';
+                  const arrowColor = isBullish ? 'text-bullish' : 'text-bearish';
+                  const arrow = isBullish ? '▲' : '▼';
+                  const isPinned = pinnedSymbols.includes(symbol);
+
+                  const signalBadges: JSX.Element[] = [];
+
+                  symbolResults.forEach((result, idx) => {
+                    const resultBullish = result.signalType === 'bullish';
+                    const badgeBg = resultBullish ? 'bg-bullish' : 'bg-bearish';
+
+                    if (result.scanType === 'stochastic') {
+                      signalBadges.push(
+                        <span key={`${symbol}-stoch-${idx}`} className={`${badgeBg} text-bg-primary px-1.5 py-0.5 rounded text-[10px] font-bold`}>
+                          STOCH
+                        </span>
+                      );
+                    } else if (result.scanType === 'emaAlignment') {
+                      const emaArrow = resultBullish ? '↑' : '↓';
+                      signalBadges.push(
+                        <span key={`${symbol}-ema-${idx}`} className={`${badgeBg} text-bg-primary px-1.5 py-0.5 rounded text-[10px] font-bold`}>
+                          EMA{emaArrow}
+                        </span>
+                      );
+                    } else if (result.scanType === 'macdReversal') {
+                      const timeframes = [...new Set(result.macdReversals?.map(r => r.timeframe))].join(',');
+                      signalBadges.push(
+                        <span key={`${symbol}-macd-${idx}`} className={`${badgeBg} text-bg-primary px-1.5 py-0.5 rounded text-[10px] font-bold`}>
+                          MACD {timeframes}
+                        </span>
+                      );
+                    } else if (result.scanType === 'rsiReversal') {
+                      const timeframes = [...new Set(result.rsiReversals?.map(r => r.timeframe))].join(',');
+                      signalBadges.push(
+                        <span key={`${symbol}-rsi-${idx}`} className={`${badgeBg} text-bg-primary px-1.5 py-0.5 rounded text-[10px] font-bold`}>
+                          RSI {timeframes}
+                        </span>
+                      );
+                    } else if (result.scanType === 'channel') {
+                      const channels = result.channels || [];
+                      const channelArrows = channels.map(c => {
+                        if (c.type === 'ascending') return '↗';
+                        if (c.type === 'descending') return '↘';
+                        return '→';
+                      });
+                      const uniqueArrow = channelArrows[0] || '→';
+                      signalBadges.push(
+                        <span key={`${symbol}-ch-${idx}`} className={`${badgeBg} text-bg-primary px-1.5 py-0.5 rounded text-[10px] font-bold`}>
+                          {uniqueArrow}CH
+                        </span>
+                      );
+                    } else if (result.scanType === 'divergence') {
+                      const divergences = result.divergences || [];
+                      const isHidden = divergences[0]?.type.includes('hidden');
+                      const variants = [...new Set(divergences.map(d => d.variant.replace(/\D/g, '')))].join(',');
+                      signalBadges.push(
+                        <span key={`${symbol}-div-${idx}`} className={`${badgeBg} text-bg-primary px-1.5 py-0.5 rounded text-[10px] font-bold`}>
+                          {isHidden ? 'H-' : ''}DIV {variants}
+                        </span>
+                      );
+                    }
+                  });
+
+                  return (
+                    <div key={symbol} className={`terminal-border ${bgColor} ${borderColor}`}>
+                      <div className="flex items-center gap-2 p-2">
+                        <button
+                          onClick={() => {
+                            if (onSymbolSelect) {
+                              onSymbolSelect(symbol);
+                            } else {
+                              router.push(`/${symbol}`);
+                            }
+                          }}
+                          className="flex-1 flex items-center gap-2 flex-wrap text-left"
+                        >
+                          <span className={`text-lg ${arrowColor} font-bold`}>{arrow}</span>
+                          <span className="text-primary font-bold text-xs">{symbol}/USD</span>
+                          {signalBadges}
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (isPinned) {
+                              unpinSymbol(symbol);
+                            } else {
+                              pinSymbol(symbol);
+                            }
+                          }}
+                          className="p-1 text-primary-muted hover:text-primary transition-colors flex-shrink-0"
+                          title={isPinned ? "Unpin symbol" : "Pin symbol"}
+                        >
+                          <span className="text-base font-bold">{isPinned ? '−' : '+'}</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              );
+            })()}
+          </div>
+        </div>
+      )}
+
+      {/* Right Column - Pinned Symbols */}
       <div className="flex-1 flex flex-col overflow-hidden">
         <div className="mb-4">
           <div className="terminal-border p-1.5">
@@ -262,6 +443,17 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
+                    handleClosePosition(symbol);
+                  }}
+                  disabled={closingPosition === symbol}
+                  className="p-2 text-bearish hover:text-bearish/80 active:scale-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
+                  title="Close position (100%)"
+                >
+                  <span className="text-lg font-bold">{closingPosition === symbol ? '⟳' : '$'}</span>
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
                     unpinSymbol(symbol);
                   }}
                   className="p-2 text-primary-muted hover:text-bearish transition-colors"
@@ -285,139 +477,6 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
         )}
         </div>
       </div>
-
-      {/* Right Column - Scanner */}
-      {settings.scanner.enabled && (
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <div className="terminal-border p-2 mb-2 flex-shrink-0">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-primary text-xs font-bold tracking-wider">█ SCANNER</span>
-              <button
-                onClick={runScan}
-                disabled={status.isScanning}
-                className="px-2 py-1 text-xs bg-primary/10 hover:bg-primary/20 active:bg-primary/30 active:scale-95 text-primary border border-primary rounded disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 transition-all"
-                title="Run manual scan"
-              >
-                {status.isScanning ? '⟳ SCANNING...' : '⟳ SCAN'}
-              </button>
-            </div>
-
-            <div className="text-xs text-primary-muted font-mono space-y-1">
-              <div className="flex justify-between">
-                <span>Status:</span>
-                <span className={status.isRunning ? 'text-success' : 'text-primary-muted'}>
-                  {status.isRunning ? '● AUTO' : '○ MANUAL'}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span>Last scan:</span>
-                <span>{formatTimeSince(status.lastScanTime)}</span>
-              </div>
-              {status.error && (
-                <div className="text-error text-[10px] mt-1">{status.error}</div>
-              )}
-            </div>
-          </div>
-
-          <div className="flex-1 overflow-y-auto">
-            {results.length > 0 && (() => {
-              const groupedBySymbol = results.reduce((acc, result) => {
-                if (!acc[result.symbol]) {
-                  acc[result.symbol] = [];
-                }
-                acc[result.symbol].push(result);
-                return acc;
-              }, {} as Record<string, typeof results>);
-
-              return (
-                <div className="space-y-1">
-                <div className="text-xs text-primary-muted font-mono px-1">
-                  {Object.keys(groupedBySymbol).length} symbol{Object.keys(groupedBySymbol).length !== 1 ? 's' : ''} ({results.length} signal{results.length !== 1 ? 's' : ''})
-                </div>
-                {Object.entries(groupedBySymbol).map(([symbol, symbolResults]) => {
-                  const isBullish = symbolResults[0].signalType === 'bullish';
-                  const bgColor = isBullish ? 'bg-bullish/5' : 'bg-bearish/5';
-                  const borderColor = isBullish ? 'border-bullish' : 'border-bearish';
-                  const textColor = isBullish ? 'text-bullish' : 'text-bearish';
-
-                  const signals: string[] = [];
-
-                  symbolResults.forEach(result => {
-                    const resultBullish = result.signalType === 'bullish';
-                    if (result.scanType === 'stochastic') {
-                      const signal = resultBullish ? 'bottomed' : 'topped';
-                      signals.push(`stoch ${signal}`);
-                    } else if (result.scanType === 'emaAlignment') {
-                      const signal = resultBullish ? 'up' : 'down';
-                      signals.push(`ema ${signal}`);
-                    } else if (result.scanType === 'macdReversal') {
-                      const timeframes = [...new Set(result.macdReversals?.map(r => r.timeframe))].join(',');
-                      signals.push(`MACD ${timeframes}`);
-                    } else if (result.scanType === 'rsiReversal') {
-                      const timeframes = [...new Set(result.rsiReversals?.map(r => r.timeframe))].join(',');
-                      signals.push(`RSI ${timeframes}`);
-                    } else if (result.scanType === 'channel') {
-                      const channels = result.channels || [];
-                      const types = [...new Set(channels.map(c => c.channelType))].join(',');
-                      const timeframes = [...new Set(channels.map(c => c.timeframe))].join(',');
-                      signals.push(`${types} ch ${timeframes}`);
-                    } else if (result.scanType === 'divergence') {
-                      const divergences = result.divergences || [];
-                      const variants = [...new Set(divergences.map(d => d.variant))].join(',');
-                      const divType = divergences[0]?.isHidden ? 'hidden ' : '';
-                      signals.push(`${divType}div ${variants}`);
-                    }
-                  });
-
-                  const displayText = `${symbol}/USD ${signals.join(' • ')}`;
-                  const isPinned = pinnedSymbols.includes(symbol);
-
-                  return (
-                    <div key={symbol} className={`terminal-border ${bgColor} ${borderColor}`}>
-                      <div className="flex items-center">
-                        <button
-                          onClick={() => {
-                            if (onSymbolSelect) {
-                              onSymbolSelect(symbol);
-                            } else {
-                              router.push(`/${symbol}`);
-                            }
-                          }}
-                          className="flex-1 text-left p-2"
-                        >
-                          <div className="flex justify-between items-center gap-2">
-                            <div className={`text-xs font-mono ${textColor} flex-1 min-w-0`}>
-                              {displayText}
-                            </div>
-                            <div className="flex-shrink-0">
-                              {renderPrice(symbol)}
-                            </div>
-                          </div>
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (isPinned) {
-                              unpinSymbol(symbol);
-                            } else {
-                              pinSymbol(symbol);
-                            }
-                          }}
-                          className="p-2 text-primary-muted hover:text-primary transition-colors"
-                          title={isPinned ? "Unpin symbol" : "Pin symbol"}
-                        >
-                          <span className="text-lg font-bold">{isPinned ? '−' : '+'}</span>
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-              );
-            })()}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
