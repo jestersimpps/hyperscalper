@@ -12,6 +12,8 @@ export default function SettingsPanel() {
   const [isScannerStochExpanded, setIsScannerStochExpanded] = useState(false);
   const [isScannerEmaExpanded, setIsScannerEmaExpanded] = useState(false);
   const [isScannerDivExpanded, setIsScannerDivExpanded] = useState(false);
+  const [isScannerMacdExpanded, setIsScannerMacdExpanded] = useState(false);
+  const [isScannerRsiExpanded, setIsScannerRsiExpanded] = useState(false);
 
   const handleBackdropClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget) {
@@ -454,9 +456,23 @@ export default function SettingsPanel() {
                           </>
                         )}
                       </div>
+                    )}
+                  </div>
 
-                      {/* MACD Reversal Scanner */}
-                      <div className="border-t border-frame pt-4">
+                  {/* MACD Reversal Scanner - Collapsible Section */}
+                  <div className="border border-frame rounded overflow-hidden">
+                    <button
+                      onClick={() => setIsScannerMacdExpanded(!isScannerMacdExpanded)}
+                      className="w-full p-3 bg-bg-secondary flex items-center justify-between hover:bg-primary/5 transition-colors"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-primary font-mono text-xs font-bold">█ MACD REVERSAL SCANNER</span>
+                      </div>
+                      <span className="text-primary text-sm">{isScannerMacdExpanded ? '▼' : '▶'}</span>
+                    </button>
+
+                    {isScannerMacdExpanded && (
+                      <div className="p-4 space-y-4 bg-bg-primary">
                         <div className="p-3 bg-bg-secondary border border-frame rounded">
                           <label className="flex items-center justify-between cursor-pointer">
                             <span className="text-primary-muted text-xs font-mono">ENABLE MACD REVERSAL SCANNER</span>
@@ -513,9 +529,23 @@ export default function SettingsPanel() {
                           </>
                         )}
                       </div>
+                    )}
+                  </div>
 
-                      {/* RSI Reversal Scanner */}
-                      <div className="border-t border-frame pt-4">
+                  {/* RSI Reversal Scanner - Collapsible Section */}
+                  <div className="border border-frame rounded overflow-hidden">
+                    <button
+                      onClick={() => setIsScannerRsiExpanded(!isScannerRsiExpanded)}
+                      className="w-full p-3 bg-bg-secondary flex items-center justify-between hover:bg-primary/5 transition-colors"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-primary font-mono text-xs font-bold">█ RSI REVERSAL SCANNER</span>
+                      </div>
+                      <span className="text-primary text-sm">{isScannerRsiExpanded ? '▼' : '▶'}</span>
+                    </button>
+
+                    {isScannerRsiExpanded && (
+                      <div className="p-4 space-y-4 bg-bg-primary">
                         <div className="p-3 bg-bg-secondary border border-frame rounded">
                           <label className="flex items-center justify-between cursor-pointer">
                             <span className="text-primary-muted text-xs font-mono">ENABLE RSI REVERSAL SCANNER</span>
