@@ -25,6 +25,7 @@ export default function AppShell({ sidepanel, children }: AppShellProps) {
   const getDecimals = useSymbolMetaStore((state) => state.getDecimals);
   const decimals = useMemo(() => getDecimals(coin), [getDecimals, coin]);
   const orderSettings = useSettingsStore((state) => state.settings.orders);
+  const scannerEnabled = useSettingsStore((state) => state.settings.scanner.enabled);
 
   const candleKey = `${coin}-1m`;
   const candles = useCandleStore((state) => state.candles[candleKey]) || [];
@@ -354,7 +355,7 @@ export default function AppShell({ sidepanel, children }: AppShellProps) {
   return (
     <div className="flex h-screen bg-bg-primary text-primary font-mono">
       {/* Left Sidepanel */}
-      <aside className="w-[640px] border-r-2 border-border-frame overflow-y-auto">
+      <aside className={`${scannerEnabled ? 'w-[640px]' : 'w-[320px]'} border-r-2 border-border-frame overflow-y-auto transition-all duration-300`}>
         {sidepanel}
       </aside>
 
