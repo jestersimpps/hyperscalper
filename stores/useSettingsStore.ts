@@ -168,6 +168,20 @@ const mergeSettings = (storedSettings: any): AppSettings => {
           scanBearish: storedSettings.scanner?.divergenceScanner?.scanBearish ?? DEFAULT_SETTINGS.scanner.divergenceScanner.scanBearish,
           scanHidden: storedSettings.scanner?.divergenceScanner?.scanHidden ?? DEFAULT_SETTINGS.scanner.divergenceScanner.scanHidden,
         },
+        macdReversalScanner: {
+          enabled: storedSettings.scanner?.macdReversalScanner?.enabled ?? DEFAULT_SETTINGS.scanner.macdReversalScanner.enabled,
+          timeframes: storedSettings.scanner?.macdReversalScanner?.timeframes ?? DEFAULT_SETTINGS.scanner.macdReversalScanner.timeframes,
+          fastPeriod: storedSettings.scanner?.macdReversalScanner?.fastPeriod ?? DEFAULT_SETTINGS.scanner.macdReversalScanner.fastPeriod,
+          slowPeriod: storedSettings.scanner?.macdReversalScanner?.slowPeriod ?? DEFAULT_SETTINGS.scanner.macdReversalScanner.slowPeriod,
+          signalPeriod: storedSettings.scanner?.macdReversalScanner?.signalPeriod ?? DEFAULT_SETTINGS.scanner.macdReversalScanner.signalPeriod,
+        },
+        rsiReversalScanner: {
+          enabled: storedSettings.scanner?.rsiReversalScanner?.enabled ?? DEFAULT_SETTINGS.scanner.rsiReversalScanner.enabled,
+          timeframes: storedSettings.scanner?.rsiReversalScanner?.timeframes ?? DEFAULT_SETTINGS.scanner.rsiReversalScanner.timeframes,
+          period: storedSettings.scanner?.rsiReversalScanner?.period ?? DEFAULT_SETTINGS.scanner.rsiReversalScanner.period,
+          oversoldLevel: storedSettings.scanner?.rsiReversalScanner?.oversoldLevel ?? DEFAULT_SETTINGS.scanner.rsiReversalScanner.oversoldLevel,
+          overboughtLevel: storedSettings.scanner?.rsiReversalScanner?.overboughtLevel ?? DEFAULT_SETTINGS.scanner.rsiReversalScanner.overboughtLevel,
+        },
       },
       orders: {
         cloudPercentage: storedSettings.orders?.cloudPercentage ?? DEFAULT_SETTINGS.orders.cloudPercentage,

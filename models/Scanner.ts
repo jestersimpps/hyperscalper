@@ -39,8 +39,26 @@ export interface DivergenceValue {
   variant: 'fast9' | 'fast14' | 'fast40' | 'full60';
 }
 
+export interface MacdReversalValue {
+  direction: 'bullish' | 'bearish';
+  timeframe: TimeInterval;
+  time: number;
+  price: number;
+  macdValue: number;
+  signalValue: number;
+}
+
+export interface RsiReversalValue {
+  direction: 'bullish' | 'bearish';
+  timeframe: TimeInterval;
+  time: number;
+  price: number;
+  rsiValue: number;
+  zone: 'oversold' | 'overbought';
+}
+
 export type SignalType = 'bullish' | 'bearish';
-export type ScanType = 'stochastic' | 'emaAlignment' | 'channel' | 'divergence';
+export type ScanType = 'stochastic' | 'emaAlignment' | 'channel' | 'divergence' | 'macdReversal' | 'rsiReversal';
 
 export interface ScanResult {
   symbol: string;
@@ -48,6 +66,8 @@ export interface ScanResult {
   emaAlignments?: EmaAlignmentValue[];
   channels?: ChannelValue[];
   divergences?: DivergenceValue[];
+  macdReversals?: MacdReversalValue[];
+  rsiReversals?: RsiReversalValue[];
   matchedAt: number;
   signalType: SignalType;
   description: string;

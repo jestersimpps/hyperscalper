@@ -80,6 +80,22 @@ export interface DivergenceScannerConfig {
   scanHidden: boolean;
 }
 
+export interface MacdReversalScannerConfig {
+  enabled: boolean;
+  timeframes: ('1m' | '5m' | '15m' | '1h')[];
+  fastPeriod: number;
+  slowPeriod: number;
+  signalPeriod: number;
+}
+
+export interface RsiReversalScannerConfig {
+  enabled: boolean;
+  timeframes: ('1m' | '5m' | '15m' | '1h')[];
+  period: number;
+  oversoldLevel: number;
+  overboughtLevel: number;
+}
+
 export interface ScannerSettings {
   enabled: boolean;
   scanInterval: number;
@@ -89,6 +105,8 @@ export interface ScannerSettings {
   emaAlignmentScanner: EmaAlignmentScannerConfig;
   channelScanner: ChannelScannerConfig;
   divergenceScanner: DivergenceScannerConfig;
+  macdReversalScanner: MacdReversalScannerConfig;
+  rsiReversalScanner: RsiReversalScannerConfig;
 }
 
 export interface OrderSettings {
@@ -209,6 +227,20 @@ export const DEFAULT_SETTINGS: AppSettings = {
       scanBullish: true,
       scanBearish: true,
       scanHidden: false,
+    },
+    macdReversalScanner: {
+      enabled: false,
+      timeframes: ['1m', '5m', '15m', '1h'],
+      fastPeriod: 5,
+      slowPeriod: 13,
+      signalPeriod: 5,
+    },
+    rsiReversalScanner: {
+      enabled: false,
+      timeframes: ['1m', '5m', '15m', '1h'],
+      period: 14,
+      oversoldLevel: 30,
+      overboughtLevel: 70,
     },
   },
   orders: {
