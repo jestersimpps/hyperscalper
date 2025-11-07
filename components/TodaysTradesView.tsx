@@ -96,32 +96,32 @@ function TodaysTradesView() {
             </div>
           </div>
         ) : (
-          <div className="flex flex-col gap-2 flex-1 min-h-0">
-            {/* Row 1: Donut Chart and Statistics - 50/50 */}
-            <div className="flex gap-2" style={{ height: '250px' }}>
-              {/* Donut chart on the left */}
-              <div className="terminal-border p-1.5 flex-1 flex flex-col">
-                <div className="text-[10px] text-primary-muted mb-2 uppercase tracking-wider">
-                  █ P&L BY SYMBOL
+          <div className="flex gap-2 flex-1 min-h-0">
+            {/* Left column - 50% */}
+            <div className="flex-1 flex flex-col gap-2 min-h-0">
+              {/* Top: Donut Chart and Statistics side by side */}
+              <div className="flex gap-2" style={{ height: '250px' }}>
+                {/* Donut chart */}
+                <div className="terminal-border p-1.5 flex-1 flex flex-col">
+                  <div className="text-[10px] text-primary-muted mb-2 uppercase tracking-wider">
+                    █ P&L BY SYMBOL
+                  </div>
+                  <div className="flex-1 min-h-0">
+                    <SymbolPnlDonut groups={positionGroups} />
+                  </div>
                 </div>
-                <div className="flex-1 min-h-0">
-                  <SymbolPnlDonut groups={positionGroups} />
+
+                {/* Statistics panel */}
+                <div className="terminal-border p-1.5 flex-1 flex flex-col">
+                  <div className="text-[10px] text-primary-muted mb-2 uppercase tracking-wider">
+                    █ STATISTICS
+                  </div>
+                  <StatisticsPanel groups={positionGroups} />
                 </div>
               </div>
 
-              {/* Statistics panel on the right */}
-              <div className="terminal-border p-1.5 flex-1 flex flex-col overflow-y-auto">
-                <div className="text-[10px] text-primary-muted mb-2 uppercase tracking-wider">
-                  █ STATISTICS
-                </div>
-                <StatisticsPanel groups={positionGroups} />
-              </div>
-            </div>
-
-            {/* Row 2: P&L Chart and Positions List - 50/50 */}
-            <div className="flex gap-2 flex-1 min-h-0">
-              {/* Chart on the left - 50% */}
-              <div className="terminal-border p-1.5 flex-1 flex flex-col">
+              {/* Bottom: Cumulative P&L Chart */}
+              <div className="terminal-border p-1.5 flex-1 flex flex-col min-h-0">
                 <div className="text-[10px] text-primary-muted mb-2 uppercase tracking-wider">
                   █ CUMULATIVE P&L
                 </div>
@@ -129,17 +129,17 @@ function TodaysTradesView() {
                   <PnlChart groups={positionGroups} />
                 </div>
               </div>
+            </div>
 
-              {/* Trades list on the right - 50% */}
-              <div className="terminal-border p-1.5 flex-1 flex flex-col min-h-0">
-                <div className="text-[10px] text-primary-muted mb-2 uppercase tracking-wider">
-                  █ POSITIONS
-                </div>
-                <div className="overflow-y-auto space-y-2">
-                  {positionGroups.map((group) => (
-                    <TradeRow key={group.id} group={group} />
-                  ))}
-                </div>
+            {/* Right column - 50% - Full height positions list */}
+            <div className="terminal-border p-1.5 flex-1 flex flex-col min-h-0">
+              <div className="text-[10px] text-primary-muted mb-2 uppercase tracking-wider">
+                █ POSITIONS
+              </div>
+              <div className="overflow-y-auto space-y-2">
+                {positionGroups.map((group) => (
+                  <TradeRow key={group.id} group={group} />
+                ))}
               </div>
             </div>
           </div>
