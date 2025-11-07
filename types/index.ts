@@ -32,4 +32,20 @@ export interface Trade {
   sizeFormatted: string;
 }
 
+export interface UserFill {
+  coin: string;
+  price: number;
+  size: number;
+  side: 'buy' | 'sell';
+  time: number;
+  startPosition: number;
+  closedPnl: number;
+  fee: number;
+  oid: number;
+  tid: number;
+  hash: string;
+  crossed: boolean;
+  feeToken: string;
+}
+
 export type TimeInterval = '1m' | '5m' | '15m' | '1h' | '4h' | '1d';

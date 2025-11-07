@@ -14,9 +14,11 @@ import {
   CancelResponse,
   PerpsMeta,
   AllMids,
-  SuccessResponse
+  SuccessResponse,
+  Fill
 } from '@nktkas/hyperliquid';
 import { privateKeyToAccount } from 'viem/accounts';
+import type { UserFill } from '@/types';
 import type {
   IHyperliquidService,
   CandleParams,
@@ -396,6 +398,39 @@ export class HyperliquidService implements IHyperliquidService {
     }
     const orders = await this.publicClient.frontendOpenOrders({ user: address });
     return orders;
+  }
+
+  async getUserFillsByTime(startTime: number, endTime?: number, user?: string): Promise<UserFill[]> {
+    const address = (user || this.userAddress) as `0x${string}`;
+    if (!address) {
+      throw new Error('No wallet address available');
+    }
+
+    try {
+      const fills = await this.publicClient.userFillsByTime({
+        user: address,
+        startTime,
+        endTime: endTime || undefined
+      });
+
+      return fills.map((fill: Fill): UserFill => ({
+        coin: fill.coin,
+        price: parseFloat(fill.px),
+        size: parseFloat(fill.sz),
+        side: fill.side === 'B' ? 'buy' : 'sell',
+        time: fill.time,
+        startPosition: parseFloat(fill.startPosition),
+        closedPnl: parseFloat(fill.closedPnl),
+        fee: parseFloat(fill.fee),
+        oid: fill.oid,
+        tid: fill.tid,
+        hash: fill.hash,
+        crossed: fill.crossed,
+        feeToken: fill.feeToken
+      }));
+    } catch (error) {
+      return [];
+    }
   }
 
   async cancelOrder(coin: string, orderId: number): Promise<CancelResponse> {
