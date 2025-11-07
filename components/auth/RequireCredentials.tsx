@@ -1,7 +1,9 @@
 'use client';
 
-import { ReactNode } from 'react';
+import { ReactNode, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useCredentials } from '@/lib/context/credentials-context';
+import { useAddressFromUrl } from '@/lib/hooks/use-address-from-url';
 import { CredentialsSettings } from '@/components/settings/CredentialsSettings';
 
 interface RequireCredentialsProps {
@@ -9,7 +11,21 @@ interface RequireCredentialsProps {
 }
 
 export function RequireCredentials({ children }: RequireCredentialsProps) {
-  const { hasCredentials, isLoaded } = useCredentials();
+  const { hasCredentials, isLoaded, credentials } = useCredentials();
+  const addressFromUrl = useAddressFromUrl();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!isLoaded) return;
+
+    if (!hasCredentials && !addressFromUrl) {
+      return;
+    }
+
+    if (hasCredentials && !addressFromUrl && credentials?.walletAddress) {
+      router.replace(`/${credentials.walletAddress}/trades`);
+    }
+  }, [isLoaded, hasCredentials, addressFromUrl, credentials?.walletAddress, router]);
 
   if (!isLoaded) {
     return (
@@ -20,6 +36,10 @@ export function RequireCredentials({ children }: RequireCredentialsProps) {
         </div>
       </div>
     );
+  }
+
+  if (addressFromUrl) {
+    return <>{children}</>;
   }
 
   if (!hasCredentials) {

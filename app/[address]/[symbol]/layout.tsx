@@ -6,11 +6,11 @@ import Sidepanel from '@/components/layout/Sidepanel';
 
 interface SymbolLayoutProps {
   children: ReactNode;
-  params: Promise<{ symbol: string }>;
+  params: Promise<{ address: string; symbol: string }>;
 }
 
 export default function SymbolLayout({ children, params }: SymbolLayoutProps) {
-  const { symbol } = use(params);
+  const { address, symbol } = use(params);
   const upperSymbol = symbol.toUpperCase();
 
   useEffect(() => {

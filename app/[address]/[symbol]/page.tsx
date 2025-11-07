@@ -1,12 +1,12 @@
 import SymbolView from '@/components/symbol/SymbolView';
 
 interface SymbolPageProps {
-  params: Promise<{ symbol: string }>;
+  params: Promise<{ address: string; symbol: string }>;
 }
 
 export default async function SymbolPage({ params }: SymbolPageProps) {
-  const { symbol } = await params;
+  const { address, symbol } = await params;
   const upperSymbol = symbol.toUpperCase();
 
-  return <SymbolView key={upperSymbol} coin={upperSymbol} />;
+  return <SymbolView key={`${address}-${upperSymbol}`} coin={upperSymbol} />;
 }

@@ -43,8 +43,9 @@ export class HyperliquidService implements IHyperliquidService {
   private wsTransport: WebSocketTransport | null = null;
   private userAddress: string | null = null;
 
-  constructor(privateKey: string, walletAddress: string, isTestnet: boolean = false) {
+  constructor(privateKey: string | null, walletAddress: string, isTestnet: boolean = false) {
     this.isTestnet = isTestnet;
+    this.userAddress = walletAddress;
 
     const httpUrl = isTestnet ? 'https://api.hyperliquid-testnet.xyz' : 'https://api.hyperliquid.xyz';
     const httpTransport = new HttpTransport({
@@ -59,7 +60,6 @@ export class HyperliquidService implements IHyperliquidService {
     if (privateKey) {
       try {
         const account = privateKeyToAccount(privateKey as `0x${string}`);
-        this.userAddress = walletAddress || account.address;
 
         this.walletClient = new WalletClient({
           wallet: account,

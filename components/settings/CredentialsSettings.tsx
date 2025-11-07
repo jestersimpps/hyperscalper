@@ -4,7 +4,11 @@ import { useState, useEffect } from 'react';
 import { useCredentials } from '@/lib/context/credentials-context';
 import { privateKeyToAccount } from 'viem/accounts';
 
-export function CredentialsSettings() {
+interface CredentialsSettingsProps {
+  initialWalletAddress?: string | null;
+}
+
+export function CredentialsSettings({ initialWalletAddress }: CredentialsSettingsProps = {}) {
   const { credentials, saveCredentials, clearCredentials, updateNetwork } = useCredentials();
   const [privateKey, setPrivateKey] = useState('');
   const [walletAddress, setWalletAddress] = useState('');
@@ -18,8 +22,10 @@ export function CredentialsSettings() {
       setPrivateKey(credentials.privateKey);
       setWalletAddress(credentials.walletAddress);
       setIsTestnet(credentials.isTestnet);
+    } else if (initialWalletAddress) {
+      setWalletAddress(initialWalletAddress);
     }
-  }, [credentials]);
+  }, [credentials, initialWalletAddress]);
 
   const handleSave = async () => {
     try {
@@ -170,7 +176,6 @@ export function CredentialsSettings() {
         <div>
           <label htmlFor="walletAddress" className="block text-sm font-medium text-gray-300 mb-2">
             Wallet Address
-            <span className="text-gray-500 ml-2">(optional - will be derived from private key)</span>
           </label>
           <div className="flex gap-2">
             <input

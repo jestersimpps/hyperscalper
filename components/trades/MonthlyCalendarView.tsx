@@ -2,7 +2,6 @@
 
 import { memo, useMemo, useEffect } from 'react';
 import { useUserFillsStore } from '@/stores/useUserFillsStore';
-import { useHyperliquidService } from '@/lib/hooks/use-hyperliquid-service';
 import { groupFillsByPosition } from '@/lib/trade-grouping-utils';
 import type { DailyPnlSummary } from '@/stores/useUserFillsStore';
 import MiniPnlChart from '@/components/trades/MiniPnlChart';
@@ -15,29 +14,19 @@ interface MonthlyCalendarViewProps {
 }
 
 function MonthlyCalendarView({ onDayClick }: MonthlyCalendarViewProps) {
-  const service = useHyperliquidService();
   const selectedMonth = useUserFillsStore((state) => state.selectedMonth);
   const dailySummaries = useUserFillsStore((state) => state.dailySummaries);
   const monthlyFills = useUserFillsStore((state) => state.monthlyFills);
   const loading = useUserFillsStore((state) => state.loading);
   const error = useUserFillsStore((state) => state.error);
-  const setService = useUserFillsStore((state) => state.setService);
   const fetchMonthFills = useUserFillsStore((state) => state.fetchMonthFills);
   const goToPreviousMonth = useUserFillsStore((state) => state.goToPreviousMonth);
   const goToNextMonth = useUserFillsStore((state) => state.goToNextMonth);
   const goToThisMonth = useUserFillsStore((state) => state.goToThisMonth);
 
   useEffect(() => {
-    if (service) {
-      setService(service);
-    }
-  }, [service, setService]);
-
-  useEffect(() => {
-    if (service) {
-      fetchMonthFills();
-    }
-  }, [service, selectedMonth, fetchMonthFills]);
+    fetchMonthFills();
+  }, [selectedMonth, fetchMonthFills]);
 
   const isCurrentMonth = useMemo(() => {
     const today = new Date();

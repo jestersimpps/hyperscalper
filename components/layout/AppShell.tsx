@@ -3,6 +3,7 @@
 import { ReactNode, useMemo, useCallback } from 'react';
 import { usePathname } from 'next/navigation';
 import RightTradingPanel from '@/components/symbol/RightTradingPanel';
+import WalletIndicator from '@/components/layout/WalletIndicator';
 import { usePositionStore } from '@/stores/usePositionStore';
 import { useOrderStore } from '@/stores/useOrderStore';
 import { useSymbolMetaStore } from '@/stores/useSymbolMetaStore';
@@ -19,7 +20,7 @@ interface AppShellProps {
 
 export default function AppShell({ sidepanel, children }: AppShellProps) {
   const pathname = usePathname();
-  const coin = pathname?.split('/')[1]?.toUpperCase() || 'BTC';
+  const coin = pathname?.split('/')[2]?.toUpperCase() || 'BTC';
 
   const position = usePositionStore((state) => state.positions[coin]);
   const orders = useOrderStore((state) => state.orders[coin]) || [];
@@ -263,41 +264,49 @@ export default function AppShell({ sidepanel, children }: AppShellProps) {
   }, [coin, cancelAllOrders]);
 
   return (
-    <div className="flex h-screen bg-bg-primary text-primary font-mono">
-      {/* Left Sidepanel */}
-      <aside className={`${scannerEnabled ? 'w-[640px]' : 'w-[320px]'} border-r-2 border-border-frame overflow-y-auto transition-all duration-300`}>
-        {sidepanel}
-      </aside>
+    <div className="flex flex-col h-screen bg-bg-primary text-primary font-mono">
+      {/* Top Header with Wallet Indicator */}
+      <header className="border-b-2 border-border-frame flex items-center justify-end px-4 py-1">
+        <WalletIndicator />
+      </header>
 
-      {/* Center Content */}
-      <main className="flex-1 h-full overflow-hidden">
-        {children}
-      </main>
+      {/* Main Content Area */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Left Sidepanel */}
+        <aside className={`${scannerEnabled ? 'w-[640px]' : 'w-[320px]'} border-r-2 border-border-frame overflow-y-auto transition-all duration-300`}>
+          {sidepanel}
+        </aside>
 
-      {/* Right Trading Panel */}
-      <RightTradingPanel
-        coin={coin}
-        position={position}
-        orders={orders}
-        decimals={decimals}
-        onBuyCloud={handleBuyCloud}
-        onSellCloud={handleSellCloud}
-        onSmLong={handleSmLong}
-        onSmShort={handleSmShort}
-        onBigLong={handleBigLong}
-        onBigShort={handleBigShort}
-        onClose25={handleClose25}
-        onClose50={handleClose50}
-        onClose75={handleClose75}
-        onClose100={handleClose100}
-        onMoveSL25={handleMoveSL25}
-        onMoveSL50={handleMoveSL50}
-        onMoveSL75={handleMoveSL75}
-        onMoveSLBreakeven={handleMoveSLBreakeven}
-        onCancelEntryOrders={handleCancelEntryOrders}
-        onCancelExitOrders={handleCancelExitOrders}
-        onCancelAllOrders={handleCancelAllOrders}
-      />
+        {/* Center Content */}
+        <main className="flex-1 h-full overflow-hidden">
+          {children}
+        </main>
+
+        {/* Right Trading Panel */}
+        <RightTradingPanel
+          coin={coin}
+          position={position}
+          orders={orders}
+          decimals={decimals}
+          onBuyCloud={handleBuyCloud}
+          onSellCloud={handleSellCloud}
+          onSmLong={handleSmLong}
+          onSmShort={handleSmShort}
+          onBigLong={handleBigLong}
+          onBigShort={handleBigShort}
+          onClose25={handleClose25}
+          onClose50={handleClose50}
+          onClose75={handleClose75}
+          onClose100={handleClose100}
+          onMoveSL25={handleMoveSL25}
+          onMoveSL50={handleMoveSL50}
+          onMoveSL75={handleMoveSL75}
+          onMoveSLBreakeven={handleMoveSLBreakeven}
+          onCancelEntryOrders={handleCancelEntryOrders}
+          onCancelExitOrders={handleCancelExitOrders}
+          onCancelAllOrders={handleCancelAllOrders}
+        />
+      </div>
     </div>
   );
 }

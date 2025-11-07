@@ -2,13 +2,17 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useCredentials } from '@/lib/context/credentials-context';
 
 export default function Home() {
   const router = useRouter();
+  const { credentials } = useCredentials();
 
   useEffect(() => {
-    router.replace('/BTC');
-  }, [router]);
+    if (credentials?.walletAddress) {
+      router.replace(`/${credentials.walletAddress}/trades`);
+    }
+  }, [router, credentials?.walletAddress]);
 
   return null;
 }

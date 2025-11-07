@@ -2,7 +2,6 @@
 
 import { memo, useMemo, useEffect, useState } from 'react';
 import { useUserFillsStore } from '@/stores/useUserFillsStore';
-import { useHyperliquidService } from '@/lib/hooks/use-hyperliquid-service';
 import { groupFillsByPosition } from '@/lib/trade-grouping-utils';
 import TradeRow from '@/components/trades/TradeRow';
 import PnlChart from '@/components/trades/PnlChart';
@@ -15,12 +14,10 @@ type ViewTab = 'daily' | 'monthly';
 function TodaysTradesView() {
   const [activeTab, setActiveTab] = useState<ViewTab>('daily');
 
-  const service = useHyperliquidService();
   const fills = useUserFillsStore((state) => state.fills);
   const loading = useUserFillsStore((state) => state.loading);
   const error = useUserFillsStore((state) => state.error);
   const selectedDate = useUserFillsStore((state) => state.selectedDate);
-  const setService = useUserFillsStore((state) => state.setService);
   const setSelectedDate = useUserFillsStore((state) => state.setSelectedDate);
   const fetchSelectedDateFills = useUserFillsStore((state) => state.fetchSelectedDateFills);
   const goToPreviousDay = useUserFillsStore((state) => state.goToPreviousDay);
@@ -28,16 +25,8 @@ function TodaysTradesView() {
   const goToToday = useUserFillsStore((state) => state.goToToday);
 
   useEffect(() => {
-    if (service) {
-      setService(service);
-    }
-  }, [service, setService]);
-
-  useEffect(() => {
-    if (service) {
-      fetchSelectedDateFills();
-    }
-  }, [service, selectedDate, fetchSelectedDateFills]);
+    fetchSelectedDateFills();
+  }, [selectedDate, fetchSelectedDateFills]);
 
   const isToday = useMemo(() => {
     const today = new Date();

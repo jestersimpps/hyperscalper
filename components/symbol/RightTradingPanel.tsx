@@ -4,6 +4,7 @@ import { memo } from 'react';
 import { useRouter } from 'next/navigation';
 import QuickCloseButtons from '@/components/layout/QuickCloseButtons';
 import { useSettingsStore } from '@/stores/useSettingsStore';
+import { useAddressFromUrl } from '@/lib/hooks/use-address-from-url';
 import type { Position } from '@/models/Position';
 import type { Order } from '@/models/Order';
 
@@ -55,6 +56,7 @@ function RightTradingPanel({
   onCancelAllOrders,
 }: RightTradingPanelProps) {
   const router = useRouter();
+  const address = useAddressFromUrl();
   const togglePanel = useSettingsStore((state) => state.togglePanel);
 
   const hasExitOrders = orders.some(order => order.orderType === 'stop' || order.orderType === 'tp');
@@ -71,7 +73,7 @@ function RightTradingPanel({
         </button>
 
         <button
-          onClick={() => router.push('/trades')}
+          onClick={() => router.push(`/${address}/trades`)}
           className="w-full px-3 py-1.5 bg-bg-secondary text-primary-muted border-2 border-frame hover:text-primary hover:bg-primary/10 active:scale-95 cursor-pointer transition-all text-[10px] font-mono uppercase tracking-wider rounded-sm"
           title="View today's trades"
         >

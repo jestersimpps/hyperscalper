@@ -11,6 +11,7 @@ import { usePositionStore } from '@/stores/usePositionStore';
 import { useOrderStore } from '@/stores/useOrderStore';
 import { useSymbolMetaStore } from '@/stores/useSymbolMetaStore';
 import { formatPrice } from '@/lib/format-utils';
+import { useAddressFromUrl } from '@/lib/hooks/use-address-from-url';
 
 interface SidepanelProps {
   selectedSymbol: string;
@@ -19,6 +20,7 @@ interface SidepanelProps {
 
 export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelProps) {
   const router = useRouter();
+  const address = useAddressFromUrl();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   const { results, status, runScan, startAutoScanWithDelay, stopAutoScan } = useScannerStore();
@@ -280,7 +282,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                             if (onSymbolSelect) {
                               onSymbolSelect(symbol);
                             } else {
-                              router.push(`/${symbol}`);
+                              router.push(`/${address}/${symbol}`);
                             }
                           }}
                           className="flex-1 flex items-center gap-2 flex-wrap text-left"
@@ -358,7 +360,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                           if (onSymbolSelect) {
                             onSymbolSelect(symbolData.name);
                           } else {
-                            router.push(`/${symbolData.name}`);
+                            router.push(`/${address}/${symbolData.name}`);
                           }
                         }}
                         className="flex-1 text-left p-2"
@@ -425,7 +427,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                     if (onSymbolSelect) {
                       onSymbolSelect(symbol);
                     } else {
-                      router.push(`/${symbol}`);
+                      router.push(`/${address}/${symbol}`);
                     }
                   }}
                   className="flex-1 text-left p-2"
@@ -457,7 +459,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    window.open(`/chart-popup/${symbol}`, '_blank', 'width=1200,height=800');
+                    window.open(`/${address}/chart-popup/${symbol}`, '_blank', 'width=1200,height=800');
                   }}
                   className="p-2 text-primary-muted hover:text-primary cursor-pointer transition-colors"
                   title="Open in new window"

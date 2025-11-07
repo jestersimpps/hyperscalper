@@ -3,11 +3,13 @@
 import { useState } from 'react';
 import { usePositionStore } from '@/stores/usePositionStore';
 import { useHyperliquidService } from '@/lib/hooks/use-hyperliquid-service';
+import { useAddressFromUrl } from '@/lib/hooks/use-address-from-url';
 
 export default function QuickCloseButtons() {
   const [isClosing, setIsClosing] = useState(false);
   const positions = usePositionStore((state) => state.positions);
-  const service = useHyperliquidService();
+  const addressFromUrl = useAddressFromUrl();
+  const service = useHyperliquidService(addressFromUrl || undefined);
 
   const profitablePositions = Object.entries(positions)
     .filter(([_, pos]) => pos && pos.pnl > 0)
