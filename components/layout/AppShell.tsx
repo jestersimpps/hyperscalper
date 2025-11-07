@@ -1,15 +1,18 @@
 'use client';
 
 import { ReactNode, useMemo, useCallback } from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import RightTradingPanel from '@/components/symbol/RightTradingPanel';
 import WalletIndicator from '@/components/layout/WalletIndicator';
+import CalendarIcon from '@/components/icons/CalendarIcon';
+import SettingsIcon from '@/components/icons/SettingsIcon';
 import { usePositionStore } from '@/stores/usePositionStore';
 import { useOrderStore } from '@/stores/useOrderStore';
 import { useSymbolMetaStore } from '@/stores/useSymbolMetaStore';
 import { useSettingsStore } from '@/stores/useSettingsStore';
 import { useCandleStore } from '@/stores/useCandleStore';
 import { useTradingStore } from '@/stores/useTradingStore';
+import { useAddressFromUrl } from '@/lib/hooks/use-address-from-url';
 import { calculateAverageCandleHeight } from '@/lib/trading-utils';
 import { playNotificationSound } from '@/lib/sound-utils';
 
@@ -20,7 +23,9 @@ interface AppShellProps {
 
 export default function AppShell({ sidepanel, children }: AppShellProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const coin = pathname?.split('/')[2]?.toUpperCase() || 'BTC';
+  const address = useAddressFromUrl();
 
   const position = usePositionStore((state) => state.positions[coin]);
   const orders = useOrderStore((state) => state.orders[coin]) || [];
@@ -28,6 +33,7 @@ export default function AppShell({ sidepanel, children }: AppShellProps) {
   const decimals = useMemo(() => getDecimals(coin), [getDecimals, coin]);
   const orderSettings = useSettingsStore((state) => state.settings.orders);
   const scannerEnabled = useSettingsStore((state) => state.settings.scanner.enabled);
+  const togglePanel = useSettingsStore((state) => state.togglePanel);
 
   const candleKey = `${coin}-1m`;
   const candles = useCandleStore((state) => state.candles[candleKey]) || [];
@@ -265,9 +271,31 @@ export default function AppShell({ sidepanel, children }: AppShellProps) {
 
   return (
     <div className="flex flex-col h-screen bg-bg-primary text-primary font-mono">
-      {/* Top Header with Wallet Indicator */}
-      <header className="border-b-2 border-border-frame flex items-center justify-end px-4 py-1">
-        <WalletIndicator />
+      {/* Top Header with Title, Navigation Icons, and Wallet Indicator */}
+      <header className="border-b-2 border-border-frame flex items-center justify-between px-4 py-1.5">
+        {/* Left: Title */}
+        <div className="text-primary text-sm font-bold tracking-wider terminal-text">
+          █ HYPERLIQUID TERMINAL
+        </div>
+
+        {/* Right: Navigation Icons + Wallet Indicator */}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => address && router.push(`/${address}/trades`)}
+            className="px-2 py-1.5 bg-bg-secondary text-primary-muted border-2 border-frame hover:text-primary hover:bg-primary/10 active:scale-95 cursor-pointer transition-all rounded-sm"
+            title="Today's Trades"
+          >
+            <CalendarIcon />
+          </button>
+          <button
+            onClick={togglePanel}
+            className="px-2 py-1.5 bg-bg-secondary text-primary-muted border-2 border-frame hover:text-primary hover:bg-primary/10 active:scale-95 cursor-pointer transition-all rounded-sm"
+            title="Settings"
+          >
+            <SettingsIcon />
+          </button>
+          <WalletIndicator />
+        </div>
       </header>
 
       {/* Main Content Area */}

@@ -1,10 +1,7 @@
 'use client';
 
 import { memo } from 'react';
-import { useRouter } from 'next/navigation';
 import QuickCloseButtons from '@/components/layout/QuickCloseButtons';
-import { useSettingsStore } from '@/stores/useSettingsStore';
-import { useAddressFromUrl } from '@/lib/hooks/use-address-from-url';
 import type { Position } from '@/models/Position';
 import type { Order } from '@/models/Order';
 
@@ -55,31 +52,11 @@ function RightTradingPanel({
   onCancelExitOrders,
   onCancelAllOrders,
 }: RightTradingPanelProps) {
-  const router = useRouter();
-  const address = useAddressFromUrl();
-  const togglePanel = useSettingsStore((state) => state.togglePanel);
-
   const hasExitOrders = orders.some(order => order.orderType === 'stop' || order.orderType === 'tp');
 
   return (
     <aside className="w-80 border-l-2 border-border-frame overflow-y-auto">
       <div className="p-2 flex flex-col gap-2">
-        <button
-          onClick={togglePanel}
-          className="w-full px-3 py-1.5 bg-bg-secondary text-primary-muted border-2 border-frame hover:text-primary hover:bg-primary/10 active:scale-95 cursor-pointer transition-all text-[10px] font-mono uppercase tracking-wider rounded-sm"
-          title="Open settings"
-        >
-          ⚙ Settings
-        </button>
-
-        <button
-          onClick={() => router.push(`/${address}/trades`)}
-          className="w-full px-3 py-1.5 bg-bg-secondary text-primary-muted border-2 border-frame hover:text-primary hover:bg-primary/10 active:scale-95 cursor-pointer transition-all text-[10px] font-mono uppercase tracking-wider rounded-sm"
-          title="View today's trades"
-        >
-          Today's Trades
-        </button>
-
         <div className="terminal-border p-1.5 flex flex-col">
           <div className="text-[12px] text-primary-muted mb-1.5 uppercase tracking-wider">█ POSITION</div>
           <div className="text-[12px] space-y-1 font-mono">
