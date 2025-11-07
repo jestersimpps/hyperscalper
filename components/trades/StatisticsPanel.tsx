@@ -5,9 +5,10 @@ import type { PositionGroup } from '@/lib/trade-grouping-utils';
 
 interface StatisticsPanelProps {
   groups: PositionGroup[];
+  totalPnl: number;
 }
 
-function StatisticsPanel({ groups }: StatisticsPanelProps) {
+function StatisticsPanel({ groups, totalPnl }: StatisticsPanelProps) {
   const stats = useMemo(() => {
     if (groups.length === 0) {
       return {
@@ -26,7 +27,6 @@ function StatisticsPanel({ groups }: StatisticsPanelProps) {
     const lossCount = groups.filter(g => g.totalPnl < 0).length;
     const winRate = (winCount / groups.length) * 100;
 
-    const totalPnl = groups.reduce((sum, g) => sum + g.totalPnl, 0);
     const averagePnl = totalPnl / groups.length;
 
     const bestTrade = groups.reduce((best, g) =>
@@ -49,71 +49,51 @@ function StatisticsPanel({ groups }: StatisticsPanelProps) {
       worstTrade: { coin: worstTrade.coin, pnl: worstTrade.totalPnl },
       totalFees
     };
-  }, [groups]);
+  }, [groups, totalPnl]);
 
   if (groups.length === 0) {
     return null;
   }
 
   return (
-    <div className="flex flex-col gap-1.5 font-mono text-[10px]">
-      {/* Win Rate and Trade Count */}
-      <div className="grid grid-cols-2 gap-1.5">
-        <div className="terminal-border p-1.5">
-          <div className="text-primary-muted uppercase text-[8px] mb-0.5">Win Rate</div>
-          <div className={`text-sm font-bold ${stats.winRate >= 50 ? 'text-bullish' : 'text-bearish'}`}>
-            {stats.winRate.toFixed(1)}%
-          </div>
-          <div className="text-primary-muted text-[8px]">
-            {stats.winCount}W / {stats.lossCount}L
-          </div>
-        </div>
-
-        <div className="terminal-border p-1.5">
-          <div className="text-primary-muted uppercase text-[8px] mb-0.5">Trades</div>
-          <div className="text-sm font-bold text-primary">
-            {stats.totalTrades}
-          </div>
-        </div>
+    <div className="text-[12px] space-y-1 font-mono">
+      <div className="flex justify-between">
+        <span className="text-primary-muted">TOTAL P&L:</span>
+        <span className={totalPnl >= 0 ? 'text-bullish' : 'text-bearish'}>
+          {totalPnl >= 0 ? '+' : ''}{totalPnl.toFixed(2)} USD
+        </span>
       </div>
-
-      {/* Average P&L */}
-      <div className="terminal-border p-1.5">
-        <div className="text-primary-muted uppercase text-[8px] mb-0.5">Avg P&L</div>
-        <div className={`text-sm font-bold ${stats.averagePnl >= 0 ? 'text-bullish' : 'text-bearish'}`}>
+      <div className="flex justify-between">
+        <span className="text-primary-muted">TRADES:</span>
+        <span className="text-primary">{stats.totalTrades}</span>
+      </div>
+      <div className="flex justify-between">
+        <span className="text-primary-muted">WIN RATE:</span>
+        <span className={stats.winRate >= 50 ? 'text-bullish' : 'text-bearish'}>
+          {stats.winRate.toFixed(1)}% ({stats.winCount}W / {stats.lossCount}L)
+        </span>
+      </div>
+      <div className="flex justify-between">
+        <span className="text-primary-muted">AVG P&L:</span>
+        <span className={stats.averagePnl >= 0 ? 'text-bullish' : 'text-bearish'}>
           {stats.averagePnl >= 0 ? '+' : ''}${stats.averagePnl.toFixed(2)}
-        </div>
+        </span>
       </div>
-
-      {/* Best/Worst Trades */}
-      <div className="grid grid-cols-2 gap-1.5">
-        <div className="terminal-border p-1.5">
-          <div className="text-primary-muted uppercase text-[8px] mb-0.5">Best</div>
-          <div className="text-bullish font-bold text-[11px]">
-            {stats.bestTrade ? `+$${stats.bestTrade.pnl.toFixed(2)}` : '--'}
-          </div>
-          <div className="text-primary-muted text-[8px]">
-            {stats.bestTrade?.coin || '--'}
-          </div>
-        </div>
-
-        <div className="terminal-border p-1.5">
-          <div className="text-primary-muted uppercase text-[8px] mb-0.5">Worst</div>
-          <div className="text-bearish font-bold text-[11px]">
-            {stats.worstTrade ? `${stats.worstTrade.pnl >= 0 ? '+' : ''}$${stats.worstTrade.pnl.toFixed(2)}` : '--'}
-          </div>
-          <div className="text-primary-muted text-[8px]">
-            {stats.worstTrade?.coin || '--'}
-          </div>
-        </div>
+      <div className="flex justify-between">
+        <span className="text-primary-muted">BEST TRADE:</span>
+        <span className="text-bullish">
+          {stats.bestTrade ? `+$${stats.bestTrade.pnl.toFixed(2)} (${stats.bestTrade.coin})` : '--'}
+        </span>
       </div>
-
-      {/* Total Fees */}
-      <div className="terminal-border p-1.5">
-        <div className="text-primary-muted uppercase text-[8px] mb-0.5">Total Fees</div>
-        <div className="text-sm font-bold text-primary">
-          ${Math.abs(stats.totalFees).toFixed(2)}
-        </div>
+      <div className="flex justify-between">
+        <span className="text-primary-muted">WORST TRADE:</span>
+        <span className="text-bearish">
+          {stats.worstTrade ? `${stats.worstTrade.pnl >= 0 ? '+' : ''}$${stats.worstTrade.pnl.toFixed(2)} (${stats.worstTrade.coin})` : '--'}
+        </span>
+      </div>
+      <div className="flex justify-between">
+        <span className="text-primary-muted">FEES PAID:</span>
+        <span className="text-primary">${Math.abs(stats.totalFees).toFixed(2)}</span>
       </div>
     </div>
   );

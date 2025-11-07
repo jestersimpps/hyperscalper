@@ -18,6 +18,19 @@ interface SymbolPnlDonutProps {
 }
 
 function SymbolPnlDonut({ groups }: SymbolPnlDonutProps) {
+  const colorPalette = [
+    { bg: 'rgba(59, 130, 246, 0.8)', border: 'rgb(59, 130, 246)' },     // blue
+    { bg: 'rgba(168, 85, 247, 0.8)', border: 'rgb(168, 85, 247)' },     // purple
+    { bg: 'rgba(249, 115, 22, 0.8)', border: 'rgb(249, 115, 22)' },     // orange
+    { bg: 'rgba(20, 184, 166, 0.8)', border: 'rgb(20, 184, 166)' },     // teal
+    { bg: 'rgba(236, 72, 153, 0.8)', border: 'rgb(236, 72, 153)' },     // pink
+    { bg: 'rgba(234, 179, 8, 0.8)', border: 'rgb(234, 179, 8)' },       // yellow
+    { bg: 'rgba(34, 197, 94, 0.8)', border: 'rgb(34, 197, 94)' },       // green
+    { bg: 'rgba(239, 68, 68, 0.8)', border: 'rgb(239, 68, 68)' },       // red
+    { bg: 'rgba(99, 102, 241, 0.8)', border: 'rgb(99, 102, 241)' },     // indigo
+    { bg: 'rgba(251, 146, 60, 0.8)', border: 'rgb(251, 146, 60)' },     // orange-light
+  ];
+
   const chartData = useMemo(() => {
     const symbolPnl: Record<string, number> = {};
 
@@ -33,11 +46,11 @@ function SymbolPnlDonut({ groups }: SymbolPnlDonutProps) {
 
     const labels = sortedSymbols.map(([symbol]) => symbol);
     const data = sortedSymbols.map(([, pnl]) => Math.abs(pnl));
-    const colors = sortedSymbols.map(([, pnl]) =>
-      pnl >= 0 ? 'rgba(34, 197, 94, 0.8)' : 'rgba(239, 68, 68, 0.8)'
+    const colors = sortedSymbols.map((_, index) =>
+      colorPalette[index % colorPalette.length].bg
     );
-    const borderColors = sortedSymbols.map(([, pnl]) =>
-      pnl >= 0 ? 'rgb(34, 197, 94)' : 'rgb(239, 68, 68)'
+    const borderColors = sortedSymbols.map((_, index) =>
+      colorPalette[index % colorPalette.length].border
     );
 
     return {

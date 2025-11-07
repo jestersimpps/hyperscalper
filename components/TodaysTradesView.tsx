@@ -116,7 +116,7 @@ function TodaysTradesView() {
                   <div className="text-[10px] text-primary-muted mb-2 uppercase tracking-wider">
                     █ STATISTICS
                   </div>
-                  <StatisticsPanel groups={positionGroups} />
+                  <StatisticsPanel groups={positionGroups} totalPnl={totalPnl} />
                 </div>
               </div>
 
