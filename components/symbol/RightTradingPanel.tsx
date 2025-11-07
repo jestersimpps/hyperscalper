@@ -1,6 +1,7 @@
 'use client';
 
 import { memo } from 'react';
+import { useRouter } from 'next/navigation';
 import QuickCloseButtons from '@/components/layout/QuickCloseButtons';
 import { useSettingsStore } from '@/stores/useSettingsStore';
 import type { Position } from '@/models/Position';
@@ -53,6 +54,7 @@ function RightTradingPanel({
   onCancelExitOrders,
   onCancelAllOrders,
 }: RightTradingPanelProps) {
+  const router = useRouter();
   const togglePanel = useSettingsStore((state) => state.togglePanel);
 
   const hasExitOrders = orders.some(order => order.orderType === 'stop' || order.orderType === 'tp');
@@ -66,6 +68,14 @@ function RightTradingPanel({
           title="Open settings"
         >
           ⚙ Settings
+        </button>
+
+        <button
+          onClick={() => router.push('/trades')}
+          className="w-full px-3 py-1.5 bg-bg-secondary text-primary-muted border-2 border-frame hover:text-primary hover:bg-primary/10 active:scale-95 cursor-pointer transition-all text-[10px] font-mono uppercase tracking-wider rounded-sm"
+          title="View today's trades"
+        >
+          Today's Trades
         </button>
 
         <div className="terminal-border p-1.5 flex flex-col">
