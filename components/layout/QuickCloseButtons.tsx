@@ -11,7 +11,7 @@ export default function QuickCloseButtons() {
 
   const profitablePositions = Object.entries(positions)
     .filter(([_, pos]) => pos && pos.pnl > 0)
-    .map(([symbol, pos]) => ({ symbol, ...pos! }))
+    .map(([symbol, pos]) => ({ ...pos!, symbol }))
     .sort((a, b) => b.pnl - a.pnl);
 
   const mostProfitable = profitablePositions[0];
@@ -19,7 +19,7 @@ export default function QuickCloseButtons() {
 
   const closePosition = async (symbol: string) => {
     try {
-      await service.closePosition({ coin: symbol, percentage: 100 });
+      await service.closePosition({ coin: symbol });
     } catch (error) {
       alert(`Error closing ${symbol}: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }

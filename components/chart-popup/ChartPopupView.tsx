@@ -48,6 +48,8 @@ export default function ChartPopupView({ coin }: ChartPopupViewProps) {
     '5m': candles5m,
     '15m': candles15m,
     '1h': [],
+    '4h': [],
+    '1d': [],
   }), [candles1m, candles5m, candles15m]);
 
   const macdCandleData: Record<TimeInterval, CandleData[]> = useMemo(() => ({
@@ -55,6 +57,8 @@ export default function ChartPopupView({ coin }: ChartPopupViewProps) {
     '5m': candles5m,
     '15m': candles15m,
     '1h': [],
+    '4h': [],
+    '1d': [],
   }), [candles1m, candles5m, candles15m]);
 
   return (

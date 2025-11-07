@@ -64,7 +64,7 @@ export const useCandleStore = create<CandleStore>((set, get) => ({
         endTime,
       });
 
-      const formattedData = data.map((candle: CandleData) => formatCandle(candle, coin));
+      const formattedData = data.map((candle) => formatCandle(candle, coin));
 
       set((state) => ({
         candles: { ...state.candles, [key]: formattedData },

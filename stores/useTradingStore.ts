@@ -497,8 +497,7 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
 
       if (stopLossOrders.length > 0) {
         for (const slOrder of stopLossOrders) {
-          const orderId = parseInt(slOrder.oid);
-          await service.cancelOrder(coin, orderId);
+          await service.cancelOrder(coin, slOrder.oid);
         }
       }
 

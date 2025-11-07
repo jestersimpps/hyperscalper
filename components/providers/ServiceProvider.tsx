@@ -7,6 +7,7 @@ import { useSymbolMetaStore } from '@/stores/useSymbolMetaStore';
 import { useOrderStore } from '@/stores/useOrderStore';
 import { useCandleStore } from '@/stores/useCandleStore';
 import { useTradingStore } from '@/stores/useTradingStore';
+import { useTopSymbolsStore } from '@/stores/useTopSymbolsStore';
 
 export function ServiceProvider({ children }: { children: React.ReactNode }) {
   const service = useHyperliquidService();
@@ -16,6 +17,7 @@ export function ServiceProvider({ children }: { children: React.ReactNode }) {
   const setOrderService = useOrderStore((state) => state.setService);
   const setCandleService = useCandleStore((state) => state.setService);
   const setTradingService = useTradingStore((state) => state.setService);
+  const setTopSymbolsService = useTopSymbolsStore((state) => state.setService);
 
   useEffect(() => {
     if (service) {
@@ -24,10 +26,11 @@ export function ServiceProvider({ children }: { children: React.ReactNode }) {
       setOrderService(service);
       setCandleService(service);
       setTradingService(service);
+      setTopSymbolsService(service);
 
       fetchMetadata();
     }
-  }, [service, setPositionService, setMetaService, setOrderService, setCandleService, setTradingService, fetchMetadata]);
+  }, [service, setPositionService, setMetaService, setOrderService, setCandleService, setTradingService, setTopSymbolsService, fetchMetadata]);
 
   return <>{children}</>;
 }

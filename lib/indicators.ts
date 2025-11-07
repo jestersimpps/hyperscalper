@@ -771,7 +771,7 @@ interface LineEquation {
   intercept: number;
 }
 
-interface ScoredLine {
+interface ScoredEnvelopeLine {
   equation: LineEquation;
   score: number;
   touches: number;
@@ -906,7 +906,7 @@ function findBestEnvelopeLine(
 ): TrendlinePoint[] {
   if (pivots.length < 2) return [];
 
-  let bestLine: ScoredLine | null = null;
+  let bestLine: ScoredEnvelopeLine | null = null;
   let candidatesChecked = 0;
   let validCandidates = 0;
 

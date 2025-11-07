@@ -15,7 +15,6 @@ export default function OrderBook({ coin }: OrderBookProps) {
 
   const orderBook = useOrderBookStore((state) => state.orderBooks[coin]);
   const isLoading = useOrderBookStore((state) => state.loading[coin] ?? true);
-  const fetchOrderBook = useOrderBookStore((state) => state.fetchOrderBook);
   const subscribeToOrderBook = useOrderBookStore((state) => state.subscribeToOrderBook);
   const unsubscribeFromOrderBook = useOrderBookStore((state) => state.unsubscribeFromOrderBook);
 
@@ -24,13 +23,12 @@ export default function OrderBook({ coin }: OrderBookProps) {
   }, [coin]);
 
   useEffect(() => {
-    fetchOrderBook(coin);
     subscribeToOrderBook(coin);
 
     return () => {
       unsubscribeFromOrderBook(coin);
     };
-  }, [coin, fetchOrderBook, subscribeToOrderBook, unsubscribeFromOrderBook]);
+  }, [coin, subscribeToOrderBook, unsubscribeFromOrderBook]);
 
   useEffect(() => {
     if (orderBook && prevOrderBookRef.current) {

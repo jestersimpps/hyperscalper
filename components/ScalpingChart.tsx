@@ -222,7 +222,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
   const ema1SeriesRef = useRef<any>(null);
   const ema2SeriesRef = useRef<any>(null);
   const ema3SeriesRef = useRef<any>(null);
-  const stochSeriesRefsRef = useRef<Record<string, { d: any }>>({});
+  const stochSeriesRefsRef = useRef<Record<string, { k?: any; d: any }>>({});
   const macdSeriesRefsRef = useRef<Record<string, { line: any; signal: any; histogram: any }>>({});
   const stochReferenceLinesRef = useRef<any[]>([]);
   const supportLineSeriesRef = useRef<any[]>([]);
@@ -291,7 +291,6 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
             fixRightEdge: false,
           },
           rightPriceScale: {
-            width: 60,
             scaleMargins: {
               top: 0.1,
               bottom: 0.45,
@@ -361,7 +360,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
 
         if (simplifiedView) {
           const kSeries = chart.addLineSeries({
-            color: colors.accentGreen,
+            color: colors.statusBullish,
             lineWidth: 1,
             priceScaleId: 'stoch',
             lastValueVisible: false,
@@ -370,7 +369,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
           });
 
           const dSeries = chart.addLineSeries({
-            color: colors.accentPurple,
+            color: colors.accentRose,
             lineWidth: 2,
             priceScaleId: 'stoch',
             lastValueVisible: false,
@@ -642,7 +641,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
   );
 
   const macdResult = useMemo(() => {
-    const macdIntervalConfig = macdSettings.timeframes?.[interval];
+    const macdIntervalConfig = macdSettings.timeframes?.[interval as keyof typeof macdSettings.timeframes];
     return ((!macdSettings.showMultiTimeframe || simplifiedView) && macdIntervalConfig?.enabled)
       ? calculateMACDMemoized(closePrices, macdIntervalConfig.fastPeriod, macdIntervalConfig.slowPeriod, macdIntervalConfig.signalPeriod)
       : { macd: [], signal: [], histogram: [] };
@@ -746,7 +745,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
       const pivotMarkers = chartSettings?.showPivotMarkers ? createPivotMarkers(candles) : [];
       const divergenceMarkers = stochasticSettings.showDivergence && currentDivergences.length > 0 ? createDivergenceMarkers(currentDivergences) : [];
 
-      const macdReversalMarkers = macdSettings.enabled && macdResult.macd.length > 0
+      const macdReversalMarkers = macdResult.macd.length > 0
         ? detectMacdReversals(macdResult, candles).map(r => ({
             time: r.time / 1000,
             position: r.position,
@@ -807,7 +806,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
     if (onPriceUpdate) {
       onPriceUpdate(lastCandle.close);
     }
-  }, [candles, chartReady, onPriceUpdate, ema1, ema2, ema3, macdResult, rsi, emaSettings.ema1.enabled, emaSettings.ema2.enabled, emaSettings.ema3.enabled, macdSettings.enabled, stochasticSettings.showMultiVariant, stochasticSettings.showDivergence, stochasticSettings.variants, interval, allMacdCandles, coin, isExternalData, chartSettings]);
+  }, [candles, chartReady, onPriceUpdate, ema1, ema2, ema3, macdResult, rsi, emaSettings.ema1.enabled, emaSettings.ema2.enabled, emaSettings.ema3.enabled, stochasticSettings.showMultiVariant, stochasticSettings.showDivergence, stochasticSettings.variants, interval, allMacdCandles, coin, isExternalData, chartSettings]);
 
 
   // MACD multi-timeframe data update
@@ -818,10 +817,10 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
     const colors = getThemeColors();
 
     enabledMacdTimeframes.forEach((timeframe) => {
-      const macdCandles = isExternalData ? allMacdCandles[timeframe] : allMacdCandles[`${coin}-${timeframe}`];
+      const macdCandles = isExternalData ? allMacdCandles[timeframe] : allMacdCandles[`${coin}-${timeframe}` as TimeInterval];
       if (!macdCandles || macdCandles.length === 0) return;
 
-      const config = macdSettings.timeframes?.[timeframe];
+      const config = macdSettings.timeframes?.[timeframe as keyof typeof macdSettings.timeframes];
       if (!config) return;
 
       const validCandles = macdCandles.filter(c => c && typeof c.close === 'number');
@@ -880,7 +879,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
 
     const colors = getThemeColors();
     const enabledVariants = Object.entries(stochasticSettings.variants).filter(([_, config]) => config.enabled);
-    let slowestVariant: [string, any] | null = null;
+    let slowestVariant: [string, { config: any; stochData: any; offset: number }] | null = null;
 
     Object.entries(stochasticSettings.variants).forEach(([variantName, config]) => {
       if (!config.enabled || !stochSeriesRefsRef.current[variantName]) return;
@@ -895,16 +894,17 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
           value: value.d,
         })));
 
-        if (!slowestVariant || config.period > slowestVariant[1].period) {
+        if (!slowestVariant || config.period > slowestVariant[1].config.period) {
           slowestVariant = [variantName, { config, stochData, offset }];
         }
       }
     });
 
     if (slowestVariant) {
-      const [variantName, { stochData, offset }] = slowestVariant;
+      const variantName = slowestVariant[0];
+      const { stochData, offset } = slowestVariant[1];
       const stochMarkers = chartSettings?.showPivotMarkers
-        ? createStochasticPivotMarkers(stochData, stochCandles.slice(offset), colors)
+        ? createStochasticPivotMarkers(stochData, stochCandles.slice(offset))
         : [];
       stochSeriesRefsRef.current[variantName].d.setMarkers(stochMarkers);
     }
@@ -1250,12 +1250,12 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
             <span className="text-primary-muted">EMA {emaSettings.ema3.period}</span>
           </div>
         )}
-        {macdSettings.enabled && (
+        {macdResult.macd.length > 0 && (
           <>
             <div className="w-px h-4 bg-frame mx-1"></div>
             <div className="flex items-center gap-1">
               <div className="w-6 h-0.5" style={{ backgroundColor: 'var(--accent-blue)' }}></div>
-              <span className="text-primary-muted">MACD ({macdSettings.fastPeriod},{macdSettings.slowPeriod},{macdSettings.signalPeriod})</span>
+              <span className="text-primary-muted">MACD</span>
             </div>
             <div className="flex items-center gap-1">
               <div className="w-6 h-0.5" style={{ backgroundColor: 'var(--accent-rose)' }}></div>

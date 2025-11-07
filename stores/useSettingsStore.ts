@@ -148,11 +148,15 @@ const mergeSettings = (storedSettings: any): AppSettings => {
           enabled: storedSettings.scanner?.stochasticScanner?.enabled ?? DEFAULT_SETTINGS.scanner.stochasticScanner.enabled,
           oversoldThreshold: storedSettings.scanner?.stochasticScanner?.oversoldThreshold ?? DEFAULT_SETTINGS.scanner.stochasticScanner.oversoldThreshold,
           overboughtThreshold: storedSettings.scanner?.stochasticScanner?.overboughtThreshold ?? DEFAULT_SETTINGS.scanner.stochasticScanner.overboughtThreshold,
+          timeframes: storedSettings.scanner?.stochasticScanner?.timeframes ?? DEFAULT_SETTINGS.scanner.stochasticScanner.timeframes,
         },
         emaAlignmentScanner: {
           enabled: storedSettings.scanner?.emaAlignmentScanner?.enabled ?? DEFAULT_SETTINGS.scanner.emaAlignmentScanner.enabled,
           timeframes: storedSettings.scanner?.emaAlignmentScanner?.timeframes ?? DEFAULT_SETTINGS.scanner.emaAlignmentScanner.timeframes,
           lookbackBars: storedSettings.scanner?.emaAlignmentScanner?.lookbackBars ?? DEFAULT_SETTINGS.scanner.emaAlignmentScanner.lookbackBars,
+          ema1Period: storedSettings.scanner?.emaAlignmentScanner?.ema1Period ?? DEFAULT_SETTINGS.scanner.emaAlignmentScanner.ema1Period,
+          ema2Period: storedSettings.scanner?.emaAlignmentScanner?.ema2Period ?? DEFAULT_SETTINGS.scanner.emaAlignmentScanner.ema2Period,
+          ema3Period: storedSettings.scanner?.emaAlignmentScanner?.ema3Period ?? DEFAULT_SETTINGS.scanner.emaAlignmentScanner.ema3Period,
         },
         channelScanner: {
           enabled: storedSettings.scanner?.channelScanner?.enabled ?? DEFAULT_SETTINGS.scanner.channelScanner.enabled,
@@ -166,6 +170,8 @@ const mergeSettings = (storedSettings: any): AppSettings => {
           scanBullish: storedSettings.scanner?.divergenceScanner?.scanBullish ?? DEFAULT_SETTINGS.scanner.divergenceScanner.scanBullish,
           scanBearish: storedSettings.scanner?.divergenceScanner?.scanBearish ?? DEFAULT_SETTINGS.scanner.divergenceScanner.scanBearish,
           scanHidden: storedSettings.scanner?.divergenceScanner?.scanHidden ?? DEFAULT_SETTINGS.scanner.divergenceScanner.scanHidden,
+          pivotStrength: storedSettings.scanner?.divergenceScanner?.pivotStrength ?? DEFAULT_SETTINGS.scanner.divergenceScanner.pivotStrength,
+          timeframes: storedSettings.scanner?.divergenceScanner?.timeframes ?? DEFAULT_SETTINGS.scanner.divergenceScanner.timeframes,
         },
         macdReversalScanner: {
           enabled: storedSettings.scanner?.macdReversalScanner?.enabled ?? DEFAULT_SETTINGS.scanner.macdReversalScanner.enabled,
@@ -173,6 +179,8 @@ const mergeSettings = (storedSettings: any): AppSettings => {
           fastPeriod: storedSettings.scanner?.macdReversalScanner?.fastPeriod ?? DEFAULT_SETTINGS.scanner.macdReversalScanner.fastPeriod,
           slowPeriod: storedSettings.scanner?.macdReversalScanner?.slowPeriod ?? DEFAULT_SETTINGS.scanner.macdReversalScanner.slowPeriod,
           signalPeriod: storedSettings.scanner?.macdReversalScanner?.signalPeriod ?? DEFAULT_SETTINGS.scanner.macdReversalScanner.signalPeriod,
+          recentReversalLookback: storedSettings.scanner?.macdReversalScanner?.recentReversalLookback ?? DEFAULT_SETTINGS.scanner.macdReversalScanner.recentReversalLookback,
+          minCandles: storedSettings.scanner?.macdReversalScanner?.minCandles ?? DEFAULT_SETTINGS.scanner.macdReversalScanner.minCandles,
         },
         rsiReversalScanner: {
           enabled: storedSettings.scanner?.rsiReversalScanner?.enabled ?? DEFAULT_SETTINGS.scanner.rsiReversalScanner.enabled,
@@ -180,6 +188,8 @@ const mergeSettings = (storedSettings: any): AppSettings => {
           period: storedSettings.scanner?.rsiReversalScanner?.period ?? DEFAULT_SETTINGS.scanner.rsiReversalScanner.period,
           oversoldLevel: storedSettings.scanner?.rsiReversalScanner?.oversoldLevel ?? DEFAULT_SETTINGS.scanner.rsiReversalScanner.oversoldLevel,
           overboughtLevel: storedSettings.scanner?.rsiReversalScanner?.overboughtLevel ?? DEFAULT_SETTINGS.scanner.rsiReversalScanner.overboughtLevel,
+          recentReversalLookback: storedSettings.scanner?.rsiReversalScanner?.recentReversalLookback ?? DEFAULT_SETTINGS.scanner.rsiReversalScanner.recentReversalLookback,
+          minCandles: storedSettings.scanner?.rsiReversalScanner?.minCandles ?? DEFAULT_SETTINGS.scanner.rsiReversalScanner.minCandles,
         },
       },
       orders: {

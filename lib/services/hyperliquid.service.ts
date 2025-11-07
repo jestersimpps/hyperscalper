@@ -29,7 +29,8 @@ import type {
   ShortParams,
   ClosePositionParams,
   AccountBalance,
-  TransformedCandle
+  TransformedCandle,
+  MetaAndAssetCtxs
 } from './types';
 
 export class HyperliquidService implements IHyperliquidService {
@@ -80,12 +81,7 @@ export class HyperliquidService implements IHyperliquidService {
   }
 
   async getCandles(params: CandleParams): Promise<TransformedCandle[]> {
-    const req: {
-      coin: string;
-      interval: string;
-      startTime?: number;
-      endTime?: number;
-    } = {
+    const req: any = {
       coin: params.coin,
       interval: params.interval
     };
@@ -120,16 +116,17 @@ export class HyperliquidService implements IHyperliquidService {
 
   async subscribeToOrderBook(params: OrderBookParams, callback: (data: Book) => void): Promise<() => void> {
     this.initWebSocket();
-    return this.eventClient!.l2Book({
+    const subscription = await this.eventClient!.l2Book({
       coin: params.coin,
       nSigFigs: params.nSigFigs,
       mantissa: params.mantissa
     }, callback);
+    return () => subscription.unsubscribe();
   }
 
   async subscribeToCandles(params: CandleParams, callback: (data: TransformedCandle) => void): Promise<() => void> {
     this.initWebSocket();
-    return this.eventClient!.candle({ coin: params.coin, interval: params.interval }, (candle: Candle) => {
+    const subscription = await this.eventClient!.candle({ coin: params.coin, interval: params.interval }, (candle: Candle) => {
       const transformed: TransformedCandle = {
         time: candle.t,
         open: parseFloat(candle.o),
@@ -140,11 +137,13 @@ export class HyperliquidService implements IHyperliquidService {
       };
       callback(transformed);
     });
+    return () => subscription.unsubscribe();
   }
 
   async subscribeToTrades(params: TradesParams, callback: (data: WsTrade[]) => void): Promise<() => void> {
     this.initWebSocket();
-    return this.eventClient!.trades({ coin: params.coin }, callback);
+    const subscription = await this.eventClient!.trades({ coin: params.coin }, callback);
+    return () => subscription.unsubscribe();
   }
 
   async placeMarketBuy(coin: string, size: string): Promise<OrderResponse> {
@@ -207,7 +206,7 @@ export class HyperliquidService implements IHyperliquidService {
       p: order.price,
       s: order.size,
       r: order.reduceOnly || false,
-      t: { limit: { tif: 'Gtc' } }
+      t: { limit: { tif: 'Gtc' as const } }
     }));
 
     return await this.walletClient!.order({
@@ -416,7 +415,7 @@ export class HyperliquidService implements IHyperliquidService {
     const coinOrders = orders.filter(order => order.coin === coin);
 
     if (coinOrders.length === 0) {
-      return { status: 'ok', response: { type: 'default', data: { statuses: [] } } } as CancelResponse;
+      return { status: 'ok', response: { type: 'cancel', data: { statuses: [] } } } as CancelResponse;
     }
 
     const coinIndex = await this.getCoinIndex(coin);
@@ -449,7 +448,7 @@ export class HyperliquidService implements IHyperliquidService {
     });
 
     if (entryOrders.length === 0) {
-      return { status: 'ok', response: { type: 'default', data: { statuses: [] } } } as CancelResponse;
+      return { status: 'ok', response: { type: 'cancel', data: { statuses: [] } } } as CancelResponse;
     }
 
     const coinIndex = await this.getCoinIndex(coin);
@@ -559,6 +558,25 @@ export class HyperliquidService implements IHyperliquidService {
 
   async getAllMids(): Promise<AllMids> {
     return await this.publicClient.allMids();
+  }
+
+  async getMetaAndAssetCtxs(): Promise<MetaAndAssetCtxs> {
+    const url = this.isTestnet
+      ? 'https://api.hyperliquid-testnet.xyz/info'
+      : 'https://api.hyperliquid.xyz/info';
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'metaAndAssetCtxs' })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch metaAndAssetCtxs: ${response.statusText}`);
+    }
+
+    const [meta, assetCtxs] = await response.json();
+    return { meta, assetCtxs };
   }
 
   private ensureWalletClient(): void {

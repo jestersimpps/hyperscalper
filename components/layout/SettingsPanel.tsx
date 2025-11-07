@@ -2,7 +2,7 @@
 
 import { useEffect, useCallback, useState } from 'react';
 import { useSettingsStore } from '@/stores/useSettingsStore';
-import { StochasticTimeframeConfig, EmaConfig, ThemeName } from '@/models/Settings';
+import { EmaConfig, ThemeName } from '@/models/Settings';
 import { CredentialsSettings } from '@/components/settings/CredentialsSettings';
 
 export default function SettingsPanel() {
@@ -688,7 +688,7 @@ export default function SettingsPanel() {
                           variant === 'fast9' ? 'FAST 9' :
                           variant === 'fast14' ? 'FAST 14' :
                           variant === 'fast40' ? 'FAST 40' :
-                          variant === 'full60' ? 'FULL 60' : variant.toUpperCase();
+                          'FULL 60';
                         return (
                           <div key={variant} className="p-3 bg-bg-secondary border border-frame rounded">
                             <div className="flex items-center justify-between mb-3">

@@ -15,7 +15,7 @@ import type {
 } from './exchange-websocket.interface';
 
 import { EventClient, WebSocketTransport } from '@nktkas/hyperliquid';
-import type { Candle, Book, Trade } from '@nktkas/hyperliquid';
+import type { Candle, Book, WsTrade } from '@nktkas/hyperliquid';
 import { useSymbolMetaStore } from '@/stores/useSymbolMetaStore';
 import { useWebSocketStatusStore } from '@/stores/useWebSocketStatusStore';
 import { formatPrice, formatSize } from '@/lib/format-utils';
@@ -25,7 +25,7 @@ interface Subscription {
   type: 'candle' | 'orderBook' | 'trade' | 'allMids';
   params: any;
   callback: any;
-  unsubscribeFn: () => void;
+  unsubscribeFn: Promise<{ unsubscribe: () => void }> | (() => void);
 }
 
 const formatOrderBookLevel = (level: Omit<OrderBookLevel, 'priceFormatted' | 'sizeFormatted' | 'totalFormatted'>, coin: string): OrderBookLevel => {
@@ -78,13 +78,26 @@ export class HyperliquidWebSocketService implements ExchangeWebSocketService {
         { coin: params.coin, interval: params.interval },
         (candle: Candle) => {
           try {
+            const open = parseFloat(candle.o);
+            const high = parseFloat(candle.h);
+            const low = parseFloat(candle.l);
+            const close = parseFloat(candle.c);
+            const volume = parseFloat(candle.v || '0');
+
+            const decimals = useSymbolMetaStore.getState().getDecimals(params.coin);
+
             const candleData: CandleData = {
               time: candle.t,
-              open: parseFloat(candle.o),
-              high: parseFloat(candle.h),
-              low: parseFloat(candle.l),
-              close: parseFloat(candle.c),
-              volume: parseFloat(candle.v || '0')
+              open,
+              high,
+              low,
+              close,
+              volume,
+              openFormatted: formatPrice(open, decimals.price),
+              highFormatted: formatPrice(high, decimals.price),
+              lowFormatted: formatPrice(low, decimals.price),
+              closeFormatted: formatPrice(close, decimals.price),
+              volumeFormatted: formatSize(volume, decimals.size)
             };
             callback(candleData);
           } catch (error) {
@@ -186,14 +199,21 @@ export class HyperliquidWebSocketService implements ExchangeWebSocketService {
 
       const unsubscribeFn = this.eventClient.trades(
         { coin: params.coin },
-        (trades: Trade[]) => {
+        (trades: WsTrade[]) => {
           try {
-            const tradeBatch = trades.map((trade: Trade): TradeData => ({
-              time: trade.time,
-              price: parseFloat(trade.px),
-              size: parseFloat(trade.sz),
-              side: trade.side === 'B' ? 'buy' : 'sell'
-            }));
+            const decimals = useSymbolMetaStore.getState().getDecimals(params.coin);
+            const tradeBatch = trades.map((trade: WsTrade): TradeData => {
+              const price = parseFloat(trade.px);
+              const size = parseFloat(trade.sz);
+              return {
+                time: trade.time,
+                price,
+                size,
+                side: trade.side === 'B' ? 'buy' : 'sell',
+                priceFormatted: formatPrice(price, decimals.price),
+                sizeFormatted: formatSize(size, decimals.size)
+              };
+            });
             callback(tradeBatch);
           } catch (error) {
             // Error processing trade
@@ -257,6 +277,8 @@ export class HyperliquidWebSocketService implements ExchangeWebSocketService {
       try {
         if (typeof subscription.unsubscribeFn === 'function') {
           subscription.unsubscribeFn();
+        } else if (subscription.unsubscribeFn instanceof Promise) {
+          subscription.unsubscribeFn.then(sub => sub.unsubscribe());
         }
       } catch (error) {
         // Error unsubscribing

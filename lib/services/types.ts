@@ -84,6 +84,20 @@ export interface AccountBalance {
   accountValue: string;
 }
 
+export interface AssetCtx {
+  dayNtlVlm: string;
+  funding: string;
+  openInterest: string;
+  prevDayPx: string;
+  markPx: string;
+  midPx?: string;
+}
+
+export interface MetaAndAssetCtxs {
+  meta: PerpsMeta;
+  assetCtxs: AssetCtx[];
+}
+
 export interface IHyperliquidService {
   getCandles(params: CandleParams): Promise<TransformedCandle[]>;
   getOrderBook(params: OrderBookParams): Promise<Book>;
@@ -119,4 +133,5 @@ export interface IHyperliquidService {
   formatSize(size: number, coin: string): Promise<string>;
   getMeta(): Promise<PerpsMeta>;
   getAllMids(): Promise<AllMids>;
+  getMetaAndAssetCtxs(): Promise<MetaAndAssetCtxs>;
 }

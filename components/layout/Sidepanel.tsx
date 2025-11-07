@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useMemo } from 'react';
 import { useScannerStore } from '@/stores/useScannerStore';
@@ -213,7 +214,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                   const arrow = isBullish ? '▲' : '▼';
                   const isPinned = pinnedSymbols.includes(symbol);
 
-                  const signalBadges: JSX.Element[] = [];
+                  const signalBadges: React.JSX.Element[] = [];
 
                   symbolResults.forEach((result, idx) => {
                     const resultBullish = result.signalType === 'bullish';

@@ -314,7 +314,7 @@ function SymbolView({ coin }: SymbolViewProps) {
     const positions = usePositionStore.getState().positions;
     const profitablePositions = Object.entries(positions)
       .filter(([_, pos]) => pos && pos.pnl > 0)
-      .map(([symbol, pos]) => ({ symbol, ...pos! }))
+      .map(([symbol, pos]) => ({ ...pos!, symbol }))
       .sort((a, b) => b.pnl - a.pnl);
 
     const mostProfitable = profitablePositions[0];
@@ -333,7 +333,7 @@ function SymbolView({ coin }: SymbolViewProps) {
     const positions = usePositionStore.getState().positions;
     const profitablePositions = Object.entries(positions)
       .filter(([_, pos]) => pos && pos.pnl > 0)
-      .map(([symbol, pos]) => ({ symbol, ...pos! }));
+      .map(([symbol, pos]) => ({ ...pos!, symbol }));
 
     if (profitablePositions.length === 0) return;
 

@@ -4,12 +4,12 @@ import { memo } from 'react';
 import QuickCloseButtons from '@/components/layout/QuickCloseButtons';
 import { usePositionStore } from '@/stores/usePositionStore';
 import { useHyperliquidService } from '@/lib/hooks/use-hyperliquid-service';
-import type { Position } from '@/types';
-import type { Order } from '@/lib/services/types';
+import type { Position } from '@/models/Position';
+import type { Order } from '@/models/Order';
 
 interface RightTradingPanelProps {
   coin: string;
-  position?: Position;
+  position?: Position | null;
   orders: Order[];
   decimals: { price: number; size: number };
   onBuyCloud: () => void;
@@ -57,12 +57,12 @@ function RightTradingPanel({
 
   const otherProfitablePositions = Object.entries(allPositions)
     .filter(([symbol, pos]) => symbol !== coin && pos && pos.pnl > 0)
-    .map(([symbol, pos]) => ({ symbol, ...pos! }))
+    .map(([symbol, pos]) => ({ ...pos!, symbol }))
     .sort((a, b) => b.pnl - a.pnl);
 
   const closeOtherPosition = async (symbol: string) => {
     try {
-      await service.closePosition({ coin: symbol, percentage: 100 });
+      await service.closePosition({ coin: symbol });
     } catch (error) {
       alert(`Error closing ${symbol}: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
