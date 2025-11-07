@@ -43,6 +43,7 @@ interface TradingStore {
   closePosition: (params: ClosePositionParams) => Promise<void>;
   moveStopLoss: (params: MoveStopLossParams) => Promise<void>;
   cancelEntryOrders: (symbol: string) => Promise<void>;
+  cancelExitOrders: (symbol: string) => Promise<void>;
   cancelAllOrders: (symbol: string) => Promise<void>;
 }
 
@@ -543,6 +544,30 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
     } finally {
       set((state) => ({
         isExecuting: { ...state.isExecuting, [`cancelEntry_${symbol}`]: false },
+      }));
+    }
+  },
+
+  cancelExitOrders: async (symbol: string) => {
+    const { service } = get();
+    if (!service) throw new Error('Service not initialized');
+
+    set((state) => ({
+      isExecuting: { ...state.isExecuting, [`cancelExit_${symbol}`]: true },
+      errors: { ...state.errors, [`cancelExit_${symbol}`]: null },
+    }));
+
+    try {
+      await service.cancelExitOrders(symbol);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      set((state) => ({
+        errors: { ...state.errors, [`cancelExit_${symbol}`]: errorMessage },
+      }));
+      throw error;
+    } finally {
+      set((state) => ({
+        isExecuting: { ...state.isExecuting, [`cancelExit_${symbol}`]: false },
       }));
     }
   },

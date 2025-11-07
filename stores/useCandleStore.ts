@@ -66,6 +66,12 @@ export const useCandleStore = create<CandleStore>((set, get) => ({
 
       const formattedData = data.map((candle) => formatCandle(candle, coin));
 
+      console.log(`[Fetch Candles] ${key} - Fetched ${formattedData.length} candles`);
+      if (formattedData.length > 1) {
+        const timeDiff = formattedData[1].time - formattedData[0].time;
+        console.log(`[Fetch Candles] ${key} - Time difference between first two candles: ${timeDiff}ms (${timeDiff / 60000} minutes)`);
+      }
+
       set((state) => ({
         candles: { ...state.candles, [key]: formattedData },
         loading: { ...state.loading, [key]: false },

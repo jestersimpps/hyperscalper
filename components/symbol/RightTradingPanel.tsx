@@ -27,6 +27,7 @@ interface RightTradingPanelProps {
   onMoveSL75: () => void;
   onMoveSLBreakeven: () => void;
   onCancelEntryOrders: () => void;
+  onCancelExitOrders: () => void;
   onCancelAllOrders: () => void;
 }
 
@@ -50,6 +51,7 @@ function RightTradingPanel({
   onMoveSL75,
   onMoveSLBreakeven,
   onCancelEntryOrders,
+  onCancelExitOrders,
   onCancelAllOrders,
 }: RightTradingPanelProps) {
   const allPositions = usePositionStore((state) => state.positions);
@@ -59,6 +61,8 @@ function RightTradingPanel({
     .filter(([symbol, pos]) => symbol !== coin && pos && pos.pnl > 0)
     .map(([symbol, pos]) => ({ ...pos!, symbol }))
     .sort((a, b) => b.pnl - a.pnl);
+
+  const hasExitOrders = orders.some(order => order.orderType === 'stop' || order.orderType === 'tp');
 
   const closeOtherPosition = async (symbol: string) => {
     try {
@@ -72,12 +76,18 @@ function RightTradingPanel({
     <aside className="w-80 border-l-2 border-border-frame overflow-y-auto">
       <div className="p-2 flex flex-col gap-2">
         <div className="terminal-border p-1.5 flex flex-col">
-          <div className="text-[10px] text-primary-muted mb-1.5 uppercase tracking-wider">█ POSITION</div>
-          <div className="text-[10px] space-y-1 font-mono">
+          <div className="text-[12px] text-primary-muted mb-1.5 uppercase tracking-wider">█ POSITION</div>
+          <div className="text-[12px] space-y-1 font-mono">
             <div className="flex justify-between">
               <span className="text-primary-muted">SIZE:</span>
               <span className={position ? (position.side === 'long' ? 'text-bullish' : 'text-bearish') : 'text-primary'}>
                 {position ? `${position.size.toFixed(decimals.size)} ${coin} ${position.side.toUpperCase()}` : `-- ${coin}`}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-primary-muted">VALUE:</span>
+              <span className="text-primary">
+                {position ? `$${(position.size * position.currentPrice).toFixed(2)}` : '$---.--'}
               </span>
             </div>
             <div className="flex justify-between">
@@ -259,6 +269,13 @@ function RightTradingPanel({
                 disabled={orders.length === 0}
               >
                 ✕ CANCEL ENTRY ORDERS
+              </button>
+              <button
+                className="w-full px-2 py-1.5 bg-accent-orange/10 border border-accent-orange/30 text-accent-orange hover:bg-accent-orange/20 hover:border-accent-orange/50 active:bg-accent-orange/30 active:scale-95 active:shadow-inner transition-all rounded-sm hover:shadow-[0_0_8px_rgba(255,165,0,0.3)] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 cursor-pointer text-[10px] font-mono"
+                onClick={onCancelExitOrders}
+                disabled={!hasExitOrders}
+              >
+                ✕ CANCEL EXIT ORDERS
               </button>
               <button
                 className="w-full px-2 py-1.5 bg-accent-orange/10 border border-accent-orange/30 text-accent-orange hover:bg-accent-orange/20 hover:border-accent-orange/50 active:bg-accent-orange/30 active:scale-95 active:shadow-inner transition-all rounded-sm hover:shadow-[0_0_8px_rgba(255,165,0,0.3)] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 cursor-pointer text-[10px] font-mono"

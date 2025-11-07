@@ -12,6 +12,8 @@ interface ChartPopupViewProps {
   coin: string;
 }
 
+const EMPTY_CANDLES: CandleData[] = [];
+
 export default function ChartPopupView({ coin }: ChartPopupViewProps) {
   const [currentPrice, setCurrentPrice] = useState(0);
   const [selectedTimeframe, setSelectedTimeframe] = useState<'1m' | '5m' | '15m' | '1h'>('1m');
@@ -22,10 +24,10 @@ export default function ChartPopupView({ coin }: ChartPopupViewProps) {
   const subscribeToCandles = useCandleStore((state) => state.subscribeToCandles);
   const unsubscribeFromCandles = useCandleStore((state) => state.unsubscribeFromCandles);
 
-  const mainChartData = useCandleStore((state) => state.candles[`${coin}-${selectedTimeframe}`] || []);
-  const candles1m = useCandleStore((state) => state.candles[`${coin}-1m`] || []);
-  const candles5m = useCandleStore((state) => state.candles[`${coin}-5m`] || []);
-  const candles15m = useCandleStore((state) => state.candles[`${coin}-15m`] || []);
+  const mainChartData = useCandleStore((state) => state.candles[`${coin}-${selectedTimeframe}`] ?? EMPTY_CANDLES);
+  const candles1m = useCandleStore((state) => state.candles[`${coin}-1m`] ?? EMPTY_CANDLES);
+  const candles5m = useCandleStore((state) => state.candles[`${coin}-5m`] ?? EMPTY_CANDLES);
+  const candles15m = useCandleStore((state) => state.candles[`${coin}-15m`] ?? EMPTY_CANDLES);
 
   useEffect(() => {
     const intervals: TimeInterval[] = ['1m', '5m', '15m'];
@@ -64,31 +66,27 @@ export default function ChartPopupView({ coin }: ChartPopupViewProps) {
   return (
     <div className="min-h-screen w-screen bg-bg-primary overflow-hidden">
       <div className="flex flex-col h-screen p-2 gap-2">
-        {/* Header */}
+        {/* Header with Timeframe Selector */}
         <div className="terminal-border p-2 flex-none">
-          <div className="text-center">
+          <div className="flex justify-between items-center">
             <span className="text-primary text-lg font-bold tracking-wider">
               {coin}/USD {currentPrice > 0 && `- $${currentPrice.toFixed(decimals.price)}`}
             </span>
-          </div>
-        </div>
-
-        {/* Timeframe Selector */}
-        <div className="terminal-border p-2 flex-none">
-          <div className="flex gap-2">
-            {(['1m', '5m', '15m', '1h'] as const).map((tf) => (
-              <button
-                key={tf}
-                onClick={() => setSelectedTimeframe(tf)}
-                className={`flex-1 px-4 py-2 text-xs font-mono uppercase tracking-wider transition-all ${
-                  selectedTimeframe === tf
-                    ? 'bg-primary/20 text-primary border-2 border-primary'
-                    : 'bg-bg-secondary text-primary-muted border-2 border-frame hover:text-primary hover:bg-primary/10'
-                }`}
-              >
-                {tf}
-              </button>
-            ))}
+            <div className="flex gap-1">
+              {(['1m', '5m', '15m', '1h'] as const).map((tf) => (
+                <button
+                  key={tf}
+                  onClick={() => setSelectedTimeframe(tf)}
+                  className={`px-2 py-1 text-[10px] font-mono uppercase tracking-wider transition-all ${
+                    selectedTimeframe === tf
+                      ? 'bg-primary/20 text-primary border-2 border-primary'
+                      : 'bg-bg-secondary text-primary-muted border-2 border-frame hover:text-primary hover:bg-primary/10'
+                  }`}
+                >
+                  {tf}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -102,6 +100,7 @@ export default function ChartPopupView({ coin }: ChartPopupViewProps) {
             isExternalData={true}
             onPriceUpdate={setCurrentPrice}
             macdCandleData={macdCandleData}
+            simplifiedView={true}
           />
         </div>
       </div>

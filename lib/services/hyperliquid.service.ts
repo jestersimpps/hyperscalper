@@ -460,6 +460,39 @@ export class HyperliquidService implements IHyperliquidService {
     return await this.walletClient!.cancel({ cancels });
   }
 
+  async cancelExitOrders(coin: string): Promise<CancelResponse> {
+    this.ensureWalletClient();
+    const orders = await this.getOpenOrders();
+    const coinOrders = orders.filter(order => order.coin === coin);
+
+    const exitOrders = coinOrders.filter(order => {
+      if (order.isPositionTpsl) return true;
+
+      const ot = order.orderType?.toLowerCase() || '';
+      if (ot.includes('stop')) return true;
+      if (ot.includes('tp')) return true;
+
+      if (order.isTrigger && order.reduceOnly) {
+        const triggerType = ot || '';
+        if (triggerType.includes('market')) return true;
+      }
+
+      return false;
+    });
+
+    if (exitOrders.length === 0) {
+      return { status: 'ok', response: { type: 'cancel', data: { statuses: [] } } } as CancelResponse;
+    }
+
+    const coinIndex = await this.getCoinIndex(coin);
+    const cancels = exitOrders.map(order => ({
+      a: coinIndex,
+      o: order.oid
+    }));
+
+    return await this.walletClient!.cancel({ cancels });
+  }
+
   async openLong(params: LongParams): Promise<OrderResponse> {
     this.ensureWalletClient();
     const price = params.price || await this.getMarketPrice(params.coin, true);
