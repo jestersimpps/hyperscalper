@@ -39,28 +39,17 @@ export const useCandleStore = create<CandleStore>((set, get) => ({
     const key = getCandleKey(coin, interval);
     const { loading, candles, service } = get();
 
-    console.log(`[useCandleStore] fetchCandles called for ${key}`, {
-      hasService: !!service,
-      isLoading: loading[key],
-      hasExistingCandles: candles[key]?.length > 0
-    });
-
     if (!service) {
-      console.log(`[useCandleStore] No service available for ${key}`);
       return;
     }
 
     if (loading[key]) {
-      console.log(`[useCandleStore] Already loading ${key}`);
       return;
     }
 
     if (candles[key] && candles[key].length > 0) {
-      console.log(`[useCandleStore] Already have ${candles[key].length} candles for ${key}`);
       return;
     }
-
-    console.log(`[useCandleStore] Fetching candles for ${key}...`);
 
     set((state) => ({
       loading: { ...state.loading, [key]: true },
@@ -75,8 +64,6 @@ export const useCandleStore = create<CandleStore>((set, get) => ({
         endTime,
       });
 
-      console.log(`[useCandleStore] Received ${data.length} candles for ${key}`);
-
       const formattedData = data.map((candle: CandleData) => formatCandle(candle, coin));
 
       set((state) => ({
@@ -84,7 +71,6 @@ export const useCandleStore = create<CandleStore>((set, get) => ({
         loading: { ...state.loading, [key]: false },
       }));
     } catch (error) {
-      console.error(`[useCandleStore] Error fetching ${key}:`, error);
       set((state) => ({
         errors: { ...state.errors, [key]: error instanceof Error ? error.message : 'Unknown error' },
         loading: { ...state.loading, [key]: false },

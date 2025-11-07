@@ -1,4 +1,21 @@
-import { PublicClient, WalletClient, EventClient, HttpTransport, WebSocketTransport, Book, Candle, WsTrade } from '@nktkas/hyperliquid';
+import {
+  PublicClient,
+  WalletClient,
+  EventClient,
+  HttpTransport,
+  WebSocketTransport,
+  Book,
+  Candle,
+  WsTrade,
+  PerpsClearinghouseState,
+  AssetPosition,
+  FrontendOrder,
+  OrderResponse,
+  CancelResponse,
+  PerpsMeta,
+  AllMids,
+  SuccessResponse
+} from '@nktkas/hyperliquid';
 import { privateKeyToAccount } from 'viem/accounts';
 import type {
   IHyperliquidService,
@@ -11,7 +28,8 @@ import type {
   LongParams,
   ShortParams,
   ClosePositionParams,
-  AccountBalance
+  AccountBalance,
+  TransformedCandle
 } from './types';
 
 export class HyperliquidService implements IHyperliquidService {
@@ -61,20 +79,22 @@ export class HyperliquidService implements IHyperliquidService {
     }
   }
 
-  async getCandles(params: CandleParams): Promise<any[]> {
-    const req: any = {
+  async getCandles(params: CandleParams): Promise<TransformedCandle[]> {
+    const req: {
+      coin: string;
+      interval: string;
+      startTime?: number;
+      endTime?: number;
+    } = {
       coin: params.coin,
       interval: params.interval
     };
     if (params.startTime !== undefined) req.startTime = params.startTime;
     if (params.endTime !== undefined) req.endTime = params.endTime;
 
-    console.log('[HyperliquidService] getCandles called with:', req);
-
     const result = await this.publicClient.candleSnapshot(req);
-    console.log(`[HyperliquidService] getCandles returned ${result.length} candles for ${params.coin}-${params.interval}`);
 
-    const transformed = result.map((candle: any) => ({
+    const transformed: TransformedCandle[] = result.map((candle: Candle) => ({
       time: candle.t,
       open: parseFloat(candle.o),
       high: parseFloat(candle.h),
@@ -82,8 +102,6 @@ export class HyperliquidService implements IHyperliquidService {
       close: parseFloat(candle.c),
       volume: parseFloat(candle.v)
     }));
-
-    console.log('[HyperliquidService] Transformed sample candle:', transformed[0]);
 
     return transformed;
   }
@@ -109,10 +127,10 @@ export class HyperliquidService implements IHyperliquidService {
     }, callback);
   }
 
-  async subscribeToCandles(params: CandleParams, callback: (data: any) => void): Promise<() => void> {
+  async subscribeToCandles(params: CandleParams, callback: (data: TransformedCandle) => void): Promise<() => void> {
     this.initWebSocket();
-    return this.eventClient!.candle({ coin: params.coin, interval: params.interval }, (candle: any) => {
-      const transformed = {
+    return this.eventClient!.candle({ coin: params.coin, interval: params.interval }, (candle: Candle) => {
+      const transformed: TransformedCandle = {
         time: candle.t,
         open: parseFloat(candle.o),
         high: parseFloat(candle.h),
@@ -129,7 +147,7 @@ export class HyperliquidService implements IHyperliquidService {
     return this.eventClient!.trades({ coin: params.coin }, callback);
   }
 
-  async placeMarketBuy(coin: string, size: string): Promise<any> {
+  async placeMarketBuy(coin: string, size: string): Promise<OrderResponse> {
     this.ensureWalletClient();
     return await this.walletClient!.order({
       orders: [{
@@ -144,7 +162,7 @@ export class HyperliquidService implements IHyperliquidService {
     });
   }
 
-  async placeMarketSell(coin: string, size: string): Promise<any> {
+  async placeMarketSell(coin: string, size: string): Promise<OrderResponse> {
     this.ensureWalletClient();
     return await this.walletClient!.order({
       orders: [{
@@ -159,7 +177,7 @@ export class HyperliquidService implements IHyperliquidService {
     });
   }
 
-  async placeLimitOrder(params: OrderParams): Promise<any> {
+  async placeLimitOrder(params: OrderParams): Promise<OrderResponse> {
     this.ensureWalletClient();
     return await this.walletClient!.order({
       orders: [{
@@ -174,7 +192,7 @@ export class HyperliquidService implements IHyperliquidService {
     });
   }
 
-  async placeBatchLimitOrders(orders: OrderParams[]): Promise<any> {
+  async placeBatchLimitOrders(orders: OrderParams[]): Promise<OrderResponse> {
     this.ensureWalletClient();
 
     if (orders.length === 0) {
@@ -198,7 +216,7 @@ export class HyperliquidService implements IHyperliquidService {
     });
   }
 
-  async placeStopLoss(params: StopLossParams): Promise<any> {
+  async placeStopLoss(params: StopLossParams): Promise<OrderResponse> {
     this.ensureWalletClient();
     const triggerPrice = await this.formatPrice(parseFloat(params.triggerPrice), params.coin);
     const size = await this.formatSize(parseFloat(params.size), params.coin);
@@ -221,7 +239,7 @@ export class HyperliquidService implements IHyperliquidService {
     });
   }
 
-  async placeTakeProfit(params: TakeProfitParams): Promise<any> {
+  async placeTakeProfit(params: TakeProfitParams): Promise<OrderResponse> {
     this.ensureWalletClient();
     const triggerPrice = await this.formatPrice(parseFloat(params.triggerPrice), params.coin);
     const size = await this.formatSize(parseFloat(params.size), params.coin);
@@ -341,7 +359,7 @@ export class HyperliquidService implements IHyperliquidService {
     return await this.formatPrice(price * slippage, coin);
   }
 
-  async getAccountState(user?: string): Promise<any> {
+  async getAccountState(user?: string): Promise<PerpsClearinghouseState> {
     const address = (user || this.userAddress) as `0x${string}`;
     if (!address) {
       throw new Error('No wallet address available');
@@ -349,7 +367,7 @@ export class HyperliquidService implements IHyperliquidService {
     return await this.publicClient.clearinghouseState({ user: address });
   }
 
-  async getOpenPositions(user?: string): Promise<any[]> {
+  async getOpenPositions(user?: string): Promise<AssetPosition[]> {
     const address = (user || this.userAddress) as `0x${string}`;
     if (!address) {
       throw new Error('No wallet address available');
@@ -372,7 +390,7 @@ export class HyperliquidService implements IHyperliquidService {
     };
   }
 
-  async getOpenOrders(user?: string): Promise<any[]> {
+  async getOpenOrders(user?: string): Promise<FrontendOrder[]> {
     const address = (user || this.userAddress) as `0x${string}`;
     if (!address) {
       throw new Error('No wallet address available');
@@ -381,7 +399,7 @@ export class HyperliquidService implements IHyperliquidService {
     return orders;
   }
 
-  async cancelOrder(coin: string, orderId: number): Promise<any> {
+  async cancelOrder(coin: string, orderId: number): Promise<CancelResponse> {
     this.ensureWalletClient();
     const coinIndex = await this.getCoinIndex(coin);
     return await this.walletClient!.cancel({
@@ -392,13 +410,13 @@ export class HyperliquidService implements IHyperliquidService {
     });
   }
 
-  async cancelAllOrders(coin: string): Promise<any> {
+  async cancelAllOrders(coin: string): Promise<CancelResponse> {
     this.ensureWalletClient();
     const orders = await this.getOpenOrders();
     const coinOrders = orders.filter(order => order.coin === coin);
 
     if (coinOrders.length === 0) {
-      return { status: 'ok', response: { type: 'default', data: { statuses: [] } } };
+      return { status: 'ok', response: { type: 'default', data: { statuses: [] } } } as CancelResponse;
     }
 
     const coinIndex = await this.getCoinIndex(coin);
@@ -410,7 +428,7 @@ export class HyperliquidService implements IHyperliquidService {
     return await this.walletClient!.cancel({ cancels });
   }
 
-  async cancelEntryOrders(coin: string): Promise<any> {
+  async cancelEntryOrders(coin: string): Promise<CancelResponse> {
     this.ensureWalletClient();
     const orders = await this.getOpenOrders();
     const coinOrders = orders.filter(order => order.coin === coin);
@@ -431,7 +449,7 @@ export class HyperliquidService implements IHyperliquidService {
     });
 
     if (entryOrders.length === 0) {
-      return { status: 'ok', response: { type: 'default', data: { statuses: [] } } };
+      return { status: 'ok', response: { type: 'default', data: { statuses: [] } } } as CancelResponse;
     }
 
     const coinIndex = await this.getCoinIndex(coin);
@@ -443,7 +461,7 @@ export class HyperliquidService implements IHyperliquidService {
     return await this.walletClient!.cancel({ cancels });
   }
 
-  async openLong(params: LongParams): Promise<any> {
+  async openLong(params: LongParams): Promise<OrderResponse> {
     this.ensureWalletClient();
     const price = params.price || await this.getMarketPrice(params.coin, true);
     const size = await this.formatSize(parseFloat(params.size), params.coin);
@@ -461,7 +479,7 @@ export class HyperliquidService implements IHyperliquidService {
     });
   }
 
-  async openShort(params: ShortParams): Promise<any> {
+  async openShort(params: ShortParams): Promise<OrderResponse> {
     this.ensureWalletClient();
     const price = params.price || await this.getMarketPrice(params.coin, false);
     const size = await this.formatSize(parseFloat(params.size), params.coin);
@@ -479,7 +497,7 @@ export class HyperliquidService implements IHyperliquidService {
     });
   }
 
-  async setLeverage(coin: string, leverage: number, isCross: boolean = true): Promise<any> {
+  async setLeverage(coin: string, leverage: number, isCross: boolean = true): Promise<SuccessResponse | null> {
     this.ensureWalletClient();
     try {
       return await (this.walletClient as any).updateLeverage({
@@ -492,7 +510,7 @@ export class HyperliquidService implements IHyperliquidService {
     }
   }
 
-  async closePosition(params: ClosePositionParams): Promise<any> {
+  async closePosition(params: ClosePositionParams): Promise<OrderResponse> {
     this.ensureWalletClient();
     const positions = await this.getOpenPositions();
     const position = positions.find(p => p.position.coin === params.coin);
@@ -535,11 +553,11 @@ export class HyperliquidService implements IHyperliquidService {
     });
   }
 
-  async getMeta(): Promise<any> {
+  async getMeta(): Promise<PerpsMeta> {
     return await this.publicClient.meta();
   }
 
-  async getAllMids(): Promise<any> {
+  async getAllMids(): Promise<AllMids> {
     return await this.publicClient.allMids();
   }
 

@@ -3,7 +3,6 @@ import { useSymbolMetaStore } from '@/stores/useSymbolMetaStore';
 
 export const formatPrice = (value: number, decimals: number): string => {
   if (value === undefined || value === null) {
-    console.error('[formatPrice] Received undefined/null value:', { value, decimals });
     return '0';
   }
   return parseFloat(value.toFixed(decimals)).toString();
@@ -18,10 +17,6 @@ export const formatCandle = (
   coin: string
 ): CandleData => {
   const decimals = useSymbolMetaStore.getState().getDecimals(coin);
-
-  if (!candle.open || !candle.high || !candle.low || !candle.close) {
-    console.error('[formatCandle] Invalid candle data:', { candle, coin });
-  }
 
   return {
     ...candle,

@@ -1,5 +1,26 @@
-import type { Book, Candle, WsTrade } from '@nktkas/hyperliquid';
+import type {
+  Book,
+  Candle,
+  WsTrade,
+  PerpsClearinghouseState,
+  AssetPosition,
+  FrontendOrder,
+  OrderResponse,
+  CancelResponse,
+  PerpsMeta,
+  AllMids,
+  SuccessResponse
+} from '@nktkas/hyperliquid';
 import type { CandleData, TimeInterval } from '@/types';
+
+export interface TransformedCandle {
+  time: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+}
 
 export interface CandleParams {
   coin: string;
@@ -64,35 +85,38 @@ export interface AccountBalance {
 }
 
 export interface IHyperliquidService {
-  getCandles(params: CandleParams): Promise<Candle[]>;
+  getCandles(params: CandleParams): Promise<TransformedCandle[]>;
   getOrderBook(params: OrderBookParams): Promise<Book>;
   getRecentTrades(params: TradesParams): Promise<any[]>;
 
   subscribeToOrderBook(params: OrderBookParams, callback: (data: Book) => void): Promise<() => void>;
-  subscribeToCandles(params: CandleParams, callback: (data: Candle) => void): Promise<() => void>;
+  subscribeToCandles(params: CandleParams, callback: (data: TransformedCandle) => void): Promise<() => void>;
   subscribeToTrades(params: TradesParams, callback: (data: WsTrade[]) => void): Promise<() => void>;
 
-  placeMarketBuy(coin: string, size: string): Promise<any>;
-  placeMarketSell(coin: string, size: string): Promise<any>;
-  placeLimitOrder(params: OrderParams): Promise<any>;
-  placeBatchLimitOrders(orders: OrderParams[]): Promise<any>;
-  placeStopLoss(params: StopLossParams): Promise<any>;
-  placeTakeProfit(params: TakeProfitParams): Promise<any>;
+  placeMarketBuy(coin: string, size: string): Promise<OrderResponse>;
+  placeMarketSell(coin: string, size: string): Promise<OrderResponse>;
+  placeLimitOrder(params: OrderParams): Promise<OrderResponse>;
+  placeBatchLimitOrders(orders: OrderParams[]): Promise<OrderResponse>;
+  placeStopLoss(params: StopLossParams): Promise<OrderResponse>;
+  placeTakeProfit(params: TakeProfitParams): Promise<OrderResponse>;
 
-  getAccountState(user?: string): Promise<any>;
-  getOpenPositions(user?: string): Promise<any[]>;
+  getAccountState(user?: string): Promise<PerpsClearinghouseState>;
+  getOpenPositions(user?: string): Promise<AssetPosition[]>;
   getAccountBalance(user?: string): Promise<AccountBalance>;
-  getOpenOrders(user?: string): Promise<any[]>;
-  cancelOrder(coin: string, orderId: number): Promise<any>;
-  cancelAllOrders(coin: string): Promise<any>;
+  getOpenOrders(user?: string): Promise<FrontendOrder[]>;
+  cancelOrder(coin: string, orderId: number): Promise<CancelResponse>;
+  cancelAllOrders(coin: string): Promise<CancelResponse>;
+  cancelEntryOrders(coin: string): Promise<CancelResponse>;
 
-  openLong(params: LongParams): Promise<any>;
-  openShort(params: ShortParams): Promise<any>;
-  closePosition(params: ClosePositionParams): Promise<any>;
+  openLong(params: LongParams): Promise<OrderResponse>;
+  openShort(params: ShortParams): Promise<OrderResponse>;
+  closePosition(params: ClosePositionParams): Promise<OrderResponse>;
 
-  setLeverage(coin: string, leverage: number, isCross?: boolean): Promise<any>;
+  setLeverage(coin: string, leverage: number, isCross?: boolean): Promise<SuccessResponse | null>;
 
   getCoinIndex(coin: string): Promise<number>;
   formatPrice(price: number, coin: string): Promise<string>;
   formatSize(size: number, coin: string): Promise<string>;
+  getMeta(): Promise<PerpsMeta>;
+  getAllMids(): Promise<AllMids>;
 }
