@@ -4,6 +4,7 @@ import type { ExchangeWebSocketService } from '@/lib/websocket/exchange-websocke
 import { useWebSocketStatusStore } from '@/stores/useWebSocketStatusStore';
 import { formatCandle } from '@/lib/format-utils';
 import { MAX_CANDLES } from '@/lib/constants';
+import { HyperliquidService } from '@/lib/services/hyperliquid.service';
 
 interface CandleStore {
   candles: Record<string, CandleData[]>;
@@ -11,7 +12,9 @@ interface CandleStore {
   errors: Record<string, string | null>;
   subscriptions: Record<string, { subscriptionId: string; cleanup: () => void; refCount: number }>;
   wsService: ExchangeWebSocketService | null;
+  service: HyperliquidService | null;
 
+  setService: (service: HyperliquidService) => void;
   fetchCandles: (coin: string, interval: TimeInterval, startTime: number, endTime: number) => Promise<void>;
   subscribeToCandles: (coin: string, interval: TimeInterval) => void;
   unsubscribeFromCandles: (coin: string, interval: TimeInterval) => void;
@@ -26,12 +29,17 @@ export const useCandleStore = create<CandleStore>((set, get) => ({
   errors: {},
   subscriptions: {},
   wsService: null,
+  service: null,
+
+  setService: (service: HyperliquidService) => {
+    set({ service });
+  },
 
   fetchCandles: async (coin, interval, startTime, endTime) => {
     const key = getCandleKey(coin, interval);
-    const { loading, candles } = get();
+    const { loading, candles, service } = get();
 
-    if (loading[key] || candles[key]) {
+    if (!service || loading[key] || candles[key]) {
       return;
     }
 
@@ -41,15 +49,13 @@ export const useCandleStore = create<CandleStore>((set, get) => ({
     }));
 
     try {
-      const response = await fetch(
-        `/api/candles?coin=${coin}&interval=${interval}&startTime=${startTime}&endTime=${endTime}`
-      );
+      const data = await service.getCandles({
+        coin,
+        interval,
+        startTime,
+        endTime,
+      });
 
-      if (!response.ok) {
-        throw new Error(`Failed to fetch candles: ${response.statusText}`);
-      }
-
-      const data = await response.json();
       const formattedData = data.map((candle: CandleData) => formatCandle(candle, coin));
 
       set((state) => ({

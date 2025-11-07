@@ -1,12 +1,16 @@
 import { create } from 'zustand';
 import { Order } from '@/models/Order';
+import { HyperliquidService } from '@/lib/services/hyperliquid.service';
+import { mapHyperliquidOrders } from '@/lib/utils/order-mapper';
 
 interface OrderStore {
   orders: Record<string, Order[]>;
   loading: Record<string, boolean>;
   errors: Record<string, string | null>;
   pollingIntervals: Record<string, NodeJS.Timeout>;
+  service: HyperliquidService | null;
 
+  setService: (service: HyperliquidService) => void;
   fetchOrders: (coin: string) => Promise<void>;
   subscribeToOrders: (coin: string) => void;
   unsubscribeFromOrders: (coin: string) => void;
@@ -19,23 +23,30 @@ export const useOrderStore = create<OrderStore>((set, get) => ({
   loading: {},
   errors: {},
   pollingIntervals: {},
+  service: null,
+
+  setService: (service: HyperliquidService) => {
+    set({ service });
+  },
 
   fetchOrders: async (coin: string) => {
+    const { service } = get();
+    if (!service) {
+      return;
+    }
+
     set((state) => ({
       loading: { ...state.loading, [coin]: true },
       errors: { ...state.errors, [coin]: null },
     }));
 
     try {
-      const response = await fetch(`/api/orders?coin=${coin}`);
-      const data = await response.json();
-
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to fetch orders');
-      }
+      const allOrders = await service.getOpenOrders();
+      const coinOrders = allOrders.filter((order: any) => order.coin === coin);
+      const mappedOrders = mapHyperliquidOrders(coinOrders);
 
       set((state) => ({
-        orders: { ...state.orders, [coin]: data.orders || [] },
+        orders: { ...state.orders, [coin]: mappedOrders },
         loading: { ...state.loading, [coin]: false },
       }));
     } catch (error) {

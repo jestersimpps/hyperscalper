@@ -3,6 +3,7 @@
 import { useEffect, useCallback, useState } from 'react';
 import { useSettingsStore } from '@/stores/useSettingsStore';
 import { StochasticTimeframeConfig, EmaConfig, ThemeName } from '@/models/Settings';
+import { CredentialsSettings } from '@/components/settings/CredentialsSettings';
 
 export default function SettingsPanel() {
   const { isPanelOpen, activeTab, closePanel, setActiveTab, settings, updateStochasticSettings, updateEmaSettings, updateMacdSettings, updateScannerSettings, updateOrderSettings, updateThemeSettings } = useSettingsStore();
@@ -119,6 +120,16 @@ export default function SettingsPanel() {
             }`}
           >
             █ UI
+          </button>
+          <button
+            onClick={() => setActiveTab('credentials')}
+            className={`flex-1 px-4 py-3 text-xs font-mono uppercase tracking-wider transition-all ${
+              activeTab === 'credentials'
+                ? 'bg-primary/10 text-primary border-b-2 border-primary'
+                : 'text-primary-muted hover:text-primary hover:bg-primary/5'
+            }`}
+          >
+            █ Credentials
           </button>
         </div>
 
@@ -1177,6 +1188,12 @@ export default function SettingsPanel() {
                   </label>
                 </div>
               </div>
+            </div>
+          )}
+
+          {activeTab === 'credentials' && (
+            <div className="space-y-3">
+              <CredentialsSettings />
             </div>
           )}
         </div>

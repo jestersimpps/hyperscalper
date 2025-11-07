@@ -2,10 +2,12 @@
 
 import { useState } from 'react';
 import { usePositionStore } from '@/stores/usePositionStore';
+import { useHyperliquidService } from '@/lib/hooks/use-hyperliquid-service';
 
 export default function QuickCloseButtons() {
   const [isClosing, setIsClosing] = useState(false);
   const positions = usePositionStore((state) => state.positions);
+  const service = useHyperliquidService();
 
   const profitablePositions = Object.entries(positions)
     .filter(([_, pos]) => pos && pos.pnl > 0)
@@ -17,16 +19,7 @@ export default function QuickCloseButtons() {
 
   const closePosition = async (symbol: string) => {
     try {
-      const response = await fetch('/api/positions/close', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbol, percentage: 100 }),
-      });
-
-      const data = await response.json();
-      if (!data.success) {
-        alert(`Failed to close ${symbol}: ${data.message}`);
-      }
+      await service.closePosition({ coin: symbol, percentage: 100 });
     } catch (error) {
       alert(`Error closing ${symbol}: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }

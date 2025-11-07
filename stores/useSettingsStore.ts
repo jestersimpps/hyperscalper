@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { AppSettings, DEFAULT_SETTINGS, StochasticSettings, EmaSettings, MacdSettings, ScannerSettings, OrderSettings, ThemeSettings, ChartSettings } from '@/models/Settings';
 
-type TabType = 'scanner' | 'indicators' | 'orders' | 'ui';
+type TabType = 'scanner' | 'indicators' | 'orders' | 'ui' | 'credentials';
 
 interface SettingsStore {
   isPanelOpen: boolean;

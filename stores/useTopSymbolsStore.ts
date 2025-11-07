@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { useSymbolMetaStore } from './useSymbolMetaStore';
 
 export interface SymbolWithVolume {
   name: string;
@@ -9,62 +10,29 @@ interface TopSymbolsStore {
   symbols: SymbolWithVolume[];
   isLoading: boolean;
   error: string | null;
-  intervalId: ReturnType<typeof setInterval> | null;
-  fetchTopSymbols: () => Promise<void>;
+  fetchTopSymbols: () => void;
   startAutoRefresh: () => void;
   stopAutoRefresh: () => void;
 }
-
-const REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes
 
 export const useTopSymbolsStore = create<TopSymbolsStore>((set, get) => ({
   symbols: [],
   isLoading: false,
   error: null,
-  intervalId: null,
 
-  fetchTopSymbols: async () => {
-    set({ isLoading: true, error: null });
-
-    try {
-      const response = await fetch('/api/top-symbols');
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch top symbols');
-      }
-
-      const data = await response.json();
-      set({ symbols: data, isLoading: false });
-    } catch (err) {
-      set({
-        error: err instanceof Error ? err.message : 'Unknown error',
-        isLoading: false,
-      });
-    }
+  fetchTopSymbols: () => {
+    const metadata = useSymbolMetaStore.getState().metadata;
+    const symbols = Object.keys(metadata).map(name => ({
+      name,
+      volume: 0
+    }));
+    set({ symbols, isLoading: false, error: null });
   },
 
   startAutoRefresh: () => {
-    const { intervalId, fetchTopSymbols } = get();
-
-    if (intervalId) {
-      return;
-    }
-
-    fetchTopSymbols();
-
-    const newIntervalId = setInterval(() => {
-      fetchTopSymbols();
-    }, REFRESH_INTERVAL);
-
-    set({ intervalId: newIntervalId });
+    get().fetchTopSymbols();
   },
 
   stopAutoRefresh: () => {
-    const { intervalId } = get();
-
-    if (intervalId) {
-      clearInterval(intervalId);
-      set({ intervalId: null });
-    }
   },
 }));

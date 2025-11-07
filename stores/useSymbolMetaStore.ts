@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { HyperliquidService } from '@/lib/services/hyperliquid.service';
 
 export interface SymbolMeta {
   name: string;
@@ -10,6 +11,8 @@ interface SymbolMetaStore {
   metadata: Record<string, SymbolMeta>;
   loading: boolean;
   error: string | null;
+  service: HyperliquidService | null;
+  setService: (service: HyperliquidService) => void;
   fetchMetadata: () => Promise<void>;
   getDecimals: (symbol: string) => { price: number; size: number };
 }
@@ -21,18 +24,23 @@ export const useSymbolMetaStore = create<SymbolMetaStore>((set, get) => ({
   metadata: {},
   loading: false,
   error: null,
+  service: null,
+
+  setService: (service: HyperliquidService) => {
+    set({ service });
+  },
 
   fetchMetadata: async () => {
+    const { service } = get();
+    if (!service) {
+      console.warn('Service not initialized yet, skipping metadata fetch');
+      return;
+    }
+
     set({ loading: true, error: null });
 
     try {
-      const response = await fetch('/api/meta');
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch symbol metadata');
-      }
-
-      const data = await response.json();
+      const data = await service.getMeta();
 
       if (!data.universe || !Array.isArray(data.universe)) {
         throw new Error('Invalid metadata response');

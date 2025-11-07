@@ -15,8 +15,6 @@ import type {
 } from './types';
 
 export class HyperliquidService implements IHyperliquidService {
-  private static instance: HyperliquidService | null = null;
-
   public publicClient: PublicClient;
   private walletClient: WalletClient | null = null;
   private eventClient: EventClient | null = null;
@@ -24,7 +22,7 @@ export class HyperliquidService implements IHyperliquidService {
   private wsTransport: WebSocketTransport | null = null;
   private userAddress: string | null = null;
 
-  private constructor(privateKey?: string, walletAddress?: string, isTestnet: boolean = false) {
+  constructor(privateKey: string, walletAddress: string, isTestnet: boolean = false) {
     this.isTestnet = isTestnet;
 
     const httpUrl = isTestnet ? 'https://api.hyperliquid-testnet.xyz' : 'https://api.hyperliquid.xyz';
@@ -48,19 +46,9 @@ export class HyperliquidService implements IHyperliquidService {
           isTestnet
         });
       } catch (error) {
+        throw new Error(`Failed to initialize wallet client: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     }
-  }
-
-  public static getInstance(privateKey?: string, walletAddress?: string, isTestnet: boolean = false): HyperliquidService {
-    if (!HyperliquidService.instance) {
-      HyperliquidService.instance = new HyperliquidService(privateKey, walletAddress, isTestnet);
-    }
-    return HyperliquidService.instance;
-  }
-
-  public static resetInstance(): void {
-    HyperliquidService.instance = null;
   }
 
   private initWebSocket() {
@@ -531,15 +519,7 @@ export class HyperliquidService implements IHyperliquidService {
 
   private ensureWalletClient(): void {
     if (!this.walletClient) {
-      throw new Error('Wallet client not initialized. Trading operations require HYPERLIQUID_PRIVATE_KEY environment variable.');
+      throw new Error('Wallet client not initialized. Trading operations require valid credentials.');
     }
   }
 }
-
-export const getHyperliquidService = (): HyperliquidService => {
-  const privateKey = process.env.HYPERLIQUID_PRIVATE_KEY;
-  const walletAddress = process.env.HYPERLIQUID_WALLET_ADDRESS;
-  const isTestnet = process.env.HYPERLIQUID_TESTNET === 'true';
-
-  return HyperliquidService.getInstance(privateKey, walletAddress, isTestnet);
-};
