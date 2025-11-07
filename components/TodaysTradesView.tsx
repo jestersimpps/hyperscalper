@@ -5,6 +5,7 @@ import { useUserFillsStore } from '@/stores/useUserFillsStore';
 import { useHyperliquidService } from '@/lib/hooks/use-hyperliquid-service';
 import { groupFillsByPosition } from '@/lib/trade-grouping-utils';
 import TradeRow from '@/components/trades/TradeRow';
+import PnlChart from '@/components/trades/PnlChart';
 
 function TodaysTradesView() {
   const service = useHyperliquidService();
@@ -60,6 +61,12 @@ function TodaysTradesView() {
             </div>
           </div>
         </div>
+
+        {!loading && !error && positionGroups.length > 0 && (
+          <div className="terminal-border p-1.5">
+            <PnlChart groups={positionGroups} />
+          </div>
+        )}
 
         <div className="terminal-border p-1.5 flex flex-col flex-1 min-h-0">
           {loading ? (
