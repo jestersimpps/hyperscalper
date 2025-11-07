@@ -1,7 +1,9 @@
 'use client';
 
-import { memo } from 'react';
+import { memo, useEffect } from 'react';
 import ScalpingChart from '@/components/ScalpingChart';
+import { usePositionStore } from '@/stores/usePositionStore';
+import { useOrderStore } from '@/stores/useOrderStore';
 import type { TimeInterval } from '@/types';
 
 interface MultiTimeframeChartProps {
@@ -11,6 +13,24 @@ interface MultiTimeframeChartProps {
 const TIMEFRAMES: TimeInterval[] = ['1m', '5m', '15m', '1h'];
 
 function MultiTimeframeChart({ coin }: MultiTimeframeChartProps) {
+  const position = usePositionStore((state) => state.positions[coin]);
+  const subscribeToPosition = usePositionStore((state) => state.subscribeToPosition);
+  const unsubscribeFromPosition = usePositionStore((state) => state.unsubscribeFromPosition);
+
+  const orders = useOrderStore((state) => state.orders[coin]) || [];
+  const subscribeToOrders = useOrderStore((state) => state.subscribeToOrders);
+  const unsubscribeFromOrders = useOrderStore((state) => state.unsubscribeFromOrders);
+
+  useEffect(() => {
+    subscribeToPosition(coin);
+    subscribeToOrders(coin);
+
+    return () => {
+      unsubscribeFromPosition(coin);
+      unsubscribeFromOrders(coin);
+    };
+  }, [coin, subscribeToPosition, unsubscribeFromPosition, subscribeToOrders, unsubscribeFromOrders]);
+
   return (
     <div className="h-full w-full grid grid-cols-2 gap-2" style={{ gridTemplateRows: '1fr 1fr' }}>
       {TIMEFRAMES.map((interval) => (
@@ -24,6 +44,8 @@ function MultiTimeframeChart({ coin }: MultiTimeframeChartProps) {
               interval={interval}
               syncZoom={false}
               simplifiedView={true}
+              position={position}
+              orders={orders}
             />
           </div>
         </div>

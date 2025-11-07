@@ -1279,26 +1279,11 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
         const isBuy = order.side === 'buy';
         const color = isBuy ? colors.statusBullish : colors.statusBearish;
 
-        // Determine line style based on order type
-        let lineStyle = 1; // dotted for regular limit orders
-        let opacity = 1;
-
-        if (order.orderType === 'stop') {
-          lineStyle = 3; // large dashed for stop loss
-          opacity = 0.9;
-        } else if (order.orderType === 'tp') {
-          lineStyle = 1; // dotted for take profit
-          opacity = 0.8;
-        } else if (order.orderType === 'trigger') {
-          lineStyle = 3; // large dashed for trigger orders
-          opacity = 0.9;
-        }
-
         const orderLine = candleSeriesRef.current.createPriceLine({
           price: order.price,
           color,
           lineWidth: 2,
-          lineStyle,
+          lineStyle: 1,
           axisLabelVisible: true,
           title: `${order.side.toUpperCase()} ${order.orderType.toUpperCase()}`,
         });
