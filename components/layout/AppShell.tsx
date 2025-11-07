@@ -8,6 +8,7 @@ import { useOrderStore } from '@/stores/useOrderStore';
 import { useSymbolMetaStore } from '@/stores/useSymbolMetaStore';
 import { useSettingsStore } from '@/stores/useSettingsStore';
 import { useCandleStore } from '@/stores/useCandleStore';
+import { useTradingStore } from '@/stores/useTradingStore';
 import { calculateAverageCandleHeight } from '@/lib/trading-utils';
 import { playNotificationSound } from '@/lib/sound-utils';
 
@@ -29,6 +30,16 @@ export default function AppShell({ sidepanel, children }: AppShellProps) {
 
   const candleKey = `${coin}-1m`;
   const candles = useCandleStore((state) => state.candles[candleKey]) || [];
+  const buyCloud = useTradingStore((state) => state.buyCloud);
+  const sellCloud = useTradingStore((state) => state.sellCloud);
+  const smLong = useTradingStore((state) => state.smLong);
+  const smShort = useTradingStore((state) => state.smShort);
+  const bigLong = useTradingStore((state) => state.bigLong);
+  const bigShort = useTradingStore((state) => state.bigShort);
+  const closePosition = useTradingStore((state) => state.closePosition);
+  const moveStopLoss = useTradingStore((state) => state.moveStopLoss);
+  const cancelEntryOrders = useTradingStore((state) => state.cancelEntryOrders);
+  const cancelAllOrders = useTradingStore((state) => state.cancelAllOrders);
 
   const handleBuyCloud = useCallback(async () => {
     playNotificationSound('bullish', 'cloud');
@@ -39,23 +50,18 @@ export default function AppShell({ sidepanel, children }: AppShellProps) {
 
       const priceInterval = calculateAverageCandleHeight(candles);
       const latestCandle = candles[candles.length - 1];
-      const currentPriceValue = latestCandle.close;
+      const currentPrice = latestCandle.close;
 
-      const response = await fetch('/api/trade/buy-cloud', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          symbol: coin,
-          currentPrice: currentPriceValue,
-          priceInterval,
-          percentage: orderSettings.cloudPercentage
-        }),
+      await buyCloud({
+        symbol: coin,
+        currentPrice,
+        priceInterval,
+        percentage: orderSettings.cloudPercentage
       });
-      await response.json();
     } catch (error) {
       // Error executing buy cloud
     }
-  }, [coin, candles, orderSettings.cloudPercentage]);
+  }, [coin, candles, orderSettings.cloudPercentage, buyCloud]);
 
   const handleSellCloud = useCallback(async () => {
     playNotificationSound('bearish', 'cloud');
@@ -66,23 +72,18 @@ export default function AppShell({ sidepanel, children }: AppShellProps) {
 
       const priceInterval = calculateAverageCandleHeight(candles);
       const latestCandle = candles[candles.length - 1];
-      const currentPriceValue = latestCandle.close;
+      const currentPrice = latestCandle.close;
 
-      const response = await fetch('/api/trade/sell-cloud', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          symbol: coin,
-          currentPrice: currentPriceValue,
-          priceInterval,
-          percentage: orderSettings.cloudPercentage
-        }),
+      await sellCloud({
+        symbol: coin,
+        currentPrice,
+        priceInterval,
+        percentage: orderSettings.cloudPercentage
       });
-      await response.json();
     } catch (error) {
       // Error executing sell cloud
     }
-  }, [coin, candles, orderSettings.cloudPercentage]);
+  }, [coin, candles, orderSettings.cloudPercentage, sellCloud]);
 
   const handleSmLong = useCallback(async () => {
     playNotificationSound('bullish', 'standard');
@@ -93,23 +94,18 @@ export default function AppShell({ sidepanel, children }: AppShellProps) {
 
       const priceInterval = calculateAverageCandleHeight(candles);
       const latestCandle = candles[candles.length - 1];
-      const currentPriceValue = latestCandle.close;
+      const currentPrice = latestCandle.close;
 
-      const response = await fetch('/api/trade/sm-long', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          symbol: coin,
-          currentPrice: currentPriceValue,
-          priceInterval,
-          percentage: orderSettings.smallPercentage
-        }),
+      await smLong({
+        symbol: coin,
+        currentPrice,
+        priceInterval,
+        percentage: orderSettings.smallPercentage
       });
-      await response.json();
     } catch (error) {
       // Error executing sm long
     }
-  }, [coin, candles, orderSettings.smallPercentage]);
+  }, [coin, candles, orderSettings.smallPercentage, smLong]);
 
   const handleSmShort = useCallback(async () => {
     playNotificationSound('bearish', 'standard');
@@ -120,23 +116,18 @@ export default function AppShell({ sidepanel, children }: AppShellProps) {
 
       const priceInterval = calculateAverageCandleHeight(candles);
       const latestCandle = candles[candles.length - 1];
-      const currentPriceValue = latestCandle.close;
+      const currentPrice = latestCandle.close;
 
-      const response = await fetch('/api/trade/sm-short', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          symbol: coin,
-          currentPrice: currentPriceValue,
-          priceInterval,
-          percentage: orderSettings.smallPercentage
-        }),
+      await smShort({
+        symbol: coin,
+        currentPrice,
+        priceInterval,
+        percentage: orderSettings.smallPercentage
       });
-      await response.json();
     } catch (error) {
       // Error executing sm short
     }
-  }, [coin, candles, orderSettings.smallPercentage]);
+  }, [coin, candles, orderSettings.smallPercentage, smShort]);
 
   const handleBigLong = useCallback(async () => {
     playNotificationSound('bullish', 'big');
@@ -147,23 +138,18 @@ export default function AppShell({ sidepanel, children }: AppShellProps) {
 
       const priceInterval = calculateAverageCandleHeight(candles);
       const latestCandle = candles[candles.length - 1];
-      const currentPriceValue = latestCandle.close;
+      const currentPrice = latestCandle.close;
 
-      const response = await fetch('/api/trade/big-long', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          symbol: coin,
-          currentPrice: currentPriceValue,
-          priceInterval,
-          percentage: orderSettings.bigPercentage
-        }),
+      await bigLong({
+        symbol: coin,
+        currentPrice,
+        priceInterval,
+        percentage: orderSettings.bigPercentage
       });
-      await response.json();
     } catch (error) {
       // Error executing big long
     }
-  }, [coin, candles, orderSettings.bigPercentage]);
+  }, [coin, candles, orderSettings.bigPercentage, bigLong]);
 
   const handleBigShort = useCallback(async () => {
     playNotificationSound('bearish', 'big');
@@ -174,183 +160,98 @@ export default function AppShell({ sidepanel, children }: AppShellProps) {
 
       const priceInterval = calculateAverageCandleHeight(candles);
       const latestCandle = candles[candles.length - 1];
-      const currentPriceValue = latestCandle.close;
+      const currentPrice = latestCandle.close;
 
-      const response = await fetch('/api/trade/big-short', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          symbol: coin,
-          currentPrice: currentPriceValue,
-          priceInterval,
-          percentage: orderSettings.bigPercentage
-        }),
+      await bigShort({
+        symbol: coin,
+        currentPrice,
+        priceInterval,
+        percentage: orderSettings.bigPercentage
       });
-      await response.json();
     } catch (error) {
       // Error executing big short
     }
-  }, [coin, candles, orderSettings.bigPercentage]);
+  }, [coin, candles, orderSettings.bigPercentage, bigShort]);
 
   const handleClose25 = useCallback(async () => {
     try {
-      const response = await fetch('/api/positions/close', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbol: coin, percentage: 25 }),
-      });
-      const data = await response.json();
-      if (!data.success) {
-        alert(`Failed to close 25% position: ${data.message}`);
-      }
+      await closePosition({ symbol: coin, percentage: 25 });
     } catch (error) {
       alert(`Error closing position: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-  }, [coin]);
+  }, [coin, closePosition]);
 
   const handleClose50 = useCallback(async () => {
     try {
-      const response = await fetch('/api/positions/close', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbol: coin, percentage: 50 }),
-      });
-      const data = await response.json();
-      if (!data.success) {
-        alert(`Failed to close 50% position: ${data.message}`);
-      }
+      await closePosition({ symbol: coin, percentage: 50 });
     } catch (error) {
       alert(`Error closing position: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-  }, [coin]);
+  }, [coin, closePosition]);
 
   const handleClose75 = useCallback(async () => {
     try {
-      const response = await fetch('/api/positions/close', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbol: coin, percentage: 75 }),
-      });
-      const data = await response.json();
-      if (!data.success) {
-        alert(`Failed to close 75% position: ${data.message}`);
-      }
+      await closePosition({ symbol: coin, percentage: 75 });
     } catch (error) {
       alert(`Error closing position: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-  }, [coin]);
+  }, [coin, closePosition]);
 
   const handleClose100 = useCallback(async () => {
     try {
-      const response = await fetch('/api/positions/close', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbol: coin, percentage: 100 }),
-      });
-      const data = await response.json();
-      if (!data.success) {
-        alert(`Failed to close 100% position: ${data.message}`);
-      }
+      await closePosition({ symbol: coin, percentage: 100 });
     } catch (error) {
       alert(`Error closing position: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-  }, [coin]);
+  }, [coin, closePosition]);
 
   const handleMoveSL25 = useCallback(async () => {
     try {
-      const response = await fetch('/api/orders/move-stop-loss', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbol: coin, percentage: 25 }),
-      });
-      const data = await response.json();
-      if (!data.success) {
-        alert(`Failed to move stop loss to 25%: ${data.message}`);
-      }
+      await moveStopLoss({ coin, percentage: 25 });
     } catch (error) {
       alert(`Error moving stop loss: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-  }, [coin]);
+  }, [coin, moveStopLoss]);
 
   const handleMoveSL50 = useCallback(async () => {
     try {
-      const response = await fetch('/api/orders/move-stop-loss', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbol: coin, percentage: 50 }),
-      });
-      const data = await response.json();
-      if (!data.success) {
-        alert(`Failed to move stop loss to 50%: ${data.message}`);
-      }
+      await moveStopLoss({ coin, percentage: 50 });
     } catch (error) {
       alert(`Error moving stop loss: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-  }, [coin]);
+  }, [coin, moveStopLoss]);
 
   const handleMoveSL75 = useCallback(async () => {
     try {
-      const response = await fetch('/api/orders/move-stop-loss', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbol: coin, percentage: 75 }),
-      });
-      const data = await response.json();
-      if (!data.success) {
-        alert(`Failed to move stop loss to 75%: ${data.message}`);
-      }
+      await moveStopLoss({ coin, percentage: 75 });
     } catch (error) {
       alert(`Error moving stop loss: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-  }, [coin]);
+  }, [coin, moveStopLoss]);
 
   const handleMoveSLBreakeven = useCallback(async () => {
     try {
-      const response = await fetch('/api/orders/move-stop-loss', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbol: coin, percentage: 0 }),
-      });
-      const data = await response.json();
-      if (!data.success) {
-        alert(`Failed to move stop loss to breakeven: ${data.message}`);
-      }
+      await moveStopLoss({ coin, percentage: 0 });
     } catch (error) {
       alert(`Error moving stop loss: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-  }, [coin]);
+  }, [coin, moveStopLoss]);
 
   const handleCancelEntryOrders = useCallback(async () => {
     try {
-      const response = await fetch('/api/orders/cancel-entry', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbol: coin }),
-      });
-      const data = await response.json();
-      if (!data.success) {
-        alert(`Failed to cancel entry orders: ${data.message}`);
-      }
+      await cancelEntryOrders(coin);
     } catch (error) {
       alert(`Error canceling entry orders: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-  }, [coin]);
+  }, [coin, cancelEntryOrders]);
 
   const handleCancelAllOrders = useCallback(async () => {
     try {
-      const response = await fetch('/api/orders/cancel-all', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbol: coin }),
-      });
-      const data = await response.json();
-      if (!data.success) {
-        alert(`Failed to cancel all orders: ${data.message}`);
-      }
+      await cancelAllOrders(coin);
     } catch (error) {
       alert(`Error canceling all orders: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-  }, [coin]);
+  }, [coin, cancelAllOrders]);
 
   return (
     <div className="flex h-screen bg-bg-primary text-primary font-mono">

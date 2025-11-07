@@ -1,5 +1,25 @@
 import { create } from 'zustand';
 import { Position } from '@/models/Position';
+import { HyperliquidService } from '@/lib/services/hyperliquid.service';
+
+function mapHyperliquidPosition(rawPosition: any): Position {
+  const szi = parseFloat(rawPosition.position.szi);
+  const entryPrice = parseFloat(rawPosition.position.entryPx || '0');
+  const unrealizedPnl = parseFloat(rawPosition.position.unrealizedPnl || '0');
+  const positionValue = parseFloat(rawPosition.position.positionValue || '0');
+  const leverage = parseFloat(rawPosition.position.leverage?.value || '1');
+
+  return {
+    symbol: rawPosition.position.coin,
+    side: szi > 0 ? 'long' : 'short',
+    size: Math.abs(szi),
+    entryPrice,
+    currentPrice: positionValue !== 0 ? Math.abs(positionValue) / Math.abs(szi) : entryPrice,
+    pnl: unrealizedPnl,
+    pnlPercentage: positionValue !== 0 ? (unrealizedPnl / Math.abs(positionValue)) * 100 : 0,
+    leverage,
+  };
+}
 
 interface PositionStore {
   positions: Record<string, Position | null>;
@@ -8,7 +28,9 @@ interface PositionStore {
   pollingIntervals: Record<string, NodeJS.Timeout>;
   batchPollingInterval: NodeJS.Timeout | null;
   batchPollingCoins: string[];
+  service: HyperliquidService | null;
 
+  setService: (service: HyperliquidService) => void;
   fetchPosition: (coin: string) => Promise<void>;
   fetchAllPositions: (coins?: string[]) => Promise<void>;
   subscribeToPosition: (coin: string) => void;
@@ -27,23 +49,32 @@ export const usePositionStore = create<PositionStore>((set, get) => ({
   pollingIntervals: {},
   batchPollingInterval: null,
   batchPollingCoins: [],
+  service: null,
+
+  setService: (service: HyperliquidService) => {
+    set({ service });
+  },
 
   fetchPosition: async (coin: string) => {
+    const { service } = get();
+    if (!service) {
+      console.warn('Service not initialized yet, skipping position fetch');
+      return;
+    }
+
     set((state) => ({
       loading: { ...state.loading, [coin]: true },
       errors: { ...state.errors, [coin]: null },
     }));
 
     try {
-      const response = await fetch(`/api/positions?coin=${coin}`);
-      const data = await response.json();
+      const allPositions = await service.getOpenPositions();
+      const rawPosition = allPositions.find(p => p.position.coin === coin);
 
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to fetch position');
-      }
+      const position = rawPosition ? mapHyperliquidPosition(rawPosition) : null;
 
       set((state) => ({
-        positions: { ...state.positions, [coin]: data.position },
+        positions: { ...state.positions, [coin]: position },
         loading: { ...state.loading, [coin]: false },
       }));
     } catch (error) {
@@ -57,6 +88,12 @@ export const usePositionStore = create<PositionStore>((set, get) => ({
   },
 
   fetchAllPositions: async (coins?: string[]) => {
+    const { service } = get();
+    if (!service) {
+      console.warn('Service not initialized yet, skipping positions fetch');
+      return;
+    }
+
     const targetCoins = coins || get().batchPollingCoins;
 
     if (targetCoins.length === 0) return;
@@ -70,19 +107,14 @@ export const usePositionStore = create<PositionStore>((set, get) => ({
     }));
 
     try {
-      const response = await fetch('/api/positions');
-      const data = await response.json();
-
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to fetch positions');
-      }
+      const allPositions = await service.getOpenPositions();
 
       const positionMap: Record<string, Position | null> = {};
       const positionLoadingState: Record<string, boolean> = {};
 
       targetCoins.forEach(coin => {
-        const position = data.positions.find((p: Position) => p.symbol === coin);
-        positionMap[coin] = position || null;
+        const rawPosition = allPositions.find((p: any) => p.position.coin === coin);
+        positionMap[coin] = rawPosition ? mapHyperliquidPosition(rawPosition) : null;
         positionLoadingState[coin] = false;
       });
 

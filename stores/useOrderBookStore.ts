@@ -10,7 +10,6 @@ interface OrderBookStore {
   subscriptions: Record<string, { subscriptionId: string; cleanup: () => void }>;
   wsService: ExchangeWebSocketService | null;
 
-  fetchOrderBook: (coin: string, nSigFigs?: 2 | 3 | 4 | 5 | null, mantissa?: 2 | 5 | null) => Promise<void>;
   subscribeToOrderBook: (coin: string, nSigFigs?: 2 | 3 | 4 | 5 | null, mantissa?: 2 | 5 | null) => void;
   unsubscribeFromOrderBook: (coin: string, nSigFigs?: 2 | 3 | 4 | 5 | null) => void;
   cleanup: () => void;
@@ -25,44 +24,6 @@ export const useOrderBookStore = create<OrderBookStore>((set, get) => ({
   errors: {},
   subscriptions: {},
   wsService: null,
-
-  fetchOrderBook: async (coin, nSigFigs, mantissa) => {
-    const { loading, orderBooks } = get();
-    const key = `${coin}${nSigFigs ? `_${nSigFigs}` : ''}`;
-
-    if (loading[key] || orderBooks[key]) {
-      return;
-    }
-
-    set((state) => ({
-      loading: { ...state.loading, [key]: true },
-      errors: { ...state.errors, [key]: null },
-    }));
-
-    try {
-      const params = new URLSearchParams({ coin });
-      if (nSigFigs) params.append('nSigFigs', nSigFigs.toString());
-      if (mantissa) params.append('mantissa', mantissa.toString());
-
-      const response = await fetch(`/api/orderbook?${params.toString()}`);
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch order book: ${response.statusText}`);
-      }
-
-      const data: OrderBookData = await response.json();
-
-      set((state) => ({
-        orderBooks: { ...state.orderBooks, [key]: data },
-        loading: { ...state.loading, [key]: false },
-      }));
-    } catch (error) {
-      set((state) => ({
-        errors: { ...state.errors, [key]: error instanceof Error ? error.message : 'Unknown error' },
-        loading: { ...state.loading, [key]: false },
-      }));
-    }
-  },
 
   subscribeToOrderBook: (coin, nSigFigs, mantissa) => {
     const { subscriptions } = get();

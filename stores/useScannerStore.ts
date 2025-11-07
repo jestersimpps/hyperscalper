@@ -120,21 +120,9 @@ export const useScannerStore = create<ScannerStore>((set, get) => ({
         rsiMinCandles: settings.rsiReversalScanner.minCandles,
       };
 
-      const response = await fetch('/api/scanner', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(body),
-      });
+      throw new Error('Scanner functionality is currently unavailable. Client-side implementation in progress.');
 
-      if (!response.ok) {
-        throw new Error('Failed to fetch scanner results');
-      }
-
-      const data = await response.json();
-
-      const newResults = data.results || [];
+      const newResults = [];
       const newSymbols = new Set(newResults.map((r: ScanResult) => r.symbol));
 
       if (newResults.length > 0 && settings.playSound) {
