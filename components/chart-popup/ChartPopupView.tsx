@@ -17,6 +17,7 @@ const EMPTY_CANDLES: CandleData[] = [];
 export default function ChartPopupView({ coin }: ChartPopupViewProps) {
   const [currentPrice, setCurrentPrice] = useState(0);
   const [selectedTimeframe, setSelectedTimeframe] = useState<'1m' | '5m' | '15m' | '1h'>('1m');
+  const [showStochastic, setShowStochastic] = useState(true);
   const getDecimals = useSymbolMetaStore((state) => state.getDecimals);
   const decimals = useMemo(() => getDecimals(coin), [getDecimals, coin]);
 
@@ -86,6 +87,16 @@ export default function ChartPopupView({ coin }: ChartPopupViewProps) {
                   {tf}
                 </button>
               ))}
+              <button
+                onClick={() => setShowStochastic(!showStochastic)}
+                className={`px-2 py-1 text-[10px] font-mono uppercase tracking-wider transition-all ${
+                  showStochastic
+                    ? 'bg-primary/20 text-primary border-2 border-primary'
+                    : 'bg-bg-secondary text-primary-muted border-2 border-frame hover:text-primary hover:bg-primary/10'
+                }`}
+              >
+                STOCH
+              </button>
             </div>
           </div>
         </div>
@@ -101,6 +112,7 @@ export default function ChartPopupView({ coin }: ChartPopupViewProps) {
             onPriceUpdate={setCurrentPrice}
             macdCandleData={macdCandleData}
             simplifiedView={true}
+            hideStochastic={!showStochastic}
           />
         </div>
       </div>

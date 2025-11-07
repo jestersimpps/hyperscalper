@@ -44,6 +44,7 @@ interface ScalpingChartProps {
   orders?: Order[];
   syncZoom?: boolean;
   simplifiedView?: boolean;
+  hideStochastic?: boolean;
 }
 
 interface CrossoverMarker {
@@ -214,7 +215,7 @@ function createDivergenceMarkers(divergences: DivergencePoint[]): any[] {
 }
 
 
-export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartReady, candleData, isExternalData = false, macdCandleData, position, orders, syncZoom = false, simplifiedView = false }: ScalpingChartProps) {
+export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartReady, candleData, isExternalData = false, macdCandleData, position, orders, syncZoom = false, simplifiedView = false, hideStochastic = false }: ScalpingChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<any>(null);
   const candleSeriesRef = useRef<any>(null);
@@ -293,7 +294,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
           rightPriceScale: {
             scaleMargins: {
               top: 0.1,
-              bottom: 0.45,
+              bottom: hideStochastic ? 0.70 : 0.45,
             },
           },
         });
@@ -358,49 +359,30 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
 
         stochSeriesRefsRef.current = {};
 
-        if (simplifiedView) {
-          const kSeries = chart.addLineSeries({
-            color: colors.statusBullish,
-            lineWidth: 1,
-            priceScaleId: 'stoch',
-            lastValueVisible: false,
-            priceLineVisible: false,
-            lineStyle: 2,
-          });
-
-          const dSeries = chart.addLineSeries({
-            color: colors.accentRose,
-            lineWidth: 2,
-            priceScaleId: 'stoch',
-            lastValueVisible: false,
-            priceLineVisible: false,
-          });
-
-          kSeries.priceScale().applyOptions({
-            scaleMargins: {
-              top: 0.70,
-              bottom: 0.05,
-            },
-          });
-
-          dSeries.priceScale().applyOptions({
-            scaleMargins: {
-              top: 0.70,
-              bottom: 0.05,
-            },
-          });
-
-          stochSeriesRefsRef.current['simple'] = { k: kSeries, d: dSeries };
-        } else if (stochasticSettings.showMultiVariant) {
-          Object.entries(stochasticSettings.variants).forEach(([variantName, settings]) => {
-            if (!settings.enabled) return;
-
-            const dSeries = chart.addLineSeries({
-              color: variantColors[variantName],
-              lineWidth: 2,
+        if (!hideStochastic) {
+          if (simplifiedView) {
+            const kSeries = chart.addLineSeries({
+              color: colors.statusBullish,
+              lineWidth: 1,
               priceScaleId: 'stoch',
               lastValueVisible: false,
               priceLineVisible: false,
+              lineStyle: 2,
+            });
+
+            const dSeries = chart.addLineSeries({
+              color: colors.accentRose,
+              lineWidth: 1,
+              priceScaleId: 'stoch',
+              lastValueVisible: false,
+              priceLineVisible: false,
+            });
+
+            kSeries.priceScale().applyOptions({
+              scaleMargins: {
+                top: 0.70,
+                bottom: 0.05,
+              },
             });
 
             dSeries.priceScale().applyOptions({
@@ -410,8 +392,29 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
               },
             });
 
-            stochSeriesRefsRef.current[variantName] = { d: dSeries };
-          });
+            stochSeriesRefsRef.current['simple'] = { k: kSeries, d: dSeries };
+          } else if (stochasticSettings.showMultiVariant) {
+            Object.entries(stochasticSettings.variants).forEach(([variantName, settings]) => {
+              if (!settings.enabled) return;
+
+              const dSeries = chart.addLineSeries({
+                color: variantColors[variantName],
+                lineWidth: 1,
+                priceScaleId: 'stoch',
+                lastValueVisible: false,
+                priceLineVisible: false,
+              });
+
+              dSeries.priceScale().applyOptions({
+                scaleMargins: {
+                  top: 0.70,
+                  bottom: 0.05,
+                },
+              });
+
+              stochSeriesRefsRef.current[variantName] = { d: dSeries };
+            });
+          }
         }
 
         // MACD multi-timeframe series
@@ -853,7 +856,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
 
   // Stochastic data update (simple for simplified view, multi-variant otherwise)
   useEffect(() => {
-    if (!chartReady || Object.keys(stochSeriesRefsRef.current).length === 0) return;
+    if (!chartReady || Object.keys(stochSeriesRefsRef.current).length === 0 || hideStochastic) return;
 
     // Simple stochastic for simplified view
     if (simplifiedView && simpleStochastic && simpleStochastic.length > 0 && stochSeriesRefsRef.current['simple']) {
@@ -912,7 +915,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
 
   // Simple stochastic reference lines (20 and 80)
   useEffect(() => {
-    if (!chartReady || !simplifiedView || !stochSeriesRefsRef.current['simple']) return;
+    if (!chartReady || !simplifiedView || !stochSeriesRefsRef.current['simple'] || hideStochastic) return;
 
     stochReferenceLinesRef.current.forEach((line) => {
       try {
@@ -962,7 +965,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
 
   // Multi-variant stochastic reference lines (0 and 100)
   useEffect(() => {
-    if (!chartReady || Object.keys(stochSeriesRefsRef.current).length === 0) return;
+    if (!chartReady || Object.keys(stochSeriesRefsRef.current).length === 0 || hideStochastic) return;
     if (simplifiedView || !stochasticSettings.showMultiVariant) return;
 
     stochReferenceLinesRef.current.forEach((line) => {
