@@ -1,20 +1,19 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useSettingsStore } from '@/stores/useSettingsStore';
 import { useWebSocketStatusStore, type WebSocketStreamType } from '@/stores/useWebSocketStatusStore';
+import { useSettingsStore } from '@/stores/useSettingsStore';
 
 interface TerminalHeaderProps {
   coin: string;
 }
 
 export default function TerminalHeader({ coin }: TerminalHeaderProps) {
-  const togglePanel = useSettingsStore((state) => state.togglePanel);
-  const toggleMultiChartView = useSettingsStore((state) => state.toggleMultiChartView);
-  const isMultiChartView = useSettingsStore((state) => state.isMultiChartView);
   const [currentTime, setCurrentTime] = useState('');
 
   const streams = useWebSocketStatusStore((state) => state.streams);
+  const isMultiChartView = useSettingsStore((state) => state.isMultiChartView);
+  const toggleMultiChartView = useSettingsStore((state) => state.toggleMultiChartView);
 
   useEffect(() => {
     const updateTime = () => {
@@ -87,24 +86,16 @@ export default function TerminalHeader({ coin }: TerminalHeaderProps) {
             {renderStreamIndicator('orderbook', 'BOOK')}
             {renderStreamIndicator('prices', 'PRICES')}
           </div>
-          <div className="flex gap-2">
-            <button
-              onClick={toggleMultiChartView}
-              className={`transition-all text-2xl leading-none active:scale-90 cursor-pointer ${
-                isMultiChartView ? 'text-primary' : 'text-primary-muted hover:text-primary'
-              }`}
-              title={isMultiChartView ? 'Single chart view' : 'Multi-timeframe view'}
-            >
-              ⊞
-            </button>
-            <button
-              onClick={togglePanel}
-              className="text-primary-muted hover:text-primary active:scale-90 cursor-pointer transition-all text-2xl leading-none"
-              title="Open settings"
-            >
-              ⚙
-            </button>
-          </div>
+          <button
+            onClick={toggleMultiChartView}
+            className={`px-3 py-1.5 text-[10px] font-mono uppercase tracking-wider transition-all rounded-sm ${
+              isMultiChartView
+                ? 'bg-primary/20 text-primary border-2 border-primary'
+                : 'bg-bg-secondary text-primary-muted border-2 border-frame hover:text-primary hover:bg-primary/10'
+            }`}
+          >
+            Multi-Chart
+          </button>
         </div>
       </div>
     </div>

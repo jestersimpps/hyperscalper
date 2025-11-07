@@ -1,4 +1,3 @@
-import { use } from 'react';
 import MultiChartView from '@/components/multi-chart/MultiChartView';
 
 interface MultiChartPageProps {
@@ -7,8 +6,8 @@ interface MultiChartPageProps {
   }>;
 }
 
-export default function MultiChartPage({ params }: MultiChartPageProps) {
-  const { symbol } = use(params);
+export default async function MultiChartPage({ params }: MultiChartPageProps) {
+  const { symbol } = await params;
 
   return <MultiChartView coin={symbol} />;
 }

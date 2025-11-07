@@ -1,4 +1,3 @@
-import { use } from 'react';
 import ChartPopupView from '@/components/chart-popup/ChartPopupView';
 
 interface ChartPopupPageProps {
@@ -7,8 +6,8 @@ interface ChartPopupPageProps {
   }>;
 }
 
-export default function ChartPopupPage({ params }: ChartPopupPageProps) {
-  const { symbol } = use(params);
+export default async function ChartPopupPage({ params }: ChartPopupPageProps) {
+  const { symbol } = await params;
 
   return <ChartPopupView coin={symbol} />;
 }

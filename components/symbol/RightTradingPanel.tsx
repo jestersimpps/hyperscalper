@@ -4,6 +4,7 @@ import { memo } from 'react';
 import QuickCloseButtons from '@/components/layout/QuickCloseButtons';
 import { usePositionStore } from '@/stores/usePositionStore';
 import { useHyperliquidService } from '@/lib/hooks/use-hyperliquid-service';
+import { useSettingsStore } from '@/stores/useSettingsStore';
 import type { Position } from '@/models/Position';
 import type { Order } from '@/models/Order';
 
@@ -56,6 +57,7 @@ function RightTradingPanel({
 }: RightTradingPanelProps) {
   const allPositions = usePositionStore((state) => state.positions);
   const service = useHyperliquidService();
+  const togglePanel = useSettingsStore((state) => state.togglePanel);
 
   const otherProfitablePositions = Object.entries(allPositions)
     .filter(([symbol, pos]) => symbol !== coin && pos && pos.pnl > 0)
@@ -75,6 +77,14 @@ function RightTradingPanel({
   return (
     <aside className="w-80 border-l-2 border-border-frame overflow-y-auto">
       <div className="p-2 flex flex-col gap-2">
+        <button
+          onClick={togglePanel}
+          className="w-full px-3 py-1.5 bg-bg-secondary text-primary-muted border-2 border-frame hover:text-primary hover:bg-primary/10 active:scale-95 cursor-pointer transition-all text-[10px] font-mono uppercase tracking-wider rounded-sm"
+          title="Open settings"
+        >
+          ⚙ Settings
+        </button>
+
         <div className="terminal-border p-1.5 flex flex-col">
           <div className="text-[12px] text-primary-muted mb-1.5 uppercase tracking-wider">█ POSITION</div>
           <div className="text-[12px] space-y-1 font-mono">
