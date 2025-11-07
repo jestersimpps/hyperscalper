@@ -2,8 +2,6 @@
 
 import { memo } from 'react';
 import QuickCloseButtons from '@/components/layout/QuickCloseButtons';
-import { usePositionStore } from '@/stores/usePositionStore';
-import { useHyperliquidService } from '@/lib/hooks/use-hyperliquid-service';
 import { useSettingsStore } from '@/stores/useSettingsStore';
 import type { Position } from '@/models/Position';
 import type { Order } from '@/models/Order';
@@ -55,24 +53,9 @@ function RightTradingPanel({
   onCancelExitOrders,
   onCancelAllOrders,
 }: RightTradingPanelProps) {
-  const allPositions = usePositionStore((state) => state.positions);
-  const service = useHyperliquidService();
   const togglePanel = useSettingsStore((state) => state.togglePanel);
 
-  const otherProfitablePositions = Object.entries(allPositions)
-    .filter(([symbol, pos]) => symbol !== coin && pos && pos.pnl > 0)
-    .map(([symbol, pos]) => ({ ...pos!, symbol }))
-    .sort((a, b) => b.pnl - a.pnl);
-
   const hasExitOrders = orders.some(order => order.orderType === 'stop' || order.orderType === 'tp');
-
-  const closeOtherPosition = async (symbol: string) => {
-    try {
-      await service.closePosition({ coin: symbol });
-    } catch (error) {
-      alert(`Error closing ${symbol}: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  };
 
   return (
     <aside className="w-80 border-l-2 border-border-frame overflow-y-auto">
@@ -179,58 +162,42 @@ function RightTradingPanel({
               <div className="text-[9px] text-primary-muted/60 uppercase tracking-wider mb-0.5">Global</div>
               <QuickCloseButtons />
               <div className="text-[9px] text-primary-muted/60 uppercase tracking-wider mt-2 mb-0.5">Current ({coin})</div>
-              <div className="flex flex-col gap-1.5 text-[10px] font-mono">
+              <div className="grid grid-cols-2 gap-1.5 text-[10px] font-mono">
                 <button
-                  className="w-full px-2 py-1.5 bg-primary-muted/10 border border-primary-muted/30 text-primary-muted hover:bg-primary-muted/20 hover:border-primary-muted/50 hover:text-primary active:bg-primary-muted/30 active:scale-95 active:shadow-inner transition-all rounded-sm hover:shadow-[0_0_8px_rgba(68,186,186,0.2)] cursor-pointer"
+                  className="px-2 py-1.5 bg-accent-violet/10 border border-accent-violet/30 text-accent-violet hover:bg-accent-violet/20 hover:border-accent-violet/50 active:bg-accent-violet/30 active:scale-95 active:shadow-inner transition-all rounded-sm hover:shadow-[0_0_8px_rgba(150,100,200,0.3)] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 cursor-pointer"
                   onClick={onClose25}
+                  disabled={!position}
                 >
-                  <span className="text-primary-muted/60 text-xs font-bold mr-1">1</span>
-                  █ CLOSE 25%
+                  <span className="text-accent-violet/60 text-xs font-bold mr-1">1</span>
+                  25%
                 </button>
                 <button
-                  className="w-full px-2 py-1.5 bg-primary-muted/10 border border-primary-muted/30 text-primary-muted hover:bg-primary-muted/20 hover:border-primary-muted/50 hover:text-primary active:bg-primary-muted/30 active:scale-95 active:shadow-inner transition-all rounded-sm hover:shadow-[0_0_8px_rgba(68,186,186,0.2)] cursor-pointer"
+                  className="px-2 py-1.5 bg-accent-violet/10 border border-accent-violet/30 text-accent-violet hover:bg-accent-violet/20 hover:border-accent-violet/50 active:bg-accent-violet/30 active:scale-95 active:shadow-inner transition-all rounded-sm hover:shadow-[0_0_8px_rgba(150,100,200,0.3)] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 cursor-pointer"
                   onClick={onClose50}
+                  disabled={!position}
                 >
-                  <span className="text-primary-muted/60 text-xs font-bold mr-1">2</span>
-                  █ CLOSE 50%
+                  <span className="text-accent-violet/60 text-xs font-bold mr-1">2</span>
+                  50%
                 </button>
                 <button
-                  className="w-full px-2 py-1.5 bg-primary-muted/10 border border-primary-muted/30 text-primary-muted hover:bg-primary-muted/20 hover:border-primary-muted/50 hover:text-primary active:bg-primary-muted/30 active:scale-95 active:shadow-inner transition-all rounded-sm hover:shadow-[0_0_8px_rgba(68,186,186,0.2)] cursor-pointer"
+                  className="px-2 py-1.5 bg-accent-violet/10 border border-accent-violet/30 text-accent-violet hover:bg-accent-violet/20 hover:border-accent-violet/50 active:bg-accent-violet/30 active:scale-95 active:shadow-inner transition-all rounded-sm hover:shadow-[0_0_8px_rgba(150,100,200,0.3)] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 cursor-pointer"
                   onClick={onClose75}
+                  disabled={!position}
                 >
-                  <span className="text-primary-muted/60 text-xs font-bold mr-1">3</span>
-                  █ CLOSE 75%
+                  <span className="text-accent-violet/60 text-xs font-bold mr-1">3</span>
+                  75%
                 </button>
                 <button
-                  className="w-full px-2 py-1.5 bg-primary-muted/10 border border-primary-muted/30 text-primary-muted hover:bg-primary-muted/20 hover:border-primary-muted/50 hover:text-primary active:bg-primary-muted/30 active:scale-95 active:shadow-inner transition-all rounded-sm hover:shadow-[0_0_8px_rgba(68,186,186,0.2)] cursor-pointer"
+                  className="px-2 py-1.5 bg-accent-violet/10 border border-accent-violet/30 text-accent-violet hover:bg-accent-violet/20 hover:border-accent-violet/50 active:bg-accent-violet/30 active:scale-95 active:shadow-inner transition-all rounded-sm hover:shadow-[0_0_8px_rgba(150,100,200,0.3)] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 cursor-pointer"
                   onClick={onClose100}
+                  disabled={!position}
                 >
-                  <span className="text-primary-muted/60 text-xs font-bold mr-1">4</span>
-                  █ CLOSE 100%
+                  <span className="text-accent-violet/60 text-xs font-bold mr-1">4</span>
+                  100%
                 </button>
               </div>
             </div>
           </div>
-
-          {otherProfitablePositions.length > 0 && (
-            <div className="pt-2 border-t border-border-frame">
-              <div className="text-[10px] text-primary-muted mb-2 uppercase tracking-wider">█ OTHER PROFITS</div>
-              <div className="flex flex-col gap-1.5 text-[10px] font-mono">
-                {otherProfitablePositions.map((pos) => (
-                  <button
-                    key={pos.symbol}
-                    className="w-full px-2 py-1.5 bg-bullish/10 border border-bullish/30 text-bullish hover:bg-bullish/20 hover:border-bullish/50 active:bg-bullish/30 active:scale-95 active:shadow-inner transition-all rounded-sm hover:shadow-[0_0_8px_rgba(38,166,154,0.3)] cursor-pointer text-left"
-                    onClick={() => closeOtherPosition(pos.symbol)}
-                  >
-                    <div className="flex justify-between items-center">
-                      <span className="font-bold">{pos.symbol}</span>
-                      <span className="text-bullish">+${pos.pnl.toFixed(2)}</span>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
 
           <div className="pt-2 border-t border-border-frame">
             <div className="text-[10px] text-primary-muted mb-2 uppercase tracking-wider">█ STOP LOSS</div>

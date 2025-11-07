@@ -294,7 +294,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
           rightPriceScale: {
             scaleMargins: {
               top: 0.1,
-              bottom: hideStochastic ? 0.70 : 0.45,
+              bottom: hideStochastic ? 0.15 : 0.45,
             },
           },
         });
@@ -522,6 +522,117 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
       }
     };
   }, [simplifiedView, macdSettings.showMultiTimeframe, stochasticSettings.showMultiVariant, enabledMacdTimeframes.join(','), Object.entries(stochasticSettings.variants).filter(([_, v]) => v.enabled).map(([k]) => k).join(',')]);
+
+  // Handle stochastic visibility toggle
+  useEffect(() => {
+    if (!chartReady || !chartRef.current) return;
+
+    const chart = chartRef.current;
+    const colors = getThemeColors();
+
+    if (hideStochastic) {
+      // Remove all stochastic series and reference lines
+      Object.values(stochSeriesRefsRef.current).forEach((series) => {
+        try {
+          if (series.k) chart.removeSeries(series.k);
+          if (series.d) chart.removeSeries(series.d);
+        } catch (e) {}
+      });
+
+      // Clear reference lines
+      stochReferenceLinesRef.current.forEach((line) => {
+        try {
+          const firstSeries = Object.values(stochSeriesRefsRef.current)[0];
+          if (firstSeries?.d) {
+            firstSeries.d.removePriceLine(line);
+          }
+        } catch (e) {}
+      });
+      stochReferenceLinesRef.current = [];
+
+      // Clear series refs
+      stochSeriesRefsRef.current = {};
+
+      // Update chart scale margins - expand to use full height minus volume
+      chart.applyOptions({
+        rightPriceScale: {
+          scaleMargins: {
+            top: 0.1,
+            bottom: 0.15,
+          },
+        },
+      });
+    } else {
+      // Recreate stochastic series when toggled back on
+      if (Object.keys(stochSeriesRefsRef.current).length === 0) {
+        if (simplifiedView) {
+          const kSeries = chart.addLineSeries({
+            color: colors.statusBullish,
+            lineWidth: 1,
+            priceScaleId: 'stoch',
+            lastValueVisible: false,
+            priceLineVisible: false,
+            lineStyle: 2,
+          });
+
+          const dSeries = chart.addLineSeries({
+            color: colors.accentRose,
+            lineWidth: 1,
+            priceScaleId: 'stoch',
+            lastValueVisible: false,
+            priceLineVisible: false,
+          });
+
+          kSeries.priceScale().applyOptions({
+            scaleMargins: {
+              top: 0.70,
+              bottom: 0.05,
+            },
+          });
+
+          dSeries.priceScale().applyOptions({
+            scaleMargins: {
+              top: 0.70,
+              bottom: 0.05,
+            },
+          });
+
+          stochSeriesRefsRef.current['simple'] = { k: kSeries, d: dSeries };
+
+          // Add reference lines
+          const line20 = dSeries.createPriceLine({
+            price: 20,
+            color: colors.statusBearish + '60',
+            lineWidth: 1,
+            lineStyle: 2,
+            axisLabelVisible: false,
+            title: '',
+          });
+
+          const line80 = dSeries.createPriceLine({
+            price: 80,
+            color: colors.statusBullish + '60',
+            lineWidth: 1,
+            lineStyle: 2,
+            axisLabelVisible: false,
+            title: '',
+          });
+
+          stochReferenceLinesRef.current.push(line20, line80);
+        }
+
+        // Update chart scale margins
+        chart.applyOptions({
+          rightPriceScale: {
+            scaleMargins: {
+              top: 0.1,
+              bottom: 0.45,
+            },
+          },
+        });
+      }
+    }
+  }, [hideStochastic, chartReady, simplifiedView]);
 
   useEffect(() => {
     if (!syncZoom || !chartRef.current || !chartReady) return;
