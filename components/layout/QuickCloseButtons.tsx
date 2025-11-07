@@ -61,7 +61,7 @@ export default function QuickCloseButtons() {
       <button
         onClick={handleCloseBest}
         disabled={isClosing || !mostProfitable}
-        className="w-full px-2 py-1.5 text-[10px] font-mono bg-bullish/10 hover:bg-bullish/20 active:bg-bullish/30 active:scale-95 text-bullish border border-bullish rounded-sm disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-all hover:shadow-[0_0_8px_rgba(38,166,154,0.3)]"
+        className="w-full px-2 py-1.5 text-[10px] font-mono bg-bullish/10 border border-bullish/30 text-bullish hover:bg-bullish/20 hover:border-bullish/50 active:bg-bullish/30 active:scale-95 active:shadow-inner transition-all rounded-sm hover:shadow-[0_0_8px_rgba(38,166,154,0.3)] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 cursor-pointer"
         title={mostProfitable ? `Close ${mostProfitable.symbol} (Shift+X)` : 'No profitable positions (Shift+X)'}
       >
         {isClosing ? '⟳' : mostProfitable ? `⇧X ${mostProfitable.symbol} +$${mostProfitable.pnl.toFixed(2)}` : '⇧X ---'}
@@ -69,7 +69,7 @@ export default function QuickCloseButtons() {
       <button
         onClick={handleCloseAllProfitable}
         disabled={isClosing || profitablePositions.length === 0}
-        className="w-full px-2 py-1.5 text-[10px] font-mono bg-bullish/10 hover:bg-bullish/20 active:bg-bullish/30 active:scale-95 text-bullish border border-bullish rounded-sm disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-all hover:shadow-[0_0_8px_rgba(38,166,154,0.3)]"
+        className="w-full px-2 py-1.5 text-[10px] font-mono bg-bullish/10 border border-bullish/30 text-bullish hover:bg-bullish/20 hover:border-bullish/50 active:bg-bullish/30 active:scale-95 active:shadow-inner transition-all rounded-sm hover:shadow-[0_0_8px_rgba(38,166,154,0.3)] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 cursor-pointer"
         title={profitablePositions.length > 0 ? `Close ${profitablePositions.length} profitable ${profitablePositions.length === 1 ? 'position' : 'positions'} (Shift+C)` : 'No profitable positions (Shift+C)'}
       >
         {isClosing ? '⟳' : `⇧C ALL (${profitablePositions.length}) +$${totalProfit.toFixed(2)}`}
