@@ -33,6 +33,7 @@ interface PositionStore {
   setService: (service: HyperliquidService) => void;
   fetchPosition: (coin: string) => Promise<void>;
   fetchAllPositions: (coins?: string[]) => Promise<void>;
+  fetchAndStoreAllOpenPositions: () => Promise<string[]>;
   subscribeToPosition: (coin: string) => void;
   unsubscribeFromPosition: (coin: string) => void;
   startPolling: (coin: string, interval: number) => void;
@@ -131,6 +132,35 @@ export const usePositionStore = create<PositionStore>((set, get) => ({
         loading: { ...state.loading, ...loadingStateUpdate },
         errors: { ...state.errors, ...errorStateUpdate },
       }));
+    }
+  },
+
+  fetchAndStoreAllOpenPositions: async () => {
+    const { service } = get();
+    if (!service) {
+      console.warn('Service not initialized yet, skipping open positions fetch');
+      return [];
+    }
+
+    try {
+      const allPositions = await service.getOpenPositions();
+      const positionMap: Record<string, Position | null> = {};
+      const symbols: string[] = [];
+
+      allPositions.forEach((rawPosition: any) => {
+        const position = mapHyperliquidPosition(rawPosition);
+        positionMap[position.symbol] = position;
+        symbols.push(position.symbol);
+      });
+
+      set((state) => ({
+        positions: { ...state.positions, ...positionMap },
+      }));
+
+      return symbols;
+    } catch (error) {
+      console.error('Failed to fetch open positions:', error);
+      return [];
     }
   },
 

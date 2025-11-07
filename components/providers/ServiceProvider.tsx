@@ -12,6 +12,7 @@ import { useTopSymbolsStore } from '@/stores/useTopSymbolsStore';
 export function ServiceProvider({ children }: { children: React.ReactNode }) {
   const service = useHyperliquidService();
   const setPositionService = usePositionStore((state) => state.setService);
+  const fetchAndStoreAllOpenPositions = usePositionStore((state) => state.fetchAndStoreAllOpenPositions);
   const setMetaService = useSymbolMetaStore((state) => state.setService);
   const fetchMetadata = useSymbolMetaStore((state) => state.fetchMetadata);
   const setOrderService = useOrderStore((state) => state.setService);
@@ -29,8 +30,9 @@ export function ServiceProvider({ children }: { children: React.ReactNode }) {
       setTopSymbolsService(service);
 
       fetchMetadata();
+      fetchAndStoreAllOpenPositions();
     }
-  }, [service, setPositionService, setMetaService, setOrderService, setCandleService, setTradingService, setTopSymbolsService, fetchMetadata]);
+  }, [service, setPositionService, setMetaService, setOrderService, setCandleService, setTradingService, setTopSymbolsService, fetchMetadata, fetchAndStoreAllOpenPositions]);
 
   return <>{children}</>;
 }
