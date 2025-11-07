@@ -239,6 +239,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
   const candleKey = `${coin}-${interval}`;
   const storeCandles = useCandleStore((state) => state.candles[candleKey]) || [];
   const storeLoading = useCandleStore((state) => state.loading[candleKey]) || false;
+  const candleService = useCandleStore((state) => state.service);
   const getDecimals = useSymbolMetaStore((state) => state.getDecimals);
   const decimals = getDecimals(coin);
 
@@ -580,7 +581,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
   }, [syncZoom, chartReady]);
 
   useEffect(() => {
-    if (!chartReady || isExternalData) return;
+    if (!chartReady || isExternalData || !candleService) return;
 
     const { startTime, endTime } = getCandleTimeWindow(interval, DEFAULT_CANDLE_COUNT);
     const { fetchCandles, subscribeToCandles, unsubscribeFromCandles } = useCandleStore.getState();
@@ -617,7 +618,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
         unsubscribeFromCandles(coin, '1m');
       }
     };
-  }, [coin, interval, chartReady, isExternalData, simplifiedView, enabledMacdTimeframes.join(','), macdSettings.showMultiTimeframe, stochasticSettings.showMultiVariant]);
+  }, [coin, interval, chartReady, isExternalData, candleService, simplifiedView, enabledMacdTimeframes.join(','), macdSettings.showMultiTimeframe, stochasticSettings.showMultiVariant]);
 
   useEffect(() => {
     lastCandleTimeRef.current = null;

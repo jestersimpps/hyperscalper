@@ -9,8 +9,11 @@ import { STANDARD_CANDLES } from '@/lib/constants';
 function BTCChart() {
   const [currentPrice, setCurrentPrice] = useState(0);
   const candles = useCandleStore((state) => state.candles['BTC-1m']) || [];
+  const candleService = useCandleStore((state) => state.service);
 
   useEffect(() => {
+    if (!candleService) return;
+
     const { startTime, endTime } = getCandleTimeWindow('1m', STANDARD_CANDLES);
     const { fetchCandles, subscribeToCandles } = useCandleStore.getState();
 
@@ -21,7 +24,7 @@ function BTCChart() {
       const { unsubscribeFromCandles } = useCandleStore.getState();
       unsubscribeFromCandles('BTC', '1m');
     };
-  }, []);
+  }, [candleService]);
 
   return (
     <div className="h-full flex flex-col">

@@ -61,7 +61,7 @@ export class HyperliquidService implements IHyperliquidService {
     }
   }
 
-  async getCandles(params: CandleParams): Promise<Candle[]> {
+  async getCandles(params: CandleParams): Promise<any[]> {
     const req: any = {
       coin: params.coin,
       interval: params.interval
@@ -69,7 +69,23 @@ export class HyperliquidService implements IHyperliquidService {
     if (params.startTime !== undefined) req.startTime = params.startTime;
     if (params.endTime !== undefined) req.endTime = params.endTime;
 
-    return await this.publicClient.candleSnapshot(req);
+    console.log('[HyperliquidService] getCandles called with:', req);
+
+    const result = await this.publicClient.candleSnapshot(req);
+    console.log(`[HyperliquidService] getCandles returned ${result.length} candles for ${params.coin}-${params.interval}`);
+
+    const transformed = result.map((candle: any) => ({
+      time: candle.t,
+      open: parseFloat(candle.o),
+      high: parseFloat(candle.h),
+      low: parseFloat(candle.l),
+      close: parseFloat(candle.c),
+      volume: parseFloat(candle.v)
+    }));
+
+    console.log('[HyperliquidService] Transformed sample candle:', transformed[0]);
+
+    return transformed;
   }
 
   async getOrderBook(params: OrderBookParams): Promise<Book> {
@@ -93,9 +109,19 @@ export class HyperliquidService implements IHyperliquidService {
     }, callback);
   }
 
-  async subscribeToCandles(params: CandleParams, callback: (data: Candle) => void): Promise<() => void> {
+  async subscribeToCandles(params: CandleParams, callback: (data: any) => void): Promise<() => void> {
     this.initWebSocket();
-    return this.eventClient!.candle({ coin: params.coin, interval: params.interval }, callback);
+    return this.eventClient!.candle({ coin: params.coin, interval: params.interval }, (candle: any) => {
+      const transformed = {
+        time: candle.t,
+        open: parseFloat(candle.o),
+        high: parseFloat(candle.h),
+        low: parseFloat(candle.l),
+        close: parseFloat(candle.c),
+        volume: parseFloat(candle.v)
+      };
+      callback(transformed);
+    });
   }
 
   async subscribeToTrades(params: TradesParams, callback: (data: WsTrade[]) => void): Promise<() => void> {

@@ -18,7 +18,10 @@ export function ServiceProvider({ children }: { children: React.ReactNode }) {
   const setTradingService = useTradingStore((state) => state.setService);
 
   useEffect(() => {
+    console.log('[ServiceProvider] Service state changed:', { hasService: !!service });
+
     if (service) {
+      console.log('[ServiceProvider] Setting service in all stores');
       setPositionService(service);
       setMetaService(service);
       setOrderService(service);

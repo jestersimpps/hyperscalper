@@ -48,6 +48,7 @@ function SymbolView({ coin }: SymbolViewProps) {
   const fetchCandles = useCandleStore((state) => state.fetchCandles);
   const subscribeToCandles = useCandleStore((state) => state.subscribeToCandles);
   const unsubscribeFromCandles = useCandleStore((state) => state.unsubscribeFromCandles);
+  const candleService = useCandleStore((state) => state.service);
 
   const getDecimals = useSymbolMetaStore((state) => state.getDecimals);
   const decimals = useMemo(() => getDecimals(coin), [getDecimals, coin]);
@@ -75,10 +76,19 @@ function SymbolView({ coin }: SymbolViewProps) {
   }, [coin, subscribeToTrades, unsubscribeFromTrades, subscribeToOrders, unsubscribeFromOrders]);
 
   useEffect(() => {
+    console.log(`[SymbolView] Candle service effect for ${coin}`, { hasCandleService: !!candleService });
+
+    if (!candleService) {
+      console.log(`[SymbolView] Waiting for candle service for ${coin}...`);
+      return;
+    }
+
+    console.log(`[SymbolView] Fetching candles for ${coin} across all timeframes`);
     const timeframes: TimeInterval[] = ['1m', '5m', '15m', '1h'];
 
     timeframes.forEach((interval) => {
       const { startTime, endTime } = getCandleTimeWindow(interval, DEFAULT_CANDLE_COUNT);
+      console.log(`[SymbolView] Requesting ${coin}-${interval} candles`);
       fetchCandles(coin, interval, startTime, endTime);
       subscribeToCandles(coin, interval);
     });
@@ -88,7 +98,7 @@ function SymbolView({ coin }: SymbolViewProps) {
         unsubscribeFromCandles(coin, interval);
       });
     };
-  }, [coin, fetchCandles, subscribeToCandles, unsubscribeFromCandles]);
+  }, [coin, candleService, fetchCandles, subscribeToCandles, unsubscribeFromCandles]);
 
   useEffect(() => {
     if (trades.length === 0) return;
