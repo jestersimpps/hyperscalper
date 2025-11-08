@@ -26,6 +26,7 @@ export default function AppShell({ sidepanel, children }: AppShellProps) {
   const router = useRouter();
   const coin = pathname?.split('/')[2]?.toUpperCase() || 'BTC';
   const address = useAddressFromUrl();
+  const isTradesView = pathname?.includes('/trades');
 
   const position = usePositionStore((state) => state.positions[coin]);
   const orders = useOrderStore((state) => state.orders[coin]) || [];
@@ -282,7 +283,11 @@ export default function AppShell({ sidepanel, children }: AppShellProps) {
         <div className="flex items-center gap-3">
           <button
             onClick={() => address && router.push(`/${address}/trades`)}
-            className="px-2 py-1.5 bg-bg-secondary text-primary-muted border-2 border-frame hover:text-primary hover:bg-primary/10 active:scale-95 cursor-pointer transition-all rounded-sm"
+            className={`px-2 py-1.5 active:scale-95 cursor-pointer transition-all rounded-sm ${
+              isTradesView
+                ? 'bg-primary/20 text-primary border-2 border-primary'
+                : 'bg-bg-secondary text-primary-muted border-2 border-frame hover:text-primary hover:bg-primary/10'
+            }`}
             title="Today's Trades"
           >
             <CalendarIcon />

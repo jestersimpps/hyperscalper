@@ -110,6 +110,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
   const isLoadingTopSymbols = useTopSymbolsStore((state) => state.isLoading);
   const startAutoRefresh = useTopSymbolsStore((state) => state.startAutoRefresh);
   const stopAutoRefresh = useTopSymbolsStore((state) => state.stopAutoRefresh);
+  const fetchTopSymbols = useTopSymbolsStore((state) => state.fetchTopSymbols);
   const pinnedSymbols = settings.pinnedSymbols;
   const subscribe = useSidebarPricesStore((state) => state.subscribe);
   const unsubscribe = useSidebarPricesStore((state) => state.unsubscribe);
@@ -310,7 +311,6 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                   const borderColor = isBullish ? 'border-bullish' : 'border-bearish';
                   const arrowColor = isBullish ? 'text-bullish' : 'text-bearish';
                   const arrow = isBullish ? '▲' : '▼';
-                  const isPinned = pinnedSymbols.includes(symbol);
 
                   const signalBadges: React.JSX.Element[] = [];
 
@@ -372,34 +372,38 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
 
                   return (
                     <div key={symbol} className={`terminal-border ${bgColor} ${borderColor}`}>
-                      <div className="flex items-center gap-2 p-2">
-                        <button
-                          onClick={() => {
-                            if (onSymbolSelect) {
-                              onSymbolSelect(symbol);
-                            } else {
-                              router.push(`/${address}/${symbol}`);
-                            }
-                          }}
-                          className="flex-1 flex items-center gap-2 flex-wrap text-left"
-                        >
-                          <span className={`text-lg ${arrowColor} font-bold`}>{arrow}</span>
-                          <span className="text-primary font-bold text-xs">{symbol}/USD</span>
-                          {signalBadges}
-                        </button>
+                      <div className="flex items-start">
+                        <div className="flex flex-col flex-1">
+                          <button
+                            onClick={() => {
+                              if (onSymbolSelect) {
+                                onSymbolSelect(symbol);
+                              } else {
+                                router.push(`/${address}/${symbol}`);
+                              }
+                            }}
+                            className="flex-1 text-left p-2 pb-0"
+                          >
+                            <div className="flex justify-between items-center gap-2 mb-1">
+                              <div className="flex items-center gap-2">
+                                <span className={`text-xs ${arrowColor} font-bold`}>{arrow}</span>
+                                <span className="text-primary font-bold text-xs">{symbol}/USD</span>
+                              </div>
+                            </div>
+                          </button>
+                          <div className="px-2 pb-2 flex gap-1 flex-wrap">
+                            {signalBadges}
+                          </div>
+                        </div>
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (isPinned) {
-                              unpinSymbol(symbol);
-                            } else {
-                              pinSymbol(symbol);
-                            }
+                            window.open(`/${address}/chart-popup/${symbol}`, '_blank', 'width=1200,height=800');
                           }}
-                          className="p-1 text-primary-muted hover:text-primary transition-colors flex-shrink-0 cursor-pointer"
-                          title={isPinned ? "Unpin symbol" : "Pin symbol"}
+                          className="p-2 text-primary-muted hover:text-primary cursor-pointer transition-colors"
+                          title="Open in new window"
                         >
-                          <span className="text-base font-bold">{isPinned ? '−' : '+'}</span>
+                          <span className="text-lg">⧉</span>
                         </button>
                       </div>
                     </div>
@@ -528,9 +532,17 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
         {/* Rest of Symbols Section */}
         {symbolsWithoutPositions.length > 0 && (
           <div className="flex-1 flex flex-col overflow-hidden">
-            <div className="terminal-border p-1.5 mb-2">
-              <div className="terminal-text text-center">
+            <div className="terminal-border p-2 mb-2">
+              <div className="flex items-center justify-between">
                 <span className="text-primary text-xs font-bold tracking-wider">█ SYMBOLS</span>
+                <button
+                  onClick={fetchTopSymbols}
+                  disabled={isLoadingTopSymbols}
+                  className="px-2 py-1 text-xs bg-primary/10 hover:bg-primary/20 active:bg-primary/30 active:scale-95 text-primary border border-primary rounded disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 cursor-pointer transition-all"
+                  title="Refresh symbols list"
+                >
+                  {isLoadingTopSymbols ? '⟳ LOADING...' : '⟳ REFRESH'}
+                </button>
               </div>
             </div>
 

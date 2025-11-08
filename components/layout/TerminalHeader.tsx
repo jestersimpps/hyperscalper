@@ -93,7 +93,7 @@ export default function TerminalHeader({ coin }: TerminalHeaderProps) {
                 : 'bg-bg-secondary text-primary-muted border-2 border-frame hover:text-primary hover:bg-primary/10'
             }`}
           >
-            Multi-Chart
+            Multi-Timeframe
           </button>
         </div>
       </div>
