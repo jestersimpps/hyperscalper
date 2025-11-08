@@ -10,6 +10,8 @@ import { useCandleStore } from '@/stores/useCandleStore';
 import { useTradingStore } from '@/stores/useTradingStore';
 import { useTopSymbolsStore } from '@/stores/useTopSymbolsStore';
 import { useUserFillsStore } from '@/stores/useUserFillsStore';
+import { useScannerStore } from '@/stores/useScannerStore';
+import { useSymbolVolatilityStore } from '@/stores/useSymbolVolatilityStore';
 
 export function ServiceProvider({ children }: { children: React.ReactNode }) {
   const addressFromUrl = useAddressFromUrl();
@@ -23,6 +25,8 @@ export function ServiceProvider({ children }: { children: React.ReactNode }) {
   const setTradingService = useTradingStore((state) => state.setService);
   const setTopSymbolsService = useTopSymbolsStore((state) => state.setService);
   const setUserFillsService = useUserFillsStore((state) => state.setService);
+  const setScannerService = useScannerStore((state) => state.setService);
+  const setVolatilityService = useSymbolVolatilityStore((state) => state.setService);
 
   useEffect(() => {
     if (service) {
@@ -33,11 +37,13 @@ export function ServiceProvider({ children }: { children: React.ReactNode }) {
       setTradingService(service);
       setTopSymbolsService(service);
       setUserFillsService(service);
+      setScannerService(service);
+      setVolatilityService(service);
 
       fetchMetadata();
       fetchAndStoreAllOpenPositions();
     }
-  }, [service, setPositionService, setMetaService, setOrderService, setCandleService, setTradingService, setTopSymbolsService, setUserFillsService, fetchMetadata, fetchAndStoreAllOpenPositions]);
+  }, [service]);
 
   return <>{children}</>;
 }

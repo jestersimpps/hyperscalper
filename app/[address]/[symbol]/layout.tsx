@@ -25,7 +25,7 @@ export default function SymbolLayout({ children, params }: SymbolLayoutProps) {
           font-family: 'Courier New', monospace;
         }
         .terminal-border {
-          border: 2px solid var(--border-frame);
+          border: 1px solid var(--border-frame);
           box-shadow: 0 0 10px color-mix(in srgb, var(--border-frame) 50%, transparent);
         }
         .terminal-text {

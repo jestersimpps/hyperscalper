@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { memo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useMemo } from 'react';
 import { useScannerStore } from '@/stores/useScannerStore';
@@ -10,13 +10,88 @@ import { useSidebarPricesStore } from '@/stores/useSidebarPricesStore';
 import { usePositionStore } from '@/stores/usePositionStore';
 import { useOrderStore } from '@/stores/useOrderStore';
 import { useSymbolMetaStore } from '@/stores/useSymbolMetaStore';
+import { useSymbolVolatilityStore } from '@/stores/useSymbolVolatilityStore';
 import { formatPrice } from '@/lib/format-utils';
 import { useAddressFromUrl } from '@/lib/hooks/use-address-from-url';
+import { PositionPriceIndicator } from '@/components/PositionPriceIndicator';
 
 interface SidepanelProps {
   selectedSymbol: string;
   onSymbolSelect?: (symbol: string) => void;
 }
+
+interface SymbolPriceProps {
+  symbol: string;
+}
+
+const SymbolPrice = memo(({ symbol }: SymbolPriceProps) => {
+  const price = useSidebarPricesStore((state) => state.prices[symbol]);
+  const position = usePositionStore((state) => state.positions[symbol]);
+
+  const decimals = useSymbolMetaStore.getState().getDecimals(symbol);
+  const formattedPrice = price ? formatPrice(price, decimals.price) : '-.--';
+
+  const pnlText = position && position.size > 0
+    ? `${position.pnl >= 0 ? '+' : ''}${position.pnl.toFixed(2)} USD`
+    : '+-.-- USD';
+
+  const pnlColorClass = position && position.size > 0
+    ? (position.pnl >= 0 ? 'text-bullish' : 'text-bearish')
+    : 'text-primary-muted';
+
+  return (
+    <div className="flex flex-col text-xs font-mono text-right flex-shrink-0 w-24 tabular-nums">
+      <span className={pnlColorClass}>{pnlText}</span>
+      <span className="text-primary-muted">${formattedPrice}</span>
+    </div>
+  );
+});
+
+SymbolPrice.displayName = 'SymbolPrice';
+
+const VolatilityBlocks = memo(({ symbol }: SymbolPriceProps) => {
+  const volatilityData = useSymbolVolatilityStore((state) => state.volatility[symbol]);
+
+  const blocks = volatilityData?.blocks || 0;
+
+  return (
+    <div className="flex gap-0.5 items-center">
+      {Array.from({ length: 10 }).map((_, index) => (
+        <span
+          key={index}
+          className={`text-[10px] ${index < blocks ? 'text-primary' : 'text-primary/20'}`}
+        >
+          █
+        </span>
+      ))}
+    </div>
+  );
+});
+
+VolatilityBlocks.displayName = 'VolatilityBlocks';
+
+const SymbolItemSkeleton = memo(() => {
+  return (
+    <div className="terminal-border p-2 animate-pulse">
+      <div className="flex justify-between items-stretch gap-2">
+        <div className="flex flex-col justify-between min-w-0 flex-1">
+          <div className="h-3 bg-primary/20 rounded w-20 mb-2"></div>
+          <div className="flex gap-0.5">
+            {Array.from({ length: 10 }).map((_, i) => (
+              <div key={i} className="h-2 w-1.5 bg-primary/10 rounded"></div>
+            ))}
+          </div>
+        </div>
+        <div className="flex flex-col items-end gap-0.5">
+          <div className="h-3 bg-primary/20 rounded w-20"></div>
+          <div className="h-2 bg-primary/10 rounded w-16"></div>
+        </div>
+      </div>
+    </div>
+  );
+});
+
+SymbolItemSkeleton.displayName = 'SymbolItemSkeleton';
 
 export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelProps) {
   const router = useRouter();
@@ -30,8 +105,11 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
   const startAutoRefresh = useTopSymbolsStore((state) => state.startAutoRefresh);
   const stopAutoRefresh = useTopSymbolsStore((state) => state.stopAutoRefresh);
   const pinnedSymbols = settings.pinnedSymbols;
-  const { subscribe, unsubscribe, getPrice } = useSidebarPricesStore();
-  const { startPollingMultiple, stopPollingMultiple, getPosition } = usePositionStore();
+  const subscribe = useSidebarPricesStore((state) => state.subscribe);
+  const unsubscribe = useSidebarPricesStore((state) => state.unsubscribe);
+  const startPollingMultiple = usePositionStore((state) => state.startPollingMultiple);
+  const stopPollingMultiple = usePositionStore((state) => state.stopPollingMultiple);
+  const getPosition = usePositionStore((state) => state.getPosition);
   const positions = usePositionStore((state) => state.positions);
   const orders = useOrderStore((state) => state.orders);
 
@@ -48,11 +126,29 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
   }, [positions]);
 
   const allSymbolsToShow = useMemo(() => {
-    const symbolSet = new Set([...pinnedSymbols, ...symbolsWithOrders, ...symbolsWithPositions]);
+    const top20Names = topSymbols.map(s => s.name);
+    const userPinnedNotInTop20 = pinnedSymbols.filter(s => !top20Names.includes(s));
+    const symbolSet = new Set([
+      ...top20Names,
+      ...userPinnedNotInTop20,
+      ...symbolsWithOrders,
+      ...symbolsWithPositions
+    ]);
     return Array.from(symbolSet);
-  }, [pinnedSymbols, symbolsWithOrders, symbolsWithPositions]);
+  }, [topSymbols, pinnedSymbols, symbolsWithOrders, symbolsWithPositions]);
 
-  const allSymbolsString = allSymbolsToShow.sort().join(',');
+  const allSymbolsString = useMemo(() => {
+    return [...allSymbolsToShow].sort().join(',');
+  }, [allSymbolsToShow]);
+
+  const nonTop20Symbols = useMemo(() => {
+    const metadata = useSymbolMetaStore.getState().metadata;
+    const allSymbolNames = Object.keys(metadata);
+    const top20Names = topSymbols.map(s => s.name);
+    return allSymbolNames
+      .filter(symbol => !top20Names.includes(symbol))
+      .sort();
+  }, [topSymbols]);
 
   useEffect(() => {
     if (settings.scanner.enabled) {
@@ -95,6 +191,19 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
     };
   }, [allSymbolsString, startPollingMultiple, stopPollingMultiple]);
 
+  useEffect(() => {
+    const symbols = allSymbolsString.split(',').filter(s => s.length > 0);
+    if (symbols.length > 0) {
+      useSymbolVolatilityStore.getState().subscribe(symbols);
+    }
+
+    return () => {
+      if (symbols.length > 0) {
+        useSymbolVolatilityStore.getState().unsubscribe(symbols);
+      }
+    };
+  }, [allSymbolsString]);
+
   const formatTimeSince = (timestamp: number | null) => {
     if (!timestamp) return 'Never';
     const seconds = Math.floor((Date.now() - timestamp) / 1000);
@@ -105,57 +214,38 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
     return `${hours}h ago`;
   };
 
-  const renderPrice = (coin: string) => {
-    const price = getPrice(coin);
-    const position = getPosition(coin);
+  const { symbolsWithOpenPositions, symbolsWithoutPositions } = useMemo(() => {
+    const withPositions: string[] = [];
+    const withoutPositions: string[] = [];
 
-    if (!price) return null;
+    allSymbolsToShow.forEach(symbol => {
+      const position = getPosition(symbol);
+      if (position && position.size > 0) {
+        withPositions.push(symbol);
+      } else {
+        withoutPositions.push(symbol);
+      }
+    });
 
-    const decimals = useSymbolMetaStore.getState().getDecimals(coin);
-    const formattedPrice = formatPrice(price, decimals.price);
-
-    if (position) {
-      const formattedPnl = position.pnl.toFixed(2);
-      const pnlSign = position.pnl >= 0 ? '+' : '';
-      const colorClass = position.pnl >= 0 ? 'text-bullish' : 'text-bearish';
-
-      return (
-        <div className="flex flex-col text-xs font-mono text-right flex-shrink-0 w-24 tabular-nums">
-          <span className="text-primary-muted">${formattedPrice}</span>
-          <span className={colorClass}>{pnlSign}${formattedPnl}</span>
-        </div>
-      );
-    }
-
-    return (
-      <span className="text-xs font-mono text-primary-muted text-right flex-shrink-0 w-24 tabular-nums block">
-        ${formattedPrice}
-      </span>
-    );
-  };
-
-  const sortedSymbols = useMemo(() => {
-    return [...allSymbolsToShow].sort((a, b) => {
+    // Sort symbols with positions by absolute PnL
+    withPositions.sort((a, b) => {
       const posA = getPosition(a);
       const posB = getPosition(b);
-
-      const pnlA = posA?.pnl ?? null;
-      const pnlB = posB?.pnl ?? null;
-
-      if (pnlA !== null && pnlB !== null) {
-        return pnlB - pnlA;
-      }
-
-      if (pnlA !== null && pnlB === null) {
-        return pnlA > 0 ? -1 : 1;
-      }
-
-      if (pnlA === null && pnlB !== null) {
-        return pnlB > 0 ? 1 : -1;
-      }
-
-      return 0;
+      const pnlA = Math.abs(posA?.pnl ?? 0);
+      const pnlB = Math.abs(posB?.pnl ?? 0);
+      return pnlB - pnlA;
     });
+
+    // Sort symbols without positions by volatility
+    withoutPositions.sort((a, b) => {
+      const volatilityA = useSymbolVolatilityStore.getState().volatility[a];
+      const volatilityB = useSymbolVolatilityStore.getState().volatility[b];
+      const blocksA = volatilityA?.blocks ?? 0;
+      const blocksB = volatilityB?.blocks ?? 0;
+      return blocksB - blocksA;
+    });
+
+    return { symbolsWithOpenPositions: withPositions, symbolsWithoutPositions: withoutPositions };
   }, [allSymbolsToShow, getPosition]);
 
   return (
@@ -316,112 +406,40 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
         </div>
       )}
 
-      {/* Right Column - Pinned Symbols */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <div className="mb-4">
-          <div className="terminal-border p-1.5">
-            <div className="terminal-text text-center">
-              <span className="text-primary text-xs font-bold tracking-wider">█ SYMBOLS</span>
+      {/* Right Column - Symbols */}
+      <div className="flex-1 flex flex-col overflow-hidden gap-3">
+        {/* Open Positions Section */}
+        {symbolsWithOpenPositions.length > 0 && (
+          <div className="flex-shrink-0">
+            <div className="terminal-border p-1.5 mb-2">
+              <div className="terminal-text text-center">
+                <span className="text-primary text-xs font-bold tracking-wider">█ OPEN POSITIONS</span>
+              </div>
             </div>
-          </div>
-        </div>
-
-        {/* Top Symbols Dropdown Selector */}
-        <div className="mb-3 flex-shrink-0">
-        <button
-          onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-          className="w-full terminal-border p-2 hover:bg-primary/5 active:bg-primary/10 active:scale-[0.99] cursor-pointer transition-all"
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-primary-muted text-xs font-mono">ADD FROM TOP 20 BY VOLUME</span>
-            <span className="text-primary text-base">{isDropdownOpen ? '▼' : '▶'}</span>
-          </div>
-        </button>
-
-        {isDropdownOpen && (
-          <div className="mt-1 terminal-border bg-bg-primary max-h-60 overflow-y-auto scrollbar-thin scrollbar-thumb-primary-dark scrollbar-track-transparent">
-            {isLoadingTopSymbols ? (
-              <div className="p-3 text-center text-primary-muted text-xs font-mono">
-                Loading...
-              </div>
-            ) : (
-              <div className="divide-y divide-frame">
-                {topSymbols.map((symbolData) => {
-                  const isPinned = pinnedSymbols.includes(symbolData.name);
-                  const volumeInMillions = (symbolData.volume / 1000000).toFixed(1);
-
-                  return (
-                    <div
-                      key={symbolData.name}
-                      className="flex items-center hover:bg-primary/5 transition-colors"
-                    >
-                      <button
-                        onClick={() => {
-                          if (onSymbolSelect) {
-                            onSymbolSelect(symbolData.name);
-                          } else {
-                            router.push(`/${address}/${symbolData.name}`);
-                          }
-                        }}
-                        className="flex-1 text-left p-2"
-                      >
-                        <div className="flex justify-between items-center gap-2">
-                          <span className="text-primary text-xs font-mono font-bold w-16 flex-shrink-0">
-                            {symbolData.name}
-                          </span>
-                          <div className="flex items-center gap-2 flex-shrink-0">
-                            {renderPrice(symbolData.name)}
-                            <span className="text-primary-muted text-xs font-mono w-12 text-right">
-                              ${volumeInMillions}M
-                            </span>
-                          </div>
-                        </div>
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (isPinned) {
-                            unpinSymbol(symbolData.name);
-                          } else {
-                            pinSymbol(symbolData.name);
-                          }
-                        }}
-                        className="p-2 text-primary-muted hover:text-primary cursor-pointer transition-colors"
-                        title={isPinned ? 'Unpin symbol' : 'Pin symbol'}
-                      >
-                        <span className="text-lg font-bold">{isPinned ? '−' : '+'}</span>
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
-        </div>
-
-        {/* Pinned Symbols List */}
-        <div className="flex-1 flex flex-col gap-1 overflow-y-auto">
-        {sortedSymbols.length === 0 ? (
-          <div className="terminal-border p-3 text-center">
-            <span className="text-primary-muted text-xs font-mono">
-              No pinned symbols. Use + to add symbols.
-            </span>
-          </div>
-        ) : (
-          sortedSymbols.map((symbol) => {
+            <div className="flex flex-col gap-1 max-h-96 overflow-y-auto">
+              {isLoadingTopSymbols && symbolsWithOpenPositions.length === 0 ? (
+                <>
+                  <SymbolItemSkeleton />
+                  <SymbolItemSkeleton />
+                </>
+              ) : (
+                symbolsWithOpenPositions.map((symbol) => {
             const isPinned = pinnedSymbols.includes(symbol);
+            const top20Data = topSymbols.find(s => s.name === symbol);
+            const isTop20 = !!top20Data;
+            const volumeInMillions = top20Data ? (top20Data.volume / 1000000).toFixed(1) : null;
 
             return (
             <div
               key={symbol}
-              className={`terminal-border ${
+              className={`${
                 selectedSymbol === symbol
-                  ? 'bg-primary/10 border-primary'
-                  : 'hover:bg-primary/5'
+                  ? 'border-2 border-dotted border-[var(--border-frame)] bg-primary/10 shadow-[0_0_10px_color-mix(in_srgb,var(--border-frame)_50%,transparent)]'
+                  : 'terminal-border hover:bg-primary/5'
               }`}
             >
-              <div className="flex items-center">
+              <div className="flex items-start">
+              <div className="flex flex-col flex-1">
                 <button
                   onClick={() => {
                     if (onSymbolSelect) {
@@ -430,21 +448,42 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                       router.push(`/${address}/${symbol}`);
                     }
                   }}
-                  className="flex-1 text-left p-2"
+                  className="flex-1 text-left p-2 pb-0"
                 >
-                  <div className="flex justify-between items-center gap-2">
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                      {selectedSymbol === symbol && (
-                        <span className="text-primary text-xs flex-shrink-0">█</span>
-                      )}
-                      <span className="text-primary font-bold flex-shrink-0">{symbol}/USD</span>
+                  <div className="flex justify-between items-stretch gap-2">
+                    <div className="flex flex-col justify-between min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`text-primary font-bold flex-shrink-0 text-xs ${
+                            positions[symbol] && positions[symbol].size > 0 ? 'animate-pulse' : ''
+                          }`}
+                        >
+                          {symbol}/USD
+                        </span>
+                      </div>
+                      <div>
+                        <VolatilityBlocks symbol={symbol} />
+                      </div>
                     </div>
-                    <div className="flex-shrink-0">
-                      {renderPrice(symbol)}
+                    <div className="flex-1">
+                      {/* Reserved space for minimal chart */}
+                    </div>
+                    <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
+                      <SymbolPrice symbol={symbol} />
+                      {volumeInMillions && (
+                        <span className="text-[10px] text-primary-muted font-mono">
+                          ${volumeInMillions}M
+                        </span>
+                      )}
                     </div>
                   </div>
                 </button>
-                {isPinned && (
+                <div className="px-2">
+                  <PositionPriceIndicator symbol={symbol} />
+                </div>
+              </div>
+              <div className="flex flex-col">
+                {!isTop20 && isPinned && (
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -467,11 +506,186 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                   <span className="text-lg">⧉</span>
                 </button>
               </div>
+              </div>
             </div>
             );
-          })
+                })
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Add Symbols Dropdown */}
+        <div className="flex-shrink-0">
+        <button
+          onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+          className="w-full terminal-border p-2 hover:bg-primary/5 active:bg-primary/10 active:scale-[0.99] cursor-pointer transition-all"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-primary-muted text-xs font-mono">ADD OTHER SYMBOLS</span>
+            <span className="text-primary text-base">{isDropdownOpen ? '▼' : '▶'}</span>
+          </div>
+        </button>
+
+        {isDropdownOpen && (
+          <div className="mt-1 terminal-border bg-bg-primary max-h-60 overflow-y-auto scrollbar-thin scrollbar-thumb-primary-dark scrollbar-track-transparent">
+            {nonTop20Symbols.length === 0 ? (
+              <div className="p-3 text-center text-primary-muted text-xs font-mono">
+                No additional symbols available
+              </div>
+            ) : (
+              <div className="divide-y divide-frame">
+                {nonTop20Symbols.map((symbol) => {
+                  const isPinned = pinnedSymbols.includes(symbol);
+
+                  return (
+                    <div
+                      key={symbol}
+                      className="flex items-center hover:bg-primary/5 transition-colors"
+                    >
+                      <button
+                        onClick={() => {
+                          if (onSymbolSelect) {
+                            onSymbolSelect(symbol);
+                          } else {
+                            router.push(`/${address}/${symbol}`);
+                          }
+                        }}
+                        className="flex-1 text-left p-2"
+                      >
+                        <div className="flex justify-between items-center gap-2">
+                          <span className="text-primary text-xs font-mono font-bold">
+                            {symbol}/USD
+                          </span>
+                          <SymbolPrice symbol={symbol} />
+                        </div>
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (isPinned) {
+                            unpinSymbol(symbol);
+                          } else {
+                            pinSymbol(symbol);
+                          }
+                        }}
+                        className="p-2 text-primary-muted hover:text-primary cursor-pointer transition-colors"
+                        title={isPinned ? 'Unpin symbol' : 'Pin symbol'}
+                      >
+                        <span className="text-lg font-bold">{isPinned ? '−' : '+'}</span>
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         )}
         </div>
+
+        {/* Rest of Symbols Section */}
+        {symbolsWithoutPositions.length > 0 && (
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <div className="terminal-border p-1.5 mb-2">
+              <div className="terminal-text text-center">
+                <span className="text-primary text-xs font-bold tracking-wider">█ SYMBOLS</span>
+              </div>
+            </div>
+            <div className="flex-1 flex flex-col gap-1 overflow-y-auto">
+              {isLoadingTopSymbols && topSymbols.length === 0 ? (
+                <>
+                  <SymbolItemSkeleton />
+                  <SymbolItemSkeleton />
+                  <SymbolItemSkeleton />
+                </>
+              ) : (
+                symbolsWithoutPositions.map((symbol) => {
+                  const isPinned = pinnedSymbols.includes(symbol);
+                  const top20Data = topSymbols.find(s => s.name === symbol);
+                  const isTop20 = !!top20Data;
+                  const volumeInMillions = top20Data ? (top20Data.volume / 1000000).toFixed(1) : null;
+
+                  return (
+                    <div
+                      key={symbol}
+                      className={`${
+                        selectedSymbol === symbol
+                          ? 'border-2 border-dotted border-[var(--border-frame)] bg-primary/10 shadow-[0_0_10px_color-mix(in_srgb,var(--border-frame)_50%,transparent)]'
+                          : 'terminal-border hover:bg-primary/5'
+                      }`}
+                    >
+                      <div className="flex items-start">
+                      <div className="flex flex-col flex-1">
+                        <button
+                          onClick={() => {
+                            if (onSymbolSelect) {
+                              onSymbolSelect(symbol);
+                            } else {
+                              router.push(`/${address}/${symbol}`);
+                            }
+                          }}
+                          className="flex-1 text-left p-2 pb-0"
+                        >
+                          <div className="flex justify-between items-stretch gap-2">
+                            <div className="flex flex-col justify-between min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-primary font-bold flex-shrink-0 text-xs">
+                                  {symbol}/USD
+                                </span>
+                              </div>
+                              <div>
+                                <VolatilityBlocks symbol={symbol} />
+                              </div>
+                            </div>
+                            <div className="flex-1">
+                              {/* Reserved space for minimal chart */}
+                            </div>
+                            <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
+                              <SymbolPrice symbol={symbol} />
+                              {volumeInMillions && (
+                                <span className="text-[10px] text-primary-muted font-mono">
+                                  ${volumeInMillions}M
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </button>
+                        <div className="px-2">
+                          <PositionPriceIndicator symbol={symbol} />
+                        </div>
+                      </div>
+                      <div className="flex flex-col">
+                        {!isTop20 && isPinned && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              unpinSymbol(symbol);
+                            }}
+                            className="p-2 text-primary-muted hover:text-bearish cursor-pointer transition-colors"
+                            title="Unpin symbol"
+                          >
+                            <span className="text-lg font-bold">−</span>
+                          </button>
+                        )}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            window.open(`/${address}/chart-popup/${symbol}`, '_blank', 'width=1200,height=800');
+                          }}
+                          className="p-2 text-primary-muted hover:text-primary cursor-pointer transition-colors"
+                          title="Open in new window"
+                        >
+                          <span className="text-lg">⧉</span>
+                        </button>
+                      </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
