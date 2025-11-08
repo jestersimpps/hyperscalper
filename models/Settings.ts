@@ -8,14 +8,14 @@ export interface StochasticVariantConfig {
 export interface StochasticSettings {
   showMultiVariant: boolean;
   showDivergence: boolean;
-  divergenceVariant: 'fast9' | 'fast14' | 'fast40' | 'full60';
+  divergenceVariant: 'ultraFast' | 'fast' | 'medium' | 'slow';
   overboughtLevel: number;
   oversoldLevel: number;
   variants: {
-    fast9: StochasticVariantConfig;
-    fast14: StochasticVariantConfig;
-    fast40: StochasticVariantConfig;
-    full60: StochasticVariantConfig;
+    ultraFast: StochasticVariantConfig;
+    fast: StochasticVariantConfig;
+    medium: StochasticVariantConfig;
+    slow: StochasticVariantConfig;
   };
 }
 
@@ -145,28 +145,28 @@ export interface AppSettings {
   pinnedSymbols: string[];
 }
 
-export const DEFAULT_STOCHASTIC_FAST9: StochasticVariantConfig = {
+export const DEFAULT_STOCHASTIC_ULTRA_FAST: StochasticVariantConfig = {
   enabled: true,
   period: 9,
   smoothK: 1,
   smoothD: 3,
 };
 
-export const DEFAULT_STOCHASTIC_FAST14: StochasticVariantConfig = {
+export const DEFAULT_STOCHASTIC_FAST: StochasticVariantConfig = {
   enabled: true,
   period: 14,
   smoothK: 1,
   smoothD: 3,
 };
 
-export const DEFAULT_STOCHASTIC_FAST40: StochasticVariantConfig = {
+export const DEFAULT_STOCHASTIC_MEDIUM: StochasticVariantConfig = {
   enabled: true,
   period: 40,
   smoothK: 1,
   smoothD: 4,
 };
 
-export const DEFAULT_STOCHASTIC_FULL60: StochasticVariantConfig = {
+export const DEFAULT_STOCHASTIC_SLOW: StochasticVariantConfig = {
   enabled: true,
   period: 60,
   smoothK: 10,
@@ -185,14 +185,14 @@ export const DEFAULT_SETTINGS: AppSettings = {
     stochastic: {
       showMultiVariant: true,
       showDivergence: true,
-      divergenceVariant: 'fast14',
+      divergenceVariant: 'fast',
       overboughtLevel: 80,
       oversoldLevel: 20,
       variants: {
-        fast9: DEFAULT_STOCHASTIC_FAST9,
-        fast14: DEFAULT_STOCHASTIC_FAST14,
-        fast40: DEFAULT_STOCHASTIC_FAST40,
-        full60: DEFAULT_STOCHASTIC_FULL60,
+        ultraFast: DEFAULT_STOCHASTIC_ULTRA_FAST,
+        fast: DEFAULT_STOCHASTIC_FAST,
+        medium: DEFAULT_STOCHASTIC_MEDIUM,
+        slow: DEFAULT_STOCHASTIC_SLOW,
       },
     },
     ema: {

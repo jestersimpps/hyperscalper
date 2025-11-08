@@ -8,7 +8,7 @@ export interface StochasticScanParams {
   symbol: string;
   timeframes: TimeInterval[];
   config: StochasticScannerConfig;
-  variants: Record<'fast9' | 'fast14' | 'fast40' | 'full60', StochasticVariantConfig>;
+  variants: Record<'ultraFast' | 'fast' | 'medium' | 'slow', StochasticVariantConfig>;
 }
 
 export class ScannerService {
@@ -20,16 +20,19 @@ export class ScannerService {
       '5m': 5,
       '15m': 15,
       '1h': 60,
-      '4h': 240,
-      '1d': 1440,
     };
     return intervalMap[interval];
   }
 
   async scanStochastic(params: StochasticScanParams): Promise<ScanResult | null> {
     const { symbol, timeframes, config, variants } = params;
-    const stochasticValues: StochasticValue[] = [];
-    let signalType: 'bullish' | 'bearish' | null = null;
+
+    const enabledVariants = Object.entries(variants).filter(([_, variantConfig]) => variantConfig.enabled);
+    const enabledVariantCount = enabledVariants.length;
+
+    if (enabledVariantCount === 0) {
+      return null;
+    }
 
     for (const timeframe of timeframes) {
       try {
@@ -49,9 +52,9 @@ export class ScannerService {
           continue;
         }
 
-        for (const [variantKey, variantConfig] of Object.entries(variants)) {
-          if (!variantConfig.enabled) continue;
+        const timeframeResults: { k: number; d: number; signalType: 'bullish' | 'bearish' }[] = [];
 
+        for (const [variantKey, variantConfig] of enabledVariants) {
           const stochData = calculateStochastic(
             candles,
             variantConfig.period,
@@ -59,24 +62,42 @@ export class ScannerService {
             variantConfig.smoothD
           );
 
-          if (stochData.length === 0) continue;
+          if (stochData.length === 0) break;
 
           const latestStoch = stochData[stochData.length - 1];
 
           if (latestStoch.k < config.oversoldThreshold) {
-            stochasticValues.push({
+            timeframeResults.push({
               k: latestStoch.k,
               d: latestStoch.d,
-              timeframe,
+              signalType: 'bullish',
             });
-            signalType = 'bullish';
           } else if (latestStoch.k > config.overboughtThreshold) {
-            stochasticValues.push({
+            timeframeResults.push({
               k: latestStoch.k,
               d: latestStoch.d,
-              timeframe,
+              signalType: 'bearish',
             });
-            signalType = 'bearish';
+          }
+        }
+
+        if (timeframeResults.length === enabledVariantCount) {
+          const signalType = timeframeResults[0].signalType;
+          const allSameSignal = timeframeResults.every(r => r.signalType === signalType);
+
+          if (allSameSignal) {
+            const description = signalType === 'bullish'
+              ? `All stochastic variants oversold on ${timeframe} (K < ${config.oversoldThreshold})`
+              : `All stochastic variants overbought on ${timeframe} (K > ${config.overboughtThreshold})`;
+
+            return {
+              symbol,
+              stochastics: timeframeResults.map(r => ({ k: r.k, d: r.d, timeframe })),
+              matchedAt: Date.now(),
+              signalType,
+              description,
+              scanType: 'stochastic',
+            };
           }
         }
       } catch (error) {
@@ -85,22 +106,7 @@ export class ScannerService {
       }
     }
 
-    if (stochasticValues.length === 0 || !signalType) {
-      return null;
-    }
-
-    const description = signalType === 'bullish'
-      ? `Oversold condition detected (K < ${config.oversoldThreshold})`
-      : `Overbought condition detected (K > ${config.overboughtThreshold})`;
-
-    return {
-      symbol,
-      stochastics: stochasticValues,
-      matchedAt: Date.now(),
-      signalType,
-      description,
-      scanType: 'stochastic',
-    };
+    return null;
   }
 
   async scanMultipleSymbols(

@@ -120,3 +120,49 @@ body {
   color: var(--primary);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Position Animation Keyframes */
+@keyframes flash-pnl-increase {
+  0%, 100% { background-color: transparent; }
+  50% { background-color: color-mix(in srgb, var(--status-bullish) 30%, transparent); }
+}
+
+@keyframes flash-pnl-decrease {
+  0%, 100% { background-color: transparent; }
+  50% { background-color: color-mix(in srgb, var(--status-bearish) 30%, transparent); }
+}
+
+@keyframes highlight-new-long {
+  0% { background-color: color-mix(in srgb, var(--status-bullish) 20%, transparent); }
+  100% { background-color: transparent; }
+}
+
+@keyframes highlight-new-short {
+  0% { background-color: color-mix(in srgb, var(--status-bearish) 20%, transparent); }
+  100% { background-color: transparent; }
+}
+
+@keyframes pulse-scale {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+}
+
+.animate-flash-pnl-increase {
+  animation: flash-pnl-increase 0.5s ease-in-out;
+}
+
+.animate-flash-pnl-decrease {
+  animation: flash-pnl-decrease 0.5s ease-in-out;
+}
+
+.animate-highlight-new-long {
+  animation: highlight-new-long 1.5s ease-out;
+}
+
+.animate-highlight-new-short {
+  animation: highlight-new-short 1.5s ease-out;
+}
+
+.animate-pulse-scale {
+  animation: pulse-scale 0.3s ease-in-out;
+}

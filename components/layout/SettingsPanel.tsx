@@ -263,7 +263,7 @@ export default function SettingsPanel() {
                               </div>
                             </div>
                             <div className="mt-3 text-primary-muted font-mono text-[10px]">
-                              Uses stochastic variants from Indicator Settings (Fast9, Fast14, Fast40, Full60)
+                              Uses stochastic variants from Indicator Settings (Ultra Fast, Fast, Medium, Slow)
                             </div>
                           </div>
                         )}
@@ -461,7 +461,7 @@ export default function SettingsPanel() {
 
                             <div className="p-3 bg-bg-secondary border border-frame rounded">
                               <div className="text-primary-muted text-xs font-mono">
-                                Uses enabled stochastic variants from Indicator Settings (Fast9, Fast14, Fast40, Full60)
+                                Uses enabled stochastic variants from Indicator Settings (Ultra Fast, Fast, Medium, Slow)
                               </div>
                             </div>
                           </>
@@ -669,10 +669,10 @@ export default function SettingsPanel() {
                             onChange={(e) => updateStochasticSettings({ divergenceVariant: e.target.value as any })}
                             className="w-full bg-bg-primary border border-frame text-primary px-2 py-1 rounded font-mono text-xs"
                           >
-                            <option value="fast9">FAST 9</option>
-                            <option value="fast14">FAST 14</option>
-                            <option value="fast40">FAST 40</option>
-                            <option value="full60">FULL 60</option>
+                            <option value="ultraFast">ULTRA FAST</option>
+                            <option value="fast">FAST</option>
+                            <option value="medium">MEDIUM</option>
+                            <option value="slow">SLOW</option>
                           </select>
                         </div>
                       )}
@@ -685,10 +685,10 @@ export default function SettingsPanel() {
                       {(Object.keys(settings.indicators.stochastic.variants) as Array<keyof typeof settings.indicators.stochastic.variants>).map((variant) => {
                         const config = settings.indicators.stochastic.variants[variant];
                         const variantLabel =
-                          variant === 'fast9' ? 'FAST 9' :
-                          variant === 'fast14' ? 'FAST 14' :
-                          variant === 'fast40' ? 'FAST 40' :
-                          'FULL 60';
+                          variant === 'ultraFast' ? 'ULTRA FAST' :
+                          variant === 'fast' ? 'FAST' :
+                          variant === 'medium' ? 'MEDIUM' :
+                          'SLOW';
                         return (
                           <div key={variant} className="p-3 bg-bg-secondary border border-frame rounded">
                             <div className="flex items-center justify-between mb-3">

@@ -41,29 +41,29 @@ const mergeSettings = (storedSettings: any): AppSettings => {
           overboughtLevel: storedSettings.indicators?.stochastic?.overboughtLevel ?? DEFAULT_SETTINGS.indicators.stochastic.overboughtLevel,
           oversoldLevel: storedSettings.indicators?.stochastic?.oversoldLevel ?? DEFAULT_SETTINGS.indicators.stochastic.oversoldLevel,
           variants: {
-            fast9: {
-              enabled: storedSettings.indicators?.stochastic?.variants?.fast9?.enabled ?? DEFAULT_SETTINGS.indicators.stochastic.variants.fast9.enabled,
-              period: storedSettings.indicators?.stochastic?.variants?.fast9?.period ?? DEFAULT_SETTINGS.indicators.stochastic.variants.fast9.period,
-              smoothK: storedSettings.indicators?.stochastic?.variants?.fast9?.smoothK ?? DEFAULT_SETTINGS.indicators.stochastic.variants.fast9.smoothK,
-              smoothD: storedSettings.indicators?.stochastic?.variants?.fast9?.smoothD ?? DEFAULT_SETTINGS.indicators.stochastic.variants.fast9.smoothD,
+            ultraFast: {
+              enabled: storedSettings.indicators?.stochastic?.variants?.ultraFast?.enabled ?? storedSettings.indicators?.stochastic?.variants?.fast9?.enabled ?? DEFAULT_SETTINGS.indicators.stochastic.variants.ultraFast.enabled,
+              period: storedSettings.indicators?.stochastic?.variants?.ultraFast?.period ?? storedSettings.indicators?.stochastic?.variants?.fast9?.period ?? DEFAULT_SETTINGS.indicators.stochastic.variants.ultraFast.period,
+              smoothK: storedSettings.indicators?.stochastic?.variants?.ultraFast?.smoothK ?? storedSettings.indicators?.stochastic?.variants?.fast9?.smoothK ?? DEFAULT_SETTINGS.indicators.stochastic.variants.ultraFast.smoothK,
+              smoothD: storedSettings.indicators?.stochastic?.variants?.ultraFast?.smoothD ?? storedSettings.indicators?.stochastic?.variants?.fast9?.smoothD ?? DEFAULT_SETTINGS.indicators.stochastic.variants.ultraFast.smoothD,
             },
-            fast14: {
-              enabled: storedSettings.indicators?.stochastic?.variants?.fast14?.enabled ?? DEFAULT_SETTINGS.indicators.stochastic.variants.fast14.enabled,
-              period: storedSettings.indicators?.stochastic?.variants?.fast14?.period ?? DEFAULT_SETTINGS.indicators.stochastic.variants.fast14.period,
-              smoothK: storedSettings.indicators?.stochastic?.variants?.fast14?.smoothK ?? DEFAULT_SETTINGS.indicators.stochastic.variants.fast14.smoothK,
-              smoothD: storedSettings.indicators?.stochastic?.variants?.fast14?.smoothD ?? DEFAULT_SETTINGS.indicators.stochastic.variants.fast14.smoothD,
+            fast: {
+              enabled: storedSettings.indicators?.stochastic?.variants?.fast?.enabled ?? storedSettings.indicators?.stochastic?.variants?.fast14?.enabled ?? DEFAULT_SETTINGS.indicators.stochastic.variants.fast.enabled,
+              period: storedSettings.indicators?.stochastic?.variants?.fast?.period ?? storedSettings.indicators?.stochastic?.variants?.fast14?.period ?? DEFAULT_SETTINGS.indicators.stochastic.variants.fast.period,
+              smoothK: storedSettings.indicators?.stochastic?.variants?.fast?.smoothK ?? storedSettings.indicators?.stochastic?.variants?.fast14?.smoothK ?? DEFAULT_SETTINGS.indicators.stochastic.variants.fast.smoothK,
+              smoothD: storedSettings.indicators?.stochastic?.variants?.fast?.smoothD ?? storedSettings.indicators?.stochastic?.variants?.fast14?.smoothD ?? DEFAULT_SETTINGS.indicators.stochastic.variants.fast.smoothD,
             },
-            fast40: {
-              enabled: storedSettings.indicators?.stochastic?.variants?.fast40?.enabled ?? DEFAULT_SETTINGS.indicators.stochastic.variants.fast40.enabled,
-              period: storedSettings.indicators?.stochastic?.variants?.fast40?.period ?? DEFAULT_SETTINGS.indicators.stochastic.variants.fast40.period,
-              smoothK: storedSettings.indicators?.stochastic?.variants?.fast40?.smoothK ?? DEFAULT_SETTINGS.indicators.stochastic.variants.fast40.smoothK,
-              smoothD: storedSettings.indicators?.stochastic?.variants?.fast40?.smoothD ?? DEFAULT_SETTINGS.indicators.stochastic.variants.fast40.smoothD,
+            medium: {
+              enabled: storedSettings.indicators?.stochastic?.variants?.medium?.enabled ?? storedSettings.indicators?.stochastic?.variants?.fast40?.enabled ?? DEFAULT_SETTINGS.indicators.stochastic.variants.medium.enabled,
+              period: storedSettings.indicators?.stochastic?.variants?.medium?.period ?? storedSettings.indicators?.stochastic?.variants?.fast40?.period ?? DEFAULT_SETTINGS.indicators.stochastic.variants.medium.period,
+              smoothK: storedSettings.indicators?.stochastic?.variants?.medium?.smoothK ?? storedSettings.indicators?.stochastic?.variants?.fast40?.smoothK ?? DEFAULT_SETTINGS.indicators.stochastic.variants.medium.smoothK,
+              smoothD: storedSettings.indicators?.stochastic?.variants?.medium?.smoothD ?? storedSettings.indicators?.stochastic?.variants?.fast40?.smoothD ?? DEFAULT_SETTINGS.indicators.stochastic.variants.medium.smoothD,
             },
-            full60: {
-              enabled: storedSettings.indicators?.stochastic?.variants?.full60?.enabled ?? DEFAULT_SETTINGS.indicators.stochastic.variants.full60.enabled,
-              period: storedSettings.indicators?.stochastic?.variants?.full60?.period ?? DEFAULT_SETTINGS.indicators.stochastic.variants.full60.period,
-              smoothK: storedSettings.indicators?.stochastic?.variants?.full60?.smoothK ?? DEFAULT_SETTINGS.indicators.stochastic.variants.full60.smoothK,
-              smoothD: storedSettings.indicators?.stochastic?.variants?.full60?.smoothD ?? DEFAULT_SETTINGS.indicators.stochastic.variants.full60.smoothD,
+            slow: {
+              enabled: storedSettings.indicators?.stochastic?.variants?.slow?.enabled ?? storedSettings.indicators?.stochastic?.variants?.full60?.enabled ?? DEFAULT_SETTINGS.indicators.stochastic.variants.slow.enabled,
+              period: storedSettings.indicators?.stochastic?.variants?.slow?.period ?? storedSettings.indicators?.stochastic?.variants?.full60?.period ?? DEFAULT_SETTINGS.indicators.stochastic.variants.slow.period,
+              smoothK: storedSettings.indicators?.stochastic?.variants?.slow?.smoothK ?? storedSettings.indicators?.stochastic?.variants?.full60?.smoothK ?? DEFAULT_SETTINGS.indicators.stochastic.variants.slow.smoothK,
+              smoothD: storedSettings.indicators?.stochastic?.variants?.slow?.smoothD ?? storedSettings.indicators?.stochastic?.variants?.full60?.smoothD ?? DEFAULT_SETTINGS.indicators.stochastic.variants.slow.smoothD,
             },
           },
         },

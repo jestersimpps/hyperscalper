@@ -252,10 +252,10 @@ function IndicatorSignals({ coin }: IndicatorSignalsProps) {
                     : 'text-primary-muted';
 
                 const variantLabel =
-                  stat.variant === 'fast9' ? 'F9' :
-                  stat.variant === 'fast14' ? 'F14' :
-                  stat.variant === 'fast40' ? 'F40' :
-                  stat.variant === 'full60' ? 'FL60' : stat.variant;
+                  stat.variant === 'ultraFast' ? 'UF' :
+                  stat.variant === 'fast' ? 'F' :
+                  stat.variant === 'medium' ? 'M' :
+                  stat.variant === 'slow' ? 'S' : stat.variant;
 
                 return (
                   <div key={stat.variant} className="flex items-center gap-0.5">

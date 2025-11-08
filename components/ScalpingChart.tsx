@@ -351,10 +351,10 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
 
         // Stochastic series for variants
         const variantColors: Record<string, string> = {
-          fast9: '#FF10FF',
-          fast14: '#00D9FF',
-          fast40: '#FF8C00',
-          full60: '#00FF7F',
+          ultraFast: '#FF10FF',
+          fast: '#00D9FF',
+          medium: '#FF8C00',
+          slow: '#00FF7F',
         };
 
         stochSeriesRefsRef.current = {};
@@ -1308,17 +1308,17 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
   }, [orders, chartReady]);
 
   const variantColorVars: Record<string, string> = {
-    fast9: '#FF10FF',
-    fast14: '#00D9FF',
-    fast40: '#FF8C00',
-    full60: '#00FF7F',
+    ultraFast: '#FF10FF',
+    fast: '#00D9FF',
+    medium: '#FF8C00',
+    slow: '#00FF7F',
   };
 
   const variantLabels: Record<string, string> = {
-    fast9: 'F9',
-    fast14: 'F14',
-    fast40: 'F40',
-    full60: 'FL60',
+    ultraFast: 'UF',
+    fast: 'F',
+    medium: 'M',
+    slow: 'S',
   };
 
   return (

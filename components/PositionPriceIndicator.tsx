@@ -2,6 +2,7 @@ import { memo } from 'react';
 import { usePositionStore } from '@/stores/usePositionStore';
 import { useOrderStore } from '@/stores/useOrderStore';
 import { useSymbolMetaStore } from '@/stores/useSymbolMetaStore';
+import { useTradingStore } from '@/stores/useTradingStore';
 
 interface PositionPriceIndicatorProps {
   symbol: string;
@@ -10,6 +11,7 @@ interface PositionPriceIndicatorProps {
 export const PositionPriceIndicator = memo(({ symbol }: PositionPriceIndicatorProps) => {
   const position = usePositionStore((state) => state.positions[symbol]);
   const orders = useOrderStore((state) => state.orders[symbol]) || [];
+  const closePosition = useTradingStore((state) => state.closePosition);
 
   if (!position || position.size === 0) {
     return null;
@@ -121,13 +123,16 @@ export const PositionPriceIndicator = memo(({ symbol }: PositionPriceIndicatorPr
       </div>
 
       <button
-        onClick={(e) => {
+        onClick={async (e) => {
           e.stopPropagation();
-          // TODO: Implement emergency close
-          console.log('Emergency close:', symbol);
+          try {
+            await closePosition({ symbol, percentage: 100 });
+          } catch (error) {
+            console.error('Error closing position:', error);
+          }
         }}
-        className="px-2 py-0.5 text-[9px] bg-bearish/10 hover:bg-bearish/20 text-bearish border border-bearish rounded cursor-pointer transition-colors font-bold flex-shrink-0"
-        title="Emergency close position"
+        className="px-2 py-0.5 text-[9px] bg-bearish/10 hover:bg-bearish/20 active:bg-bearish/30 text-bearish border border-bearish rounded cursor-pointer transition-colors font-bold flex-shrink-0"
+        title="Emergency close position (100%)"
       >
         CLOSE
       </button>

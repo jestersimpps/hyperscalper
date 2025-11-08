@@ -2,7 +2,8 @@
 
 import React, { memo } from 'react';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
+import { useAutoAnimate } from '@formkit/auto-animate/react';
 import { useScannerStore } from '@/stores/useScannerStore';
 import { useSettingsStore } from '@/stores/useSettingsStore';
 import { useTopSymbolsStore } from '@/stores/useTopSymbolsStore';
@@ -14,6 +15,8 @@ import { useSymbolVolatilityStore } from '@/stores/useSymbolVolatilityStore';
 import { formatPrice } from '@/lib/format-utils';
 import { useAddressFromUrl } from '@/lib/hooks/use-address-from-url';
 import { PositionPriceIndicator } from '@/components/PositionPriceIndicator';
+import { usePositionAnimations } from '@/hooks/usePositionAnimations';
+import type { TimeInterval } from '@/types';
 
 interface SidepanelProps {
   selectedSymbol: string;
@@ -22,9 +25,10 @@ interface SidepanelProps {
 
 interface SymbolPriceProps {
   symbol: string;
+  pnlAnimationClass?: string;
 }
 
-const SymbolPrice = memo(({ symbol }: SymbolPriceProps) => {
+const SymbolPrice = memo(({ symbol, pnlAnimationClass }: SymbolPriceProps) => {
   const price = useSidebarPricesStore((state) => state.prices[symbol]);
   const position = usePositionStore((state) => state.positions[symbol]);
 
@@ -45,7 +49,7 @@ const SymbolPrice = memo(({ symbol }: SymbolPriceProps) => {
 
   return (
     <div className="flex flex-col text-xs font-mono text-right flex-shrink-0 w-24 tabular-nums">
-      <span className={pnlColorClass} title={pnlTooltip}>{pnlText}</span>
+      <span className={`${pnlColorClass} ${pnlAnimationClass || ''}`} title={pnlTooltip}>{pnlText}</span>
       <span className="text-primary-muted" title={`Current price: $${formattedPrice}`}>${formattedPrice}</span>
     </div>
   );
@@ -103,6 +107,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
   const router = useRouter();
   const address = useAddressFromUrl();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const positionTimestampsRef = useRef<Record<string, number>>({});
 
   const { results, status, runScan, startAutoScanWithDelay, stopAutoScan } = useScannerStore();
   const { settings, pinSymbol, unpinSymbol } = useSettingsStore();
@@ -221,6 +226,18 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
     return `${hours}h ago`;
   };
 
+  useEffect(() => {
+    Object.entries(positions).forEach(([symbol, position]) => {
+      if (position && position.size > 0) {
+        if (!positionTimestampsRef.current[symbol]) {
+          positionTimestampsRef.current[symbol] = Date.now();
+        }
+      } else {
+        delete positionTimestampsRef.current[symbol];
+      }
+    });
+  }, [positions]);
+
   const { symbolsWithOpenPositions, symbolsWithoutPositions } = useMemo(() => {
     const withPositions: string[] = [];
     const withoutPositions: string[] = [];
@@ -234,13 +251,11 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
       }
     });
 
-    // Sort symbols with positions by absolute PnL
+    // Sort symbols with positions by timestamp (latest first)
     withPositions.sort((a, b) => {
-      const posA = getPosition(a);
-      const posB = getPosition(b);
-      const pnlA = Math.abs(posA?.pnl ?? 0);
-      const pnlB = Math.abs(posB?.pnl ?? 0);
-      return pnlB - pnlA;
+      const timestampA = positionTimestampsRef.current[a] ?? 0;
+      const timestampB = positionTimestampsRef.current[b] ?? 0;
+      return timestampB - timestampA;
     });
 
     // Sort symbols without positions by volatility
@@ -253,7 +268,10 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
     });
 
     return { symbolsWithOpenPositions: withPositions, symbolsWithoutPositions: withoutPositions };
-  }, [allSymbolsToShow, getPosition]);
+  }, [allSymbolsToShow, getPosition, positions]);
+
+  const [positionListRef] = useAutoAnimate();
+  const positionAnimations = usePositionAnimations(symbolsWithOpenPositions, positions);
 
   return (
     <div className="p-2 h-full flex gap-2 overflow-hidden">
@@ -306,72 +324,84 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                   {Object.keys(groupedBySymbol).length} symbol{Object.keys(groupedBySymbol).length !== 1 ? 's' : ''} ({results.length} signal{results.length !== 1 ? 's' : ''})
                 </div>
                 {Object.entries(groupedBySymbol).map(([symbol, symbolResults]) => {
-                  const isBullish = symbolResults[0].signalType === 'bullish';
-                  const bgColor = isBullish ? 'bg-bullish/5' : 'bg-bearish/5';
-                  const borderColor = isBullish ? 'border-bullish' : 'border-bearish';
-                  const arrowColor = isBullish ? 'text-bullish' : 'text-bearish';
-                  const arrow = isBullish ? '▲' : '▼';
+                  const timeframeOrder: TimeInterval[] = ['1m', '5m', '15m', '1h'];
 
-                  const signalBadges: React.JSX.Element[] = [];
+                  const timeframeSignals = new Map<string, {
+                    stoch: boolean;
+                    ema: boolean;
+                    macd: boolean;
+                    rsi: boolean;
+                    channel: string | null;
+                    signalType: 'bullish' | 'bearish';
+                  }>();
 
-                  symbolResults.forEach((result, idx) => {
-                    const resultBullish = result.signalType === 'bullish';
-                    const badgeBg = resultBullish ? 'bg-bullish' : 'bg-bearish';
+                  const divergenceSignals: { variant: string; isHidden: boolean; signalType: 'bullish' | 'bearish' }[] = [];
 
-                    if (result.scanType === 'stochastic') {
-                      signalBadges.push(
-                        <span key={`${symbol}-stoch-${idx}`} className={`${badgeBg} text-bg-primary px-1.5 py-0.5 rounded text-[10px] font-bold`}>
-                          STOCH
-                        </span>
-                      );
-                    } else if (result.scanType === 'emaAlignment') {
-                      const emaArrow = resultBullish ? '↑' : '↓';
-                      signalBadges.push(
-                        <span key={`${symbol}-ema-${idx}`} className={`${badgeBg} text-bg-primary px-1.5 py-0.5 rounded text-[10px] font-bold`}>
-                          EMA{emaArrow}
-                        </span>
-                      );
-                    } else if (result.scanType === 'macdReversal') {
-                      const timeframes = [...new Set(result.macdReversals?.map(r => r.timeframe))].join(',');
-                      signalBadges.push(
-                        <span key={`${symbol}-macd-${idx}`} className={`${badgeBg} text-bg-primary px-1.5 py-0.5 rounded text-[10px] font-bold`}>
-                          MACD {timeframes}
-                        </span>
-                      );
-                    } else if (result.scanType === 'rsiReversal') {
-                      const timeframes = [...new Set(result.rsiReversals?.map(r => r.timeframe))].join(',');
-                      signalBadges.push(
-                        <span key={`${symbol}-rsi-${idx}`} className={`${badgeBg} text-bg-primary px-1.5 py-0.5 rounded text-[10px] font-bold`}>
-                          RSI {timeframes}
-                        </span>
-                      );
-                    } else if (result.scanType === 'channel') {
-                      const channels = result.channels || [];
-                      const channelArrows = channels.map(c => {
-                        if (c.type === 'ascending') return '↗';
-                        if (c.type === 'descending') return '↘';
-                        return '→';
+                  symbolResults.forEach((result) => {
+                    if (result.scanType === 'divergence' && result.divergences) {
+                      result.divergences.forEach(div => {
+                        const variantLabel =
+                          div.variant === 'ultraFast' ? 'UF' :
+                          div.variant === 'fast' ? 'F' :
+                          div.variant === 'medium' ? 'M' : 'S';
+                        divergenceSignals.push({
+                          variant: variantLabel,
+                          isHidden: div.type.includes('hidden'),
+                          signalType: result.signalType
+                        });
                       });
-                      const uniqueArrow = channelArrows[0] || '→';
-                      signalBadges.push(
-                        <span key={`${symbol}-ch-${idx}`} className={`${badgeBg} text-bg-primary px-1.5 py-0.5 rounded text-[10px] font-bold`}>
-                          {uniqueArrow}CH
-                        </span>
-                      );
-                    } else if (result.scanType === 'divergence') {
-                      const divergences = result.divergences || [];
-                      const isHidden = divergences[0]?.type.includes('hidden');
-                      const variants = [...new Set(divergences.map(d => d.variant.replace(/\D/g, '')))].join(',');
-                      signalBadges.push(
-                        <span key={`${symbol}-div-${idx}`} className={`${badgeBg} text-bg-primary px-1.5 py-0.5 rounded text-[10px] font-bold`}>
-                          {isHidden ? 'H-' : ''}DIV {variants}
-                        </span>
-                      );
+                      return;
                     }
+
+                    const timeframes: string[] = [];
+                    if (result.stochastics) timeframes.push(...result.stochastics.map(s => s.timeframe));
+                    if (result.emaAlignments) timeframes.push(...result.emaAlignments.map(e => e.timeframe));
+                    if (result.macdReversals) timeframes.push(...result.macdReversals.map(m => m.timeframe));
+                    if (result.rsiReversals) timeframes.push(...result.rsiReversals.map(r => r.timeframe));
+                    if (result.channels) timeframes.push(...result.channels.map(c => c.timeframe));
+
+                    const uniqueTimeframes = [...new Set(timeframes)];
+
+                    uniqueTimeframes.forEach(tf => {
+                      if (!timeframeSignals.has(tf)) {
+                        timeframeSignals.set(tf, {
+                          stoch: false,
+                          ema: false,
+                          macd: false,
+                          rsi: false,
+                          channel: null,
+                          signalType: result.signalType
+                        });
+                      }
+
+                      const tfData = timeframeSignals.get(tf)!;
+
+                      if (result.scanType === 'stochastic' && result.stochastics?.some(s => s.timeframe === tf)) {
+                        tfData.stoch = true;
+                      }
+                      if (result.scanType === 'emaAlignment' && result.emaAlignments?.some(e => e.timeframe === tf)) {
+                        tfData.ema = true;
+                      }
+                      if (result.scanType === 'macdReversal' && result.macdReversals?.some(m => m.timeframe === tf)) {
+                        tfData.macd = true;
+                      }
+                      if (result.scanType === 'rsiReversal' && result.rsiReversals?.some(r => r.timeframe === tf)) {
+                        tfData.rsi = true;
+                      }
+                      if (result.scanType === 'channel' && result.channels) {
+                        const channel = result.channels.find(c => c.timeframe === tf);
+                        if (channel) {
+                          tfData.channel = channel.type === 'ascending' ? '↗' : channel.type === 'descending' ? '↘' : '→';
+                        }
+                      }
+                    });
                   });
 
+                  const sortedTimeframes = Array.from(timeframeSignals.entries())
+                    .sort(([a], [b]) => timeframeOrder.indexOf(a as TimeInterval) - timeframeOrder.indexOf(b as TimeInterval));
+
                   return (
-                    <div key={symbol} className={`terminal-border ${bgColor} ${borderColor}`}>
+                    <div key={symbol} className="terminal-border border-primary/20">
                       <div className="flex items-start">
                         <div className="flex flex-col flex-1">
                           <button
@@ -382,17 +412,57 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                                 router.push(`/${address}/${symbol}`);
                               }
                             }}
-                            className="flex-1 text-left p-2 pb-0"
+                            className="text-left p-2 pb-1 cursor-pointer"
                           >
-                            <div className="flex justify-between items-center gap-2 mb-1">
-                              <div className="flex items-center gap-2">
-                                <span className={`text-xs ${arrowColor} font-bold`}>{arrow}</span>
-                                <span className="text-primary font-bold text-xs">{symbol}/USD</span>
-                              </div>
-                            </div>
+                            <span className="text-primary font-bold text-xs">{symbol}/USD</span>
                           </button>
-                          <div className="px-2 pb-2 flex gap-1 flex-wrap">
-                            {signalBadges}
+
+                          <div className="px-2 pb-2 space-y-1">
+                            {sortedTimeframes.map(([timeframe, signals]) => {
+                              const arrow = signals.signalType === 'bullish' ? '▲' : '▼';
+                              const arrowColor = signals.signalType === 'bullish' ? 'text-bullish' : 'text-bearish';
+                              const badgeBg = signals.signalType === 'bullish' ? 'bg-bullish' : 'bg-bearish';
+
+                              return (
+                                <div key={timeframe} className="flex items-center gap-1 text-[10px]">
+                                  <span className={`${arrowColor} font-bold`}>{arrow}</span>
+                                  <span className="text-primary-muted font-mono w-8">{timeframe}:</span>
+                                  <div className="flex gap-1 flex-wrap">
+                                    {signals.stoch && (
+                                      <span className={`${badgeBg} text-bg-primary px-1.5 py-0.5 rounded font-bold`}>STOCH</span>
+                                    )}
+                                    {signals.ema && (
+                                      <span className={`${badgeBg} text-bg-primary px-1.5 py-0.5 rounded font-bold`}>EMA</span>
+                                    )}
+                                    {signals.macd && (
+                                      <span className={`${badgeBg} text-bg-primary px-1.5 py-0.5 rounded font-bold`}>MACD</span>
+                                    )}
+                                    {signals.rsi && (
+                                      <span className={`${badgeBg} text-bg-primary px-1.5 py-0.5 rounded font-bold`}>RSI</span>
+                                    )}
+                                    {signals.channel && (
+                                      <span className={`${badgeBg} text-bg-primary px-1.5 py-0.5 rounded font-bold`}>{signals.channel}CH</span>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+
+                            {divergenceSignals.length > 0 && (
+                              <div className="flex items-center gap-1 text-[10px]">
+                                <span className="text-primary-muted font-mono">DIV:</span>
+                                <div className="flex gap-1 flex-wrap">
+                                  {divergenceSignals.map((div, idx) => {
+                                    const badgeBg = div.signalType === 'bullish' ? 'bg-bullish' : 'bg-bearish';
+                                    return (
+                                      <span key={idx} className={`${badgeBg} text-bg-primary px-1.5 py-0.5 rounded font-bold`}>
+                                        {div.isHidden ? 'H-' : ''}{div.variant}
+                                      </span>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         </div>
                         <button
@@ -426,7 +496,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                 <span className="text-primary text-xs font-bold tracking-wider">█ OPEN POSITIONS</span>
               </div>
             </div>
-            <div className="flex flex-col gap-1 max-h-96 overflow-y-auto">
+            <div ref={positionListRef} className="flex flex-col gap-1 max-h-96 overflow-y-auto">
               {isLoadingTopSymbols && symbolsWithOpenPositions.length === 0 ? (
                 <>
                   <SymbolItemSkeleton />
@@ -439,6 +509,17 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
             const isTop20 = !!top20Data;
             const volumeInMillions = top20Data ? (top20Data.volume / 1000000).toFixed(1) : null;
 
+            const animationState = positionAnimations[symbol];
+            const itemAnimationClass = animationState?.isNew
+              ? animationState.side === 'long' ? 'animate-highlight-new-long' : 'animate-highlight-new-short'
+              : animationState?.sizeChange ? 'animate-pulse-scale' : '';
+
+            const pnlAnimationClass = animationState?.pnlChange === 'increase'
+              ? 'animate-flash-pnl-increase'
+              : animationState?.pnlChange === 'decrease'
+              ? 'animate-flash-pnl-decrease'
+              : '';
+
             return (
             <div
               key={symbol}
@@ -446,7 +527,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                 selectedSymbol === symbol
                   ? 'terminal-border bg-primary/20'
                   : 'terminal-border hover:bg-primary/5'
-              }`}
+              } ${itemAnimationClass}`}
             >
               <div className="flex items-start">
               <div className="flex flex-col flex-1">
@@ -458,7 +539,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                       router.push(`/${address}/${symbol}`);
                     }
                   }}
-                  className="flex-1 text-left p-2 pb-0"
+                  className="flex-1 text-left p-2 pb-0 cursor-pointer"
                 >
                   <div className="flex justify-between items-stretch gap-2">
                     <div className="flex flex-col justify-between min-w-0">
@@ -480,7 +561,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                       {/* Reserved space for minimal chart */}
                     </div>
                     <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
-                      <SymbolPrice symbol={symbol} />
+                      <SymbolPrice symbol={symbol} pnlAnimationClass={pnlAnimationClass} />
                       {volumeInMillions && (
                         <span
                           className="text-[10px] text-primary-muted font-mono"
@@ -582,7 +663,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                                 router.push(`/${address}/${symbol}`);
                               }
                             }}
-                            className="flex-1 text-left p-2"
+                            className="flex-1 text-left p-2 cursor-pointer"
                           >
                             <div className="flex justify-between items-center gap-2">
                               <span className="text-primary text-xs font-mono font-bold">
@@ -647,7 +728,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                               router.push(`/${address}/${symbol}`);
                             }
                           }}
-                          className="flex-1 text-left p-2 pb-0"
+                          className="flex-1 text-left p-2 pb-0 cursor-pointer"
                         >
                           <div className="flex justify-between items-stretch gap-2">
                             <div className="flex flex-col justify-between min-w-0">

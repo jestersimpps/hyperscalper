@@ -48,4 +48,4 @@ export interface UserFill {
   feeToken: string;
 }
 
-export type TimeInterval = '1m' | '5m' | '15m' | '1h' | '4h' | '1d';
+export type TimeInterval = '1m' | '5m' | '15m' | '1h';

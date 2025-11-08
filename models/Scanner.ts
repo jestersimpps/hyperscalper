@@ -36,7 +36,7 @@ export interface DivergenceValue {
   endPriceValue: number;
   startStochValue: number;
   endStochValue: number;
-  variant: 'fast9' | 'fast14' | 'fast40' | 'full60';
+  variant: 'ultraFast' | 'fast' | 'medium' | 'slow';
 }
 
 export interface MacdReversalValue {
