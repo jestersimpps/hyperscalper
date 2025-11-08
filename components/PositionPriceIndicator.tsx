@@ -67,33 +67,18 @@ export const PositionPriceIndicator = memo(({ symbol }: PositionPriceIndicatorPr
   const tpPercent = tpPrice ? getPositionPercent(tpPrice) : null;
   const currentPercent = getPositionPercent(currentPrice);
 
-  const isProfitable = position.pnl >= 0;
-  const trailingBarLeft = Math.min(entryPercent, currentPercent);
-  const trailingBarWidth = Math.abs(currentPercent - entryPercent);
-
   return (
-    <div className="w-full mt-1 pb-2 flex items-center gap-2">
+    <div className="w-full mt-1 pb-4 flex items-center gap-2">
       <div className="relative h-4 flex-1">
         <div className="absolute inset-0 rounded-sm bg-gradient-to-r from-bearish/10 via-transparent to-bullish/10" />
 
         <div className="absolute inset-x-0 top-1/2 h-[1px] bg-primary-muted/30" />
 
-        {/* Trailing PnL Bar */}
-        {trailingBarWidth > 0 && (
-          <div
-            className="absolute top-1/2 -translate-y-1/2 h-1 opacity-60"
-            style={{
-              left: `${trailingBarLeft}%`,
-              width: `${trailingBarWidth}%`,
-              backgroundColor: isProfitable ? 'var(--bullish)' : 'var(--bearish)',
-            }}
-          />
-        )}
-
         {slPercent !== null && (
           <div
             className="absolute top-0 bottom-0 flex flex-col items-start justify-center"
             style={{ left: `${slPercent}%` }}
+            title={`Stop Loss: $${formatPriceValue(slPrice!)}`}
           >
             <div className="w-[2px] h-full bg-bearish" />
             <div className="absolute -bottom-3 left-0 text-[8px] text-primary-muted font-mono whitespace-nowrap pl-1">
@@ -105,6 +90,7 @@ export const PositionPriceIndicator = memo(({ symbol }: PositionPriceIndicatorPr
         <div
           className="absolute top-0 bottom-0 flex flex-col items-center justify-center"
           style={{ left: `${entryPercent}%` }}
+          title={`Entry Price: $${formatPriceValue(entryPrice)}`}
         >
           <div className="w-[2px] h-full bg-primary" />
           <div className="absolute -bottom-3 text-[8px] text-primary font-mono font-bold whitespace-nowrap">
@@ -116,6 +102,7 @@ export const PositionPriceIndicator = memo(({ symbol }: PositionPriceIndicatorPr
           <div
             className="absolute top-0 bottom-0 flex flex-col items-end justify-center"
             style={{ left: `${tpPercent}%` }}
+            title={`Take Profit: $${formatPriceValue(tpPrice!)}`}
           >
             <div className="w-[2px] h-full bg-bullish" />
             <div className="absolute -bottom-3 right-0 text-[8px] text-primary-muted font-mono whitespace-nowrap pr-1">
@@ -127,6 +114,7 @@ export const PositionPriceIndicator = memo(({ symbol }: PositionPriceIndicatorPr
         <div
           className="absolute top-0 bottom-0 flex items-center justify-center"
           style={{ left: `${currentPercent}%` }}
+          title={`Current Price: $${formatPriceValue(currentPrice)}`}
         >
           <div className="w-1 h-full bg-primary opacity-70" />
         </div>

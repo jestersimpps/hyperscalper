@@ -39,10 +39,14 @@ const SymbolPrice = memo(({ symbol }: SymbolPriceProps) => {
     ? (position.pnl >= 0 ? 'text-bullish' : 'text-bearish')
     : 'text-primary-muted';
 
+  const pnlTooltip = position && position.size > 0
+    ? `Unrealized PnL: ${position.pnl >= 0 ? '+' : ''}$${position.pnl.toFixed(2)}`
+    : 'No active position';
+
   return (
     <div className="flex flex-col text-xs font-mono text-right flex-shrink-0 w-24 tabular-nums">
-      <span className={pnlColorClass}>{pnlText}</span>
-      <span className="text-primary-muted">${formattedPrice}</span>
+      <span className={pnlColorClass} title={pnlTooltip}>{pnlText}</span>
+      <span className="text-primary-muted" title={`Current price: $${formattedPrice}`}>${formattedPrice}</span>
     </div>
   );
 });
@@ -53,9 +57,11 @@ const VolatilityBlocks = memo(({ symbol }: SymbolPriceProps) => {
   const volatilityData = useSymbolVolatilityStore((state) => state.volatility[symbol]);
 
   const blocks = volatilityData?.blocks || 0;
+  const percentChange = volatilityData?.percentChange || 0;
+  const tooltip = `24h change: ${percentChange >= 0 ? '+' : ''}${percentChange.toFixed(2)}%`;
 
   return (
-    <div className="flex gap-0.5 items-center">
+    <div className="flex gap-0.5 items-center pb-1" title={tooltip}>
       {Array.from({ length: 10 }).map((_, index) => (
         <span
           key={index}
@@ -434,7 +440,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
               key={symbol}
               className={`${
                 selectedSymbol === symbol
-                  ? 'border-2 border-dotted border-[var(--border-frame)] bg-primary/10 shadow-[0_0_10px_color-mix(in_srgb,var(--border-frame)_50%,transparent)]'
+                  ? 'terminal-border bg-primary/20'
                   : 'terminal-border hover:bg-primary/5'
               }`}
             >
@@ -457,6 +463,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                           className={`text-primary font-bold flex-shrink-0 text-xs ${
                             positions[symbol] && positions[symbol].size > 0 ? 'animate-pulse' : ''
                           }`}
+                          title={`${symbol}/USD trading pair`}
                         >
                           {symbol}/USD
                         </span>
@@ -471,7 +478,10 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                     <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
                       <SymbolPrice symbol={symbol} />
                       {volumeInMillions && (
-                        <span className="text-[10px] text-primary-muted font-mono">
+                        <span
+                          className="text-[10px] text-primary-muted font-mono"
+                          title={`24h volume: $${volumeInMillions}M`}
+                        >
                           ${volumeInMillions}M
                         </span>
                       )}
@@ -515,74 +525,6 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
           </div>
         )}
 
-        {/* Add Symbols Dropdown */}
-        <div className="flex-shrink-0">
-        <button
-          onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-          className="w-full terminal-border p-2 hover:bg-primary/5 active:bg-primary/10 active:scale-[0.99] cursor-pointer transition-all"
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-primary-muted text-xs font-mono">ADD OTHER SYMBOLS</span>
-            <span className="text-primary text-base">{isDropdownOpen ? '▼' : '▶'}</span>
-          </div>
-        </button>
-
-        {isDropdownOpen && (
-          <div className="mt-1 terminal-border bg-bg-primary max-h-60 overflow-y-auto scrollbar-thin scrollbar-thumb-primary-dark scrollbar-track-transparent">
-            {nonTop20Symbols.length === 0 ? (
-              <div className="p-3 text-center text-primary-muted text-xs font-mono">
-                No additional symbols available
-              </div>
-            ) : (
-              <div className="divide-y divide-frame">
-                {nonTop20Symbols.map((symbol) => {
-                  const isPinned = pinnedSymbols.includes(symbol);
-
-                  return (
-                    <div
-                      key={symbol}
-                      className="flex items-center hover:bg-primary/5 transition-colors"
-                    >
-                      <button
-                        onClick={() => {
-                          if (onSymbolSelect) {
-                            onSymbolSelect(symbol);
-                          } else {
-                            router.push(`/${address}/${symbol}`);
-                          }
-                        }}
-                        className="flex-1 text-left p-2"
-                      >
-                        <div className="flex justify-between items-center gap-2">
-                          <span className="text-primary text-xs font-mono font-bold">
-                            {symbol}/USD
-                          </span>
-                          <SymbolPrice symbol={symbol} />
-                        </div>
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (isPinned) {
-                            unpinSymbol(symbol);
-                          } else {
-                            pinSymbol(symbol);
-                          }
-                        }}
-                        className="p-2 text-primary-muted hover:text-primary cursor-pointer transition-colors"
-                        title={isPinned ? 'Unpin symbol' : 'Pin symbol'}
-                      >
-                        <span className="text-lg font-bold">{isPinned ? '−' : '+'}</span>
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
-        </div>
-
         {/* Rest of Symbols Section */}
         {symbolsWithoutPositions.length > 0 && (
           <div className="flex-1 flex flex-col overflow-hidden">
@@ -591,6 +533,75 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                 <span className="text-primary text-xs font-bold tracking-wider">█ SYMBOLS</span>
               </div>
             </div>
+
+            {/* Add Symbols Dropdown */}
+            <div className="flex-shrink-0 mb-2">
+            <button
+              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+              className="w-full terminal-border p-2 hover:bg-primary/5 active:bg-primary/10 active:scale-[0.99] cursor-pointer transition-all"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-primary-muted text-xs font-mono">ADD OTHER SYMBOLS</span>
+                <span className="text-primary text-base">{isDropdownOpen ? '▼' : '▶'}</span>
+              </div>
+            </button>
+
+            {isDropdownOpen && (
+              <div className="mt-1 terminal-border bg-bg-primary max-h-60 overflow-y-auto scrollbar-thin scrollbar-thumb-primary-dark scrollbar-track-transparent">
+                {nonTop20Symbols.length === 0 ? (
+                  <div className="p-3 text-center text-primary-muted text-xs font-mono">
+                    No additional symbols available
+                  </div>
+                ) : (
+                  <div className="divide-y divide-frame">
+                    {nonTop20Symbols.map((symbol) => {
+                      const isPinned = pinnedSymbols.includes(symbol);
+
+                      return (
+                        <div
+                          key={symbol}
+                          className="flex items-center hover:bg-primary/5 transition-colors"
+                        >
+                          <button
+                            onClick={() => {
+                              if (onSymbolSelect) {
+                                onSymbolSelect(symbol);
+                              } else {
+                                router.push(`/${address}/${symbol}`);
+                              }
+                            }}
+                            className="flex-1 text-left p-2"
+                          >
+                            <div className="flex justify-between items-center gap-2">
+                              <span className="text-primary text-xs font-mono font-bold">
+                                {symbol}/USD
+                              </span>
+                              <SymbolPrice symbol={symbol} />
+                            </div>
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (isPinned) {
+                                unpinSymbol(symbol);
+                              } else {
+                                pinSymbol(symbol);
+                              }
+                            }}
+                            className="p-2 text-primary-muted hover:text-primary cursor-pointer transition-colors"
+                            title={isPinned ? 'Unpin symbol' : 'Pin symbol'}
+                          >
+                            <span className="text-lg font-bold">{isPinned ? '−' : '+'}</span>
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+            </div>
+
             <div className="flex-1 flex flex-col gap-1 overflow-y-auto">
               {isLoadingTopSymbols && topSymbols.length === 0 ? (
                 <>
@@ -610,7 +621,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                       key={symbol}
                       className={`${
                         selectedSymbol === symbol
-                          ? 'border-2 border-dotted border-[var(--border-frame)] bg-primary/10 shadow-[0_0_10px_color-mix(in_srgb,var(--border-frame)_50%,transparent)]'
+                          ? 'terminal-border bg-primary/20'
                           : 'terminal-border hover:bg-primary/5'
                       }`}
                     >
@@ -629,7 +640,10 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                           <div className="flex justify-between items-stretch gap-2">
                             <div className="flex flex-col justify-between min-w-0">
                               <div className="flex items-center gap-2">
-                                <span className="text-primary font-bold flex-shrink-0 text-xs">
+                                <span
+                                  className="text-primary font-bold flex-shrink-0 text-xs"
+                                  title={`${symbol}/USD trading pair`}
+                                >
                                   {symbol}/USD
                                 </span>
                               </div>
@@ -643,7 +657,10 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                             <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
                               <SymbolPrice symbol={symbol} />
                               {volumeInMillions && (
-                                <span className="text-[10px] text-primary-muted font-mono">
+                                <span
+                                  className="text-[10px] text-primary-muted font-mono"
+                                  title={`24h volume: $${volumeInMillions}M`}
+                                >
                                   ${volumeInMillions}M
                                 </span>
                               )}

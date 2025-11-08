@@ -275,7 +275,7 @@ export default function AppShell({ sidepanel, children }: AppShellProps) {
       <header className="border-b-2 border-border-frame flex items-center justify-between px-4 py-1.5">
         {/* Left: Title */}
         <div className="text-primary text-sm font-bold tracking-wider terminal-text">
-          █ HYPERLIQUID TERMINAL
+          █ HYPERLIQUID TERMINAL <span className="text-primary-muted font-normal text-xs">v1.0.0</span>
         </div>
 
         {/* Right: Navigation Icons + Wallet Indicator */}

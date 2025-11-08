@@ -280,8 +280,8 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
             textColor: colors.primaryMuted,
           },
           grid: {
-            vertLines: { color: colors.borderFrame + '50' },
-            horzLines: { color: colors.borderFrame + '50' },
+            vertLines: { color: colors.primary + '20' },
+            horzLines: { color: colors.primary + '20' },
           },
           timeScale: {
             timeVisible: true,
@@ -1095,18 +1095,18 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
 
       const line0 = firstSeries.createPriceLine({
         price: 0,
-        color: colors.primaryMuted,
-        lineWidth: 2,
-        lineStyle: 1,
+        color: colors.borderFrame,
+        lineWidth: 1,
+        lineStyle: 0,
         axisLabelVisible: false,
         title: '',
       });
 
       const line100 = firstSeries.createPriceLine({
         price: 100,
-        color: colors.primaryMuted,
-        lineWidth: 2,
-        lineStyle: 1,
+        color: colors.borderFrame,
+        lineWidth: 1,
+        lineStyle: 0,
         axisLabelVisible: false,
         title: '',
       });

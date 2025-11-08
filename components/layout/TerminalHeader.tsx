@@ -74,7 +74,6 @@ export default function TerminalHeader({ coin }: TerminalHeaderProps) {
       <div className="flex justify-between items-center">
         <div className="terminal-text">
           <span className="text-primary text-sm font-bold tracking-wider">█ {coin}/USD</span>
-          <span className="ml-3 text-primary-muted text-[10px]">v1.0.0</span>
         </div>
         <div className="flex items-center gap-4">
           <div className="text-right text-[10px]">
