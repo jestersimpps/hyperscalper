@@ -23,6 +23,7 @@ export default function ChartPopupView({ coin }: ChartPopupViewProps) {
   const getDecimals = useSymbolMetaStore((state) => state.getDecimals);
   const decimals = useMemo(() => getDecimals(coin), [getDecimals, coin]);
 
+  const candleService = useCandleStore((state) => state.service);
   const fetchCandles = useCandleStore((state) => state.fetchCandles);
   const subscribeToCandles = useCandleStore((state) => state.subscribeToCandles);
   const unsubscribeFromCandles = useCandleStore((state) => state.unsubscribeFromCandles);
@@ -42,6 +43,10 @@ export default function ChartPopupView({ coin }: ChartPopupViewProps) {
   const candles1h = useCandleStore((state) => state.candles[`${coin}-1h`] ?? EMPTY_CANDLES);
 
   useEffect(() => {
+    if (!candleService) {
+      return;
+    }
+
     const intervals: TimeInterval[] = ['1m', '5m', '15m', '1h'];
 
     intervals.forEach((interval) => {
@@ -60,7 +65,7 @@ export default function ChartPopupView({ coin }: ChartPopupViewProps) {
       unsubscribeFromPosition(coin);
       unsubscribeFromOrders(coin);
     };
-  }, [coin, fetchCandles, subscribeToCandles, unsubscribeFromCandles, subscribeToPosition, unsubscribeFromPosition, subscribeToOrders, unsubscribeFromOrders]);
+  }, [coin, candleService, fetchCandles, subscribeToCandles, unsubscribeFromCandles, subscribeToPosition, unsubscribeFromPosition, subscribeToOrders, unsubscribeFromOrders]);
 
   const stochasticCandleData: Record<TimeInterval, CandleData[]> = useMemo(() => ({
     '1m': candles1m,
