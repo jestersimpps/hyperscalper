@@ -22,10 +22,8 @@ export default function TradesLayout({ children }: TradesLayoutProps) {
         }
         .terminal-border {
           border: 1px solid var(--border-frame);
-          box-shadow: 0 0 10px color-mix(in srgb, var(--border-frame) 50%, transparent);
         }
         .terminal-text {
-          text-shadow: 0 0 5px color-mix(in srgb, var(--primary) 50%, transparent);
         }
       `}</style>
 
