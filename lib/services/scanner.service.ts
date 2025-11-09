@@ -686,10 +686,10 @@ export class ScannerService {
         }
 
         const distanceToSupport = supportLevel !== null
-          ? ((currentPrice - supportLevel) / currentPrice) * 100
+          ? ((currentPrice - supportLevel) / supportLevel) * 100
           : Infinity;
         const distanceToResistance = resistanceLevel !== null
-          ? ((resistanceLevel - currentPrice) / currentPrice) * 100
+          ? ((resistanceLevel - currentPrice) / resistanceLevel) * 100
           : Infinity;
 
         const nearSupport = Math.abs(distanceToSupport) <= config.distanceThreshold && supportTouches >= config.minTouches;
@@ -728,7 +728,6 @@ export class ScannerService {
           };
         }
       } catch (error) {
-        console.error(`Error scanning support/resistance for ${symbol} on ${timeframe}:`, error);
         continue;
       }
     }

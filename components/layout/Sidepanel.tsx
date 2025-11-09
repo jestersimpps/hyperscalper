@@ -309,13 +309,13 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
       }
     });
 
-    // Sort symbols without positions by volatility
+    // Sort symbols without positions by 24h price change
     withoutPositions.sort((a, b) => {
       const volatilityA = useSymbolVolatilityStore.getState().volatility[a];
       const volatilityB = useSymbolVolatilityStore.getState().volatility[b];
-      const blocksA = volatilityA?.blocks ?? 0;
-      const blocksB = volatilityB?.blocks ?? 0;
-      return blocksB - blocksA;
+      const percentChangeA = volatilityA?.percentChange ?? 0;
+      const percentChangeB = volatilityB?.percentChange ?? 0;
+      return percentChangeB - percentChangeA;
     });
 
     return { symbolsWithOpenPositions: withPositions, symbolsWithoutPositions: withoutPositions };
@@ -591,6 +591,9 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                 </>
               ) : (
                 symbolsWithOpenPositions.map((symbol) => {
+                  const position = positions[symbol];
+                  if (!position) return null;
+
                   const isPinned = pinnedSymbols.includes(symbol);
                   const top20Data = topSymbols.find(s => s.name === symbol);
                   const isTop20 = !!top20Data;
@@ -615,8 +618,8 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                       symbol={symbol}
                       selectedSymbol={selectedSymbol}
                       onSymbolSelect={onSymbolSelect}
-                      address={address}
-                      position={positions[symbol]}
+                      address={address || ''}
+                      position={position}
                       isPinned={isPinned}
                       isTop20={isTop20}
                       volumeInMillions={volumeInMillions}
@@ -740,7 +743,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                       symbol={symbol}
                       selectedSymbol={selectedSymbol}
                       onSymbolSelect={onSymbolSelect}
-                      address={address}
+                      address={address || ''}
                       isPinned={isPinned}
                       isTop20={isTop20}
                       volumeInMillions={volumeInMillions}

@@ -293,7 +293,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
       enabled: false,
       timeframes: ['1m', '5m'],
       distanceThreshold: 1.0,
-      minTouches: 3,
+      minTouches: 2,
     },
   },
   orders: {
