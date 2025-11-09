@@ -45,6 +45,6 @@ export const formatPnlSchmeckles = (pnl: number, positionValue: number): string 
     return '+- SH';
   }
 
-  const schmeckles = (pnl / positionValue) * 1000;
+  const schmeckles = (pnl / positionValue) * 10000;
   return `${schmeckles >= 0 ? '+' : ''}${schmeckles.toFixed(2)} SH`;
 };
