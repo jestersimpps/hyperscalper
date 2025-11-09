@@ -88,8 +88,6 @@ export const useOrderStore = create<OrderStore>((set, get) => ({
       mappedOrders[coin] = mapHyperliquidOrders(ordersByCoin[coin]);
     });
 
-    set((state) => ({
-      orders: { ...state.orders, ...mappedOrders },
-    }));
+    set({ orders: mappedOrders });
   },
 }));

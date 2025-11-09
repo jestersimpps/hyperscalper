@@ -8,5 +8,5 @@ export default async function SymbolPage({ params }: SymbolPageProps) {
   const { address, symbol } = await params;
   const upperSymbol = symbol.toUpperCase();
 
-  return <SymbolView key={`${address}-${upperSymbol}`} coin={upperSymbol} />;
+  return <SymbolView coin={upperSymbol} />;
 }

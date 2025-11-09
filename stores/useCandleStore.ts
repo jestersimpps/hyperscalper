@@ -5,6 +5,9 @@ import { useWebSocketStatusStore } from '@/stores/useWebSocketStatusStore';
 import { formatCandle } from '@/lib/format-utils';
 import { MAX_CANDLES } from '@/lib/constants';
 import { HyperliquidService } from '@/lib/services/hyperliquid.service';
+import { downsampleCandles } from '@/lib/candle-utils';
+import type { TransformedCandle } from '@/lib/services/types';
+import { INTERVAL_TO_MS } from '@/lib/time-utils';
 
 interface CandleStore {
   candles: Record<string, CandleData[]>;
@@ -13,12 +16,16 @@ interface CandleStore {
   subscriptions: Record<string, { subscriptionId: string; cleanup: () => void; refCount: number }>;
   wsService: ExchangeWebSocketService | null;
   service: HyperliquidService | null;
+  lastFetchTimes: Record<string, number>;
 
   setService: (service: HyperliquidService) => void;
   fetchCandles: (coin: string, interval: TimeInterval, startTime: number, endTime: number) => Promise<void>;
   subscribeToCandles: (coin: string, interval: TimeInterval) => void;
   unsubscribeFromCandles: (coin: string, interval: TimeInterval) => void;
   cleanup: () => void;
+  getCandlesSync: (coin: string, interval: TimeInterval) => TransformedCandle[] | null;
+  getClosePrices: (coin: string, interval: TimeInterval, count: number) => number[] | null;
+  isCacheFresh: (coin: string, interval: TimeInterval, maxAgeMs?: number) => boolean;
 }
 
 const getCandleKey = (coin: string, interval: string): string => `${coin}-${interval}`;
@@ -30,6 +37,7 @@ export const useCandleStore = create<CandleStore>((set, get) => ({
   subscriptions: {},
   wsService: null,
   service: null,
+  lastFetchTimes: {},
 
   setService: (service: HyperliquidService) => {
     set({ service });
@@ -37,7 +45,7 @@ export const useCandleStore = create<CandleStore>((set, get) => ({
 
   fetchCandles: async (coin, interval, startTime, endTime) => {
     const key = getCandleKey(coin, interval);
-    const { loading, candles, service } = get();
+    const { loading, candles, service, isCacheFresh } = get();
 
     if (!service) {
       return;
@@ -47,8 +55,23 @@ export const useCandleStore = create<CandleStore>((set, get) => ({
       return;
     }
 
-    if (candles[key] && candles[key].length > 0) {
+    if (candles[key] && candles[key].length > 0 && isCacheFresh(coin, interval)) {
+      set((state) => ({
+        lastFetchTimes: { ...state.lastFetchTimes, [key]: Date.now() }
+      }));
       return;
+    }
+
+    const existingCandles = candles[key] || [];
+    const isIncrementalFetch = interval === '1m' && existingCandles.length >= 10;
+
+    let actualStartTime = startTime;
+    let actualEndTime = endTime;
+
+    if (isIncrementalFetch) {
+      const intervalMs = INTERVAL_TO_MS[interval];
+      actualEndTime = Date.now();
+      actualStartTime = actualEndTime - (5 * intervalMs);
     }
 
     set((state) => ({
@@ -60,21 +83,35 @@ export const useCandleStore = create<CandleStore>((set, get) => ({
       const data = await service.getCandles({
         coin,
         interval,
-        startTime,
-        endTime,
+        startTime: actualStartTime,
+        endTime: actualEndTime,
       });
 
       const formattedData = data.map((candle) => formatCandle(candle, coin));
 
-      console.log(`[Fetch Candles] ${key} - Fetched ${formattedData.length} candles`);
-      if (formattedData.length > 1) {
-        const timeDiff = formattedData[1].time - formattedData[0].time;
+      let finalCandles: CandleData[];
+
+      if (isIncrementalFetch && formattedData.length > 0) {
+        const earliestNewTime = Math.min(...formattedData.map(c => c.time));
+        const nonOverlappingExisting = existingCandles.filter(c => c.time < earliestNewTime);
+        const merged = [...nonOverlappingExisting, ...formattedData];
+        finalCandles = merged.slice(-MAX_CANDLES);
+
+        console.log(`[Fetch Candles] ${key} - Incremental: merged ${existingCandles.length} existing + ${formattedData.length} new = ${finalCandles.length} total`);
+      } else {
+        finalCandles = formattedData;
+        console.log(`[Fetch Candles] ${key} - Full fetch: ${formattedData.length} candles`);
+      }
+
+      if (finalCandles.length > 1) {
+        const timeDiff = finalCandles[1].time - finalCandles[0].time;
         console.log(`[Fetch Candles] ${key} - Time difference between first two candles: ${timeDiff}ms (${timeDiff / 60000} minutes)`);
       }
 
       set((state) => ({
-        candles: { ...state.candles, [key]: formattedData },
+        candles: { ...state.candles, [key]: finalCandles },
         loading: { ...state.loading, [key]: false },
+        lastFetchTimes: { ...state.lastFetchTimes, [key]: Date.now() },
       }));
     } catch (error) {
       set((state) => ({
@@ -207,5 +244,56 @@ export const useCandleStore = create<CandleStore>((set, get) => ({
       subscriptions: {},
       wsService: null,
     });
+  },
+
+  getCandlesSync: (coin, interval) => {
+    const key = getCandleKey(coin, interval);
+    const { candles } = get();
+    const cachedCandles = candles[key];
+
+    if (!cachedCandles || cachedCandles.length === 0) {
+      return null;
+    }
+
+    return cachedCandles as TransformedCandle[];
+  },
+
+  getClosePrices: (coin, interval, count) => {
+    const key = getCandleKey(coin, interval);
+    const { candles } = get();
+    const cachedCandles = candles[key];
+
+    if (!cachedCandles || cachedCandles.length === 0) {
+      return null;
+    }
+
+    const closePrices = downsampleCandles(cachedCandles as TransformedCandle[], count);
+    return closePrices;
+  },
+
+  isCacheFresh: (coin, interval, maxAgeMs?: number) => {
+    const key = getCandleKey(coin, interval);
+    const { candles, lastFetchTimes } = get();
+
+    const cachedCandles = candles[key];
+    const lastFetchTime = lastFetchTimes[key];
+
+    if (!cachedCandles || cachedCandles.length === 0) {
+      return false;
+    }
+
+    if (!lastFetchTime) {
+      return false;
+    }
+
+    let cacheAgeMs = maxAgeMs;
+    if (!cacheAgeMs) {
+      const { useSettingsStore } = require('./useSettingsStore');
+      const cacheDurationMinutes = useSettingsStore.getState().settings.scanner.candleCacheDuration;
+      cacheAgeMs = cacheDurationMinutes * 60 * 1000;
+    }
+
+    const age = Date.now() - lastFetchTime;
+    return age < cacheAgeMs;
   },
 }));

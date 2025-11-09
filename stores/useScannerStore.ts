@@ -59,8 +59,6 @@ export const useScannerStore = create<ScannerStore>((set, get) => ({
     });
 
     try {
-      scannerService.clearCandleCache();
-
       const settings = useSettingsStore.getState().settings.scanner;
       const indicatorSettings = useSettingsStore.getState().settings.indicators;
 

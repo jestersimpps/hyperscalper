@@ -163,6 +163,16 @@ body {
   50% { transform: scale(1.02); }
 }
 
+@keyframes blink-green {
+  0%, 100% { color: inherit; }
+  50% { color: var(--status-bullish); text-shadow: 0 0 4px var(--status-bullish); }
+}
+
+@keyframes blink-red {
+  0%, 100% { color: inherit; }
+  50% { color: var(--status-bearish); text-shadow: 0 0 4px var(--status-bearish); }
+}
+
 .animate-flash-pnl-increase {
   animation: flash-pnl-increase 0.5s ease-in-out;
 }
@@ -181,4 +191,12 @@ body {
 
 .animate-pulse-scale {
   animation: pulse-scale 0.3s ease-in-out;
+}
+
+.animate-blink-green {
+  animation: blink-green 1s ease-in-out;
+}
+
+.animate-blink-red {
+  animation: blink-red 1s ease-in-out;
 }

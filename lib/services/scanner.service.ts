@@ -31,8 +31,9 @@ import {
   detectStochasticPivots,
   detectDivergence
 } from '@/lib/indicators';
-import { aggregate1mTo5m, aggregate15mTo1h } from '@/lib/candle-aggregator';
+import { aggregate1mTo5m } from '@/lib/candle-aggregator';
 import { downsampleCandles } from '@/lib/candle-utils';
+import { useCandleStore } from '@/stores/useCandleStore';
 
 export interface StochasticScanParams {
   symbol: string;
@@ -78,13 +79,7 @@ export interface DivergenceScanParams {
 }
 
 export class ScannerService {
-  private candleCache: Map<string, TransformedCandle[]> = new Map();
-
   constructor(private hyperliquidService: HyperliquidService) {}
-
-  clearCandleCache(): void {
-    this.candleCache.clear();
-  }
 
   private getIntervalMinutes(interval: TimeInterval): number {
     const intervalMap: Record<TimeInterval, number> = {
@@ -96,54 +91,30 @@ export class ScannerService {
     return intervalMap[interval];
   }
 
-  private async getOrDeriveCandles(
+  private getCandlesFromStore(
     symbol: string,
     targetTimeframe: TimeInterval,
     lookbackCandles: number
-  ): Promise<TransformedCandle[]> {
-    const cacheKey = `${symbol}-${targetTimeframe}-${lookbackCandles}`;
-
-    if (this.candleCache.has(cacheKey)) {
-      return this.candleCache.get(cacheKey)!;
-    }
-
-    let baseTimeframe: TimeInterval;
-    let baseMultiplier: number;
-    let deriveFn: ((candles: TransformedCandle[]) => TransformedCandle[]) | null = null;
+  ): TransformedCandle[] | null {
+    const candleStore = useCandleStore.getState();
 
     if (targetTimeframe === '1m') {
-      baseTimeframe = '1m';
-      baseMultiplier = 1;
+      const candles = candleStore.getCandlesSync(symbol, '1m');
+      if (!candles || candles.length < lookbackCandles) {
+        return null;
+      }
+      return candles.slice(-lookbackCandles);
     } else if (targetTimeframe === '5m') {
-      baseTimeframe = '1m';
-      baseMultiplier = 5;
-      deriveFn = aggregate1mTo5m;
-    } else if (targetTimeframe === '15m') {
-      baseTimeframe = '15m';
-      baseMultiplier = 1;
-    } else {
-      baseTimeframe = '15m';
-      baseMultiplier = 4;
-      deriveFn = aggregate15mTo1h;
+      const baseCandleCount = lookbackCandles * 5;
+      const candles1m = candleStore.getCandlesSync(symbol, '1m');
+      if (!candles1m || candles1m.length < baseCandleCount) {
+        return null;
+      }
+      const recentCandles = candles1m.slice(-baseCandleCount);
+      return aggregate1mTo5m(recentCandles);
     }
 
-    const baseCandleCount = lookbackCandles * baseMultiplier;
-    const intervalMinutes = this.getIntervalMinutes(baseTimeframe);
-    const endTime = Date.now();
-    const startTime = endTime - (baseCandleCount * intervalMinutes * 60 * 1000);
-
-    const baseCandles = await this.hyperliquidService.getCandles({
-      coin: symbol,
-      interval: baseTimeframe,
-      startTime,
-      endTime,
-    });
-
-    const result = deriveFn ? deriveFn(baseCandles) : baseCandles;
-
-    this.candleCache.set(cacheKey, result);
-
-    return result;
+    return null;
   }
 
   async scanStochastic(params: StochasticScanParams): Promise<ScanResult | null> {
@@ -156,14 +127,14 @@ export class ScannerService {
       return null;
     }
 
-    const candles1m = await this.getOrDeriveCandles(symbol, '1m', 150);
-    const closePrices = downsampleCandles(candles1m, 100);
+    const candleStore = useCandleStore.getState();
+    const closePrices = candleStore.getClosePrices(symbol, '1m', 100) || [];
 
     for (const timeframe of timeframes) {
       try {
         const lookbackCandles = 150;
 
-        const candles = await this.getOrDeriveCandles(symbol, timeframe, lookbackCandles);
+        const candles = this.getCandlesFromStore(symbol, timeframe, lookbackCandles);
 
         if (!candles || candles.length === 0) {
           continue;
@@ -230,14 +201,14 @@ export class ScannerService {
   async scanVolumeSpike(params: VolumeScanParams): Promise<ScanResult | null> {
     const { symbol, timeframes, config } = params;
 
-    const candles1m = await this.getOrDeriveCandles(symbol, '1m', 150);
-    const closePrices = downsampleCandles(candles1m, 100);
+    const candleStore = useCandleStore.getState();
+    const closePrices = candleStore.getClosePrices(symbol, '1m', 100) || [];
 
     for (const timeframe of timeframes) {
       try {
         const lookbackCandles = 150;
 
-        const candles = await this.getOrDeriveCandles(symbol, timeframe, lookbackCandles);
+        const candles = this.getCandlesFromStore(symbol, timeframe, lookbackCandles);
 
         if (!candles || candles.length < config.lookbackPeriod + 1) {
           continue;
@@ -287,14 +258,14 @@ export class ScannerService {
   async scanEmaAlignment(params: EmaAlignmentScanParams): Promise<ScanResult | null> {
     const { symbol, timeframes, config } = params;
 
-    const candles1m = await this.getOrDeriveCandles(symbol, '1m', 150);
-    const closePrices = downsampleCandles(candles1m, 100);
+    const candleStore = useCandleStore.getState();
+    const closePrices = candleStore.getClosePrices(symbol, '1m', 100) || [];
 
     for (const timeframe of timeframes) {
       try {
         const lookbackCandles = 150;
 
-        const candles = await this.getOrDeriveCandles(symbol, timeframe, lookbackCandles);
+        const candles = this.getCandlesFromStore(symbol, timeframe, lookbackCandles);
 
         if (!candles || candles.length < config.lookbackBars) {
           continue;
@@ -344,14 +315,14 @@ export class ScannerService {
   async scanMacdReversal(params: MacdReversalScanParams): Promise<ScanResult | null> {
     const { symbol, timeframes, config } = params;
 
-    const candles1m = await this.getOrDeriveCandles(symbol, '1m', 150);
-    const closePrices = downsampleCandles(candles1m, 100);
+    const candleStore = useCandleStore.getState();
+    const closePrices = candleStore.getClosePrices(symbol, '1m', 100) || [];
 
     for (const timeframe of timeframes) {
       try {
         const lookbackCandles = Math.max(150, config.minCandles);
 
-        const candles = await this.getOrDeriveCandles(symbol, timeframe, lookbackCandles);
+        const candles = this.getCandlesFromStore(symbol, timeframe, lookbackCandles);
 
         if (!candles || candles.length < config.minCandles) {
           continue;
@@ -425,14 +396,14 @@ export class ScannerService {
   async scanRsiReversal(params: RsiReversalScanParams): Promise<ScanResult | null> {
     const { symbol, timeframes, config } = params;
 
-    const candles1m = await this.getOrDeriveCandles(symbol, '1m', 150);
-    const closePrices = downsampleCandles(candles1m, 100);
+    const candleStore = useCandleStore.getState();
+    const closePrices = candleStore.getClosePrices(symbol, '1m', 100) || [];
 
     for (const timeframe of timeframes) {
       try {
         const lookbackCandles = Math.max(150, config.minCandles);
 
-        const candles = await this.getOrDeriveCandles(symbol, timeframe, lookbackCandles);
+        const candles = this.getCandlesFromStore(symbol, timeframe, lookbackCandles);
 
         if (!candles || candles.length < config.minCandles) {
           continue;
@@ -503,14 +474,14 @@ export class ScannerService {
   async scanChannel(params: ChannelScanParams): Promise<ScanResult | null> {
     const { symbol, timeframes, config } = params;
 
-    const candles1m = await this.getOrDeriveCandles(symbol, '1m', 150);
-    const closePrices = downsampleCandles(candles1m, 100);
+    const candleStore = useCandleStore.getState();
+    const closePrices = candleStore.getClosePrices(symbol, '1m', 100) || [];
 
     for (const timeframe of timeframes) {
       try {
         const lookbackCandles = config.lookbackBars;
 
-        const candles = await this.getOrDeriveCandles(symbol, timeframe, lookbackCandles);
+        const candles = this.getCandlesFromStore(symbol, timeframe, lookbackCandles);
 
         if (!candles || candles.length < config.lookbackBars) {
           continue;
@@ -578,14 +549,14 @@ export class ScannerService {
   async scanDivergence(params: DivergenceScanParams): Promise<ScanResult | null> {
     const { symbol, timeframes, config } = params;
 
-    const candles1m = await this.getOrDeriveCandles(symbol, '1m', 150);
-    const closePrices = downsampleCandles(candles1m, 100);
+    const candleStore = useCandleStore.getState();
+    const closePrices = candleStore.getClosePrices(symbol, '1m', 100) || [];
 
     for (const timeframe of timeframes) {
       try {
         const lookbackCandles = 150;
 
-        const candles = await this.getOrDeriveCandles(symbol, timeframe, lookbackCandles);
+        const candles = this.getCandlesFromStore(symbol, timeframe, lookbackCandles);
 
         if (!candles || candles.length < 50) {
           continue;

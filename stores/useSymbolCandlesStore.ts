@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { HyperliquidService } from '@/lib/services/hyperliquid.service';
 import { downsampleCandles } from '@/lib/candle-utils';
+import { useCandleStore } from './useCandleStore';
 
 interface SymbolCandlesStore {
   closePrices: Record<string, number[]>;
@@ -22,11 +23,20 @@ export const useSymbolCandlesStore = create<SymbolCandlesStore>((set, get) => ({
     const { service } = get();
     if (!service) return;
 
+    const candleStore = useCandleStore.getState();
     const newClosePrices: Record<string, number[]> = {};
 
     await Promise.all(
       symbols.map(async (symbol) => {
         try {
+          if (candleStore.isCacheFresh(symbol, '1m')) {
+            const cachedClosePrices = candleStore.getClosePrices(symbol, '1m', 100);
+            if (cachedClosePrices && cachedClosePrices.length > 0) {
+              newClosePrices[symbol] = cachedClosePrices;
+              return;
+            }
+          }
+
           const endTime = Date.now();
           const startTime = endTime - (150 * 60 * 1000);
 

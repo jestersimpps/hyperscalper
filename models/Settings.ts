@@ -119,6 +119,7 @@ export interface ScannerSettings {
   scanInterval: number;
   topMarkets: number;
   playSound: boolean;
+  candleCacheDuration: number;
   stochasticScanner: StochasticScannerConfig;
   emaAlignmentScanner: EmaAlignmentScannerConfig;
   channelScanner: ChannelScannerConfig;
@@ -224,6 +225,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     scanInterval: 1,
     topMarkets: 20,
     playSound: true,
+    candleCacheDuration: 1,
     stochasticScanner: {
       enabled: false,
       oversoldThreshold: 20,

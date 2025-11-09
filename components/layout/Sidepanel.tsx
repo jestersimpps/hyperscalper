@@ -17,6 +17,7 @@ import { formatPrice } from '@/lib/format-utils';
 import { useAddressFromUrl } from '@/lib/hooks/use-address-from-url';
 import { PositionPriceIndicator } from '@/components/PositionPriceIndicator';
 import { usePositionAnimations } from '@/hooks/usePositionAnimations';
+import { usePriceVolumeAnimation } from '@/hooks/usePriceVolumeAnimation';
 import MiniPriceChart from '@/components/scanner/MiniPriceChart';
 import type { TimeInterval } from '@/types';
 
@@ -28,11 +29,14 @@ interface SidepanelProps {
 interface SymbolPriceProps {
   symbol: string;
   pnlAnimationClass?: string;
+  closePrices?: number[];
 }
 
-const SymbolPrice = memo(({ symbol, pnlAnimationClass }: SymbolPriceProps) => {
+const SymbolPrice = memo(({ symbol, pnlAnimationClass, closePrices }: SymbolPriceProps) => {
   const price = useSidebarPricesStore((state) => state.prices[symbol]);
   const position = usePositionStore((state) => state.positions[symbol]);
+
+  const { priceDirection } = usePriceVolumeAnimation(symbol, closePrices, undefined);
 
   const decimals = useSymbolMetaStore.getState().getDecimals(symbol);
   const formattedPrice = price ? formatPrice(price, decimals.price) : '-.--';
@@ -49,15 +53,63 @@ const SymbolPrice = memo(({ symbol, pnlAnimationClass }: SymbolPriceProps) => {
     ? `Unrealized PnL: ${position.pnl >= 0 ? '+' : ''}$${position.pnl.toFixed(2)}`
     : 'No active position';
 
+  let priceTrend: 'up' | 'down' | null = null;
+  if (closePrices && closePrices.length >= 5) {
+    const last5 = closePrices.slice(-5);
+    priceTrend = last5[last5.length - 1] > last5[0] ? 'up' : 'down';
+  }
+
+  const priceColorClass = priceTrend === 'up'
+    ? 'text-bullish'
+    : priceTrend === 'down'
+    ? 'text-bearish'
+    : 'text-primary-muted';
+
+  const priceBlinkClass = priceDirection === 'up'
+    ? 'animate-blink-green'
+    : priceDirection === 'down'
+    ? 'animate-blink-red'
+    : '';
+
   return (
     <div className="flex flex-col text-xs font-mono text-right flex-shrink-0 w-24 tabular-nums">
       <span className={`${pnlColorClass} ${pnlAnimationClass || ''}`} title={pnlTooltip}>{pnlText}</span>
-      <span className="text-primary-muted" title={`Current price: $${formattedPrice}`}>${formattedPrice}</span>
+      <span className={`${priceColorClass} ${priceBlinkClass}`} title={`Current price: $${formattedPrice}`}>${formattedPrice}</span>
     </div>
   );
 });
 
 SymbolPrice.displayName = 'SymbolPrice';
+
+interface SymbolVolumeProps {
+  symbol: string;
+  volumeInMillions: string;
+}
+
+const SymbolVolume = memo(({ symbol, volumeInMillions }: SymbolVolumeProps) => {
+  const topSymbols = useTopSymbolsStore((state) => state.symbols);
+  const topSymbolData = topSymbols.find(s => s.name === symbol);
+  const volume = topSymbolData?.volume;
+
+  const { volumeDirection } = usePriceVolumeAnimation(symbol, undefined, volume);
+
+  const volumeBlinkClass = volumeDirection === 'up'
+    ? 'animate-blink-green'
+    : volumeDirection === 'down'
+    ? 'animate-blink-red'
+    : '';
+
+  return (
+    <span
+      className={`text-[10px] text-primary-muted font-mono ${volumeBlinkClass}`}
+      title={`24h volume: $${volumeInMillions}M`}
+    >
+      ${volumeInMillions}M
+    </span>
+  );
+});
+
+SymbolVolume.displayName = 'SymbolVolume';
 
 const VolatilityBlocks = memo(({ symbol }: SymbolPriceProps) => {
   const volatilityData = useSymbolVolatilityStore((state) => state.volatility[symbol]);
@@ -552,9 +604,6 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                     <div className="absolute inset-y-0 left-0 right-[40%] opacity-20 pointer-events-none">
                       <MiniPriceChart
                         closePrices={symbolClosePrices}
-                        signalType={positions[symbol] && positions[symbol].size > 0
-                          ? (positions[symbol].side === 'long' ? 'bullish' : 'bearish')
-                          : 'bullish'}
                       />
                     </div>
                   )}
@@ -587,14 +636,9 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                       {/* Reserved space for minimal chart */}
                     </div>
                     <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
-                      <SymbolPrice symbol={symbol} pnlAnimationClass={pnlAnimationClass} />
+                      <SymbolPrice symbol={symbol} pnlAnimationClass={pnlAnimationClass} closePrices={symbolClosePrices || undefined} />
                       {volumeInMillions && (
-                        <span
-                          className="text-[10px] text-primary-muted font-mono"
-                          title={`24h volume: $${volumeInMillions}M`}
-                        >
-                          ${volumeInMillions}M
-                        </span>
+                        <SymbolVolume symbol={symbol} volumeInMillions={volumeInMillions} />
                       )}
                     </div>
                   </div>
@@ -761,7 +805,6 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                             <div className="absolute inset-y-0 left-0 right-[40%] opacity-20 pointer-events-none">
                               <MiniPriceChart
                                 closePrices={symbolClosePrices}
-                                signalType="bullish"
                               />
                             </div>
                           )}
@@ -781,14 +824,9 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                               {/* Reserved space for minimal chart */}
                             </div>
                             <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
-                              <SymbolPrice symbol={symbol} />
+                              <SymbolPrice symbol={symbol} closePrices={symbolClosePrices || undefined} />
                               {volumeInMillions && (
-                                <span
-                                  className="text-[10px] text-primary-muted font-mono"
-                                  title={`24h volume: $${volumeInMillions}M`}
-                                >
-                                  ${volumeInMillions}M
-                                </span>
+                                <SymbolVolume symbol={symbol} volumeInMillions={volumeInMillions} />
                               )}
                             </div>
                           </div>

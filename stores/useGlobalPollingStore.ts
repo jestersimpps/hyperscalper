@@ -4,29 +4,37 @@ import { useOrderStore } from './useOrderStore';
 import { usePositionStore } from './usePositionStore';
 import { useSymbolVolatilityStore } from './useSymbolVolatilityStore';
 import { useTopSymbolsStore } from './useTopSymbolsStore';
+import { useCandleStore } from './useCandleStore';
 
 interface GlobalPollingStore {
   service: HyperliquidService | null;
   fastPollingInterval: NodeJS.Timeout | null;
   slowPollingInterval: NodeJS.Timeout | null;
+  candlePollingInterval: NodeJS.Timeout | null;
   isPolling: boolean;
   lastFastPollTime: number | null;
   lastSlowPollTime: number | null;
+  lastCandlePollTime: number | null;
+  isFirstCandleFetch: boolean;
 
   setService: (service: HyperliquidService) => void;
   startGlobalPolling: () => void;
   stopGlobalPolling: () => void;
   fetchFastData: () => Promise<void>;
   fetchSlowData: () => Promise<void>;
+  fetchCandleData: () => Promise<void>;
 }
 
 export const useGlobalPollingStore = create<GlobalPollingStore>((set, get) => ({
   service: null,
   fastPollingInterval: null,
   slowPollingInterval: null,
+  candlePollingInterval: null,
   isPolling: false,
   lastFastPollTime: null,
   lastSlowPollTime: null,
+  lastCandlePollTime: null,
+  isFirstCandleFetch: true,
 
   setService: (service: HyperliquidService) => {
     set({ service });
@@ -94,15 +102,55 @@ export const useGlobalPollingStore = create<GlobalPollingStore>((set, get) => ({
     }
   },
 
-  startGlobalPolling: () => {
-    const { fastPollingInterval, slowPollingInterval, fetchFastData, fetchSlowData } = get();
+  fetchCandleData: async () => {
+    const { service, isFirstCandleFetch } = get();
+    if (!service) {
+      return;
+    }
 
-    if (fastPollingInterval || slowPollingInterval) {
+    try {
+      const candleStore = useCandleStore.getState();
+      const topSymbolsStore = useTopSymbolsStore.getState();
+      const topSymbols = topSymbolsStore.symbols.slice(0, 20);
+
+      for (const symbol of topSymbols) {
+        const symbolName = symbol.name;
+        const existingCandles = candleStore.candles[`${symbolName}-1m`];
+        const hasData = existingCandles && existingCandles.length >= 10;
+
+        const endTime = Date.now();
+        let startTime: number;
+
+        if (isFirstCandleFetch) {
+          startTime = endTime - (1200 * 60 * 1000);
+        } else if (hasData) {
+          startTime = endTime - (10 * 60 * 1000);
+        } else {
+          startTime = endTime - (1200 * 60 * 1000);
+        }
+
+        await candleStore.fetchCandles(symbolName, '1m', startTime, endTime);
+      }
+
+      set({
+        lastCandlePollTime: Date.now(),
+        isFirstCandleFetch: false
+      });
+    } catch (error) {
+      console.error('[GlobalPolling] Error in fetchCandleData:', error);
+    }
+  },
+
+  startGlobalPolling: () => {
+    const { fastPollingInterval, slowPollingInterval, candlePollingInterval, fetchFastData, fetchSlowData, fetchCandleData } = get();
+
+    if (fastPollingInterval || slowPollingInterval || candlePollingInterval) {
       return;
     }
 
     fetchFastData();
     fetchSlowData();
+    fetchCandleData();
 
     const fastIntervalId = setInterval(() => {
       fetchFastData();
@@ -112,15 +160,20 @@ export const useGlobalPollingStore = create<GlobalPollingStore>((set, get) => ({
       fetchSlowData();
     }, 60000);
 
+    const candleIntervalId = setInterval(() => {
+      fetchCandleData();
+    }, 60000);
+
     set({
       fastPollingInterval: fastIntervalId,
       slowPollingInterval: slowIntervalId,
+      candlePollingInterval: candleIntervalId,
       isPolling: true
     });
   },
 
   stopGlobalPolling: () => {
-    const { fastPollingInterval, slowPollingInterval } = get();
+    const { fastPollingInterval, slowPollingInterval, candlePollingInterval } = get();
 
     if (fastPollingInterval) {
       clearInterval(fastPollingInterval);
@@ -130,9 +183,14 @@ export const useGlobalPollingStore = create<GlobalPollingStore>((set, get) => ({
       clearInterval(slowPollingInterval);
     }
 
+    if (candlePollingInterval) {
+      clearInterval(candlePollingInterval);
+    }
+
     set({
       fastPollingInterval: null,
       slowPollingInterval: null,
+      candlePollingInterval: null,
       isPolling: false
     });
   },

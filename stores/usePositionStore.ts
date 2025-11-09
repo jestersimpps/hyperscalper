@@ -195,8 +195,6 @@ export const usePositionStore = create<PositionStore>((set, get) => ({
       positionMap[position.symbol] = position;
     });
 
-    set((state) => ({
-      positions: { ...state.positions, ...positionMap },
-    }));
+    set({ positions: positionMap });
   },
 }));

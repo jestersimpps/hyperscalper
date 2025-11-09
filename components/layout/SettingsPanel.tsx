@@ -178,6 +178,18 @@ export default function SettingsPanel() {
                     </div>
 
                     <div>
+                      <label className="text-primary-muted font-mono block mb-1 text-xs">CANDLE CACHE DURATION (MINUTES)</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="10"
+                        value={settings.scanner.candleCacheDuration}
+                        onChange={(e) => updateScannerSettings({ candleCacheDuration: Number(e.target.value) })}
+                        className="w-full bg-bg-primary border border-frame text-primary px-2 py-1 rounded font-mono text-xs"
+                      />
+                    </div>
+
+                    <div>
                       <label className="flex items-center justify-between cursor-pointer">
                         <span className="text-primary-muted text-xs font-mono">PLAY SOUND ON NEW RESULTS</span>
                         <input
