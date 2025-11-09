@@ -15,6 +15,7 @@ export default function SettingsPanel() {
   const [isScannerDivExpanded, setIsScannerDivExpanded] = useState(false);
   const [isScannerMacdExpanded, setIsScannerMacdExpanded] = useState(false);
   const [isScannerRsiExpanded, setIsScannerRsiExpanded] = useState(false);
+  const [isScannerVolumeExpanded, setIsScannerVolumeExpanded] = useState(false);
 
   const handleBackdropClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget) {
@@ -608,6 +609,154 @@ export default function SettingsPanel() {
                             <div className="p-3 bg-bg-secondary border border-frame rounded">
                               <div className="text-primary-muted text-xs font-mono">
                                 Detects RSI exiting overbought ({'>'}{settings.scanner.rsiReversalScanner.overboughtLevel}) or oversold ({'<'}{settings.scanner.rsiReversalScanner.oversoldLevel}) zones (Period: {settings.scanner.rsiReversalScanner.period})
+                              </div>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Volume Spike Scanner - Collapsible Section */}
+                  <div className="border border-frame rounded overflow-hidden">
+                    <button
+                      onClick={() => setIsScannerVolumeExpanded(!isScannerVolumeExpanded)}
+                      className="w-full p-3 bg-bg-secondary flex items-center justify-between hover:bg-primary/5 transition-colors"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-primary font-mono text-xs font-bold">█ VOLUME SPIKE SCANNER</span>
+                      </div>
+                      <span className="text-primary text-base">{isScannerVolumeExpanded ? '▼' : '▶'}</span>
+                    </button>
+
+                    {isScannerVolumeExpanded && (
+                      <div className="p-4 space-y-4 bg-bg-primary">
+                        <div className="p-3 bg-bg-secondary border border-frame rounded">
+                          <label className="flex items-center justify-between cursor-pointer">
+                            <span className="text-primary-muted text-xs font-mono">ENABLE VOLUME SPIKE SCANNER</span>
+                            <input
+                              type="checkbox"
+                              checked={settings.scanner.volumeSpikeScanner.enabled}
+                              onChange={(e) =>
+                                updateScannerSettings({
+                                  volumeSpikeScanner: {
+                                    ...settings.scanner.volumeSpikeScanner,
+                                    enabled: e.target.checked,
+                                  },
+                                })
+                              }
+                              className="w-4 h-4 accent-primary cursor-pointer"
+                            />
+                          </label>
+                        </div>
+
+                        {settings.scanner.volumeSpikeScanner.enabled && (
+                          <>
+                            <div className="p-3 bg-bg-secondary border border-frame rounded space-y-3">
+                              <div className="text-primary font-mono text-xs font-bold mb-2">TIMEFRAMES TO SCAN</div>
+                              <div className="grid grid-cols-2 gap-2">
+                                {(['1m', '5m', '15m', '1h'] as const).map((tf) => (
+                                  <label key={tf} className="flex items-center gap-2 cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={settings.scanner.volumeSpikeScanner.timeframes.includes(tf)}
+                                      onChange={(e) => {
+                                        const newTimeframes = e.target.checked
+                                          ? [...settings.scanner.volumeSpikeScanner.timeframes, tf]
+                                          : settings.scanner.volumeSpikeScanner.timeframes.filter((t) => t !== tf);
+                                        updateScannerSettings({
+                                          volumeSpikeScanner: {
+                                            ...settings.scanner.volumeSpikeScanner,
+                                            timeframes: newTimeframes,
+                                          },
+                                        });
+                                      }}
+                                      className="w-4 h-4 accent-primary cursor-pointer"
+                                    />
+                                    <span className="text-primary-muted text-xs font-mono">{tf.toUpperCase()}</span>
+                                  </label>
+                                ))}
+                              </div>
+                            </div>
+
+                            <div className="p-3 bg-bg-secondary border border-frame rounded">
+                              <div className="text-primary font-mono text-xs font-bold mb-3">THRESHOLDS</div>
+                              <div className="grid grid-cols-2 gap-3 text-xs">
+                                <div>
+                                  <label className="text-primary-muted font-mono block mb-1">VOLUME MULTIPLIER</label>
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    max="10"
+                                    step="0.1"
+                                    value={settings.scanner.volumeSpikeScanner.volumeThreshold}
+                                    onChange={(e) =>
+                                      updateScannerSettings({
+                                        volumeSpikeScanner: {
+                                          ...settings.scanner.volumeSpikeScanner,
+                                          volumeThreshold: Number(e.target.value),
+                                        },
+                                      })
+                                    }
+                                    className="w-full bg-bg-primary border border-frame text-primary px-2 py-1 rounded font-mono text-xs"
+                                  />
+                                  <div className="text-primary-muted font-mono text-[10px] mt-1">
+                                    Current: {settings.scanner.volumeSpikeScanner.volumeThreshold}x average
+                                  </div>
+                                </div>
+                                <div>
+                                  <label className="text-primary-muted font-mono block mb-1">PRICE CHANGE %</label>
+                                  <input
+                                    type="number"
+                                    min="0.1"
+                                    max="10"
+                                    step="0.1"
+                                    value={settings.scanner.volumeSpikeScanner.priceChangeThreshold}
+                                    onChange={(e) =>
+                                      updateScannerSettings({
+                                        volumeSpikeScanner: {
+                                          ...settings.scanner.volumeSpikeScanner,
+                                          priceChangeThreshold: Number(e.target.value),
+                                        },
+                                      })
+                                    }
+                                    className="w-full bg-bg-primary border border-frame text-primary px-2 py-1 rounded font-mono text-xs"
+                                  />
+                                  <div className="text-primary-muted font-mono text-[10px] mt-1">
+                                    Min: {settings.scanner.volumeSpikeScanner.priceChangeThreshold}%
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="p-3 bg-bg-secondary border border-frame rounded">
+                              <div className="text-primary font-mono text-xs font-bold mb-3">LOOKBACK PERIOD</div>
+                              <div>
+                                <label className="text-primary-muted font-mono block mb-1 text-xs">CANDLES FOR AVG VOLUME</label>
+                                <input
+                                  type="number"
+                                  min="5"
+                                  max="100"
+                                  value={settings.scanner.volumeSpikeScanner.lookbackPeriod}
+                                  onChange={(e) =>
+                                    updateScannerSettings({
+                                      volumeSpikeScanner: {
+                                        ...settings.scanner.volumeSpikeScanner,
+                                        lookbackPeriod: Number(e.target.value),
+                                      },
+                                    })
+                                  }
+                                  className="w-full bg-bg-primary border border-frame text-primary px-2 py-1 rounded font-mono text-xs"
+                                />
+                                <div className="text-primary-muted font-mono text-[10px] mt-1">
+                                  Average volume calculated from last {settings.scanner.volumeSpikeScanner.lookbackPeriod} candles
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="p-3 bg-bg-secondary border border-frame rounded">
+                              <div className="text-primary-muted text-xs font-mono">
+                                Detects when volume is ≥{settings.scanner.volumeSpikeScanner.volumeThreshold}x average AND price changes ≥{settings.scanner.volumeSpikeScanner.priceChangeThreshold}%
                               </div>
                             </div>
                           </>

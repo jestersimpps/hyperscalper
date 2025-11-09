@@ -107,7 +107,6 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
   const router = useRouter();
   const address = useAddressFromUrl();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const positionTimestampsRef = useRef<Record<string, number>>({});
 
   const { results, status, runScan, startAutoScanWithDelay, stopAutoScan } = useScannerStore();
   const { settings, pinSymbol, unpinSymbol } = useSettingsStore();
@@ -226,18 +225,6 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
     return `${hours}h ago`;
   };
 
-  useEffect(() => {
-    Object.entries(positions).forEach(([symbol, position]) => {
-      if (position && position.size > 0) {
-        if (!positionTimestampsRef.current[symbol]) {
-          positionTimestampsRef.current[symbol] = Date.now();
-        }
-      } else {
-        delete positionTimestampsRef.current[symbol];
-      }
-    });
-  }, [positions]);
-
   const { symbolsWithOpenPositions, symbolsWithoutPositions } = useMemo(() => {
     const withPositions: string[] = [];
     const withoutPositions: string[] = [];
@@ -249,13 +236,6 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
       } else {
         withoutPositions.push(symbol);
       }
-    });
-
-    // Sort symbols with positions by timestamp (latest first)
-    withPositions.sort((a, b) => {
-      const timestampA = positionTimestampsRef.current[a] ?? 0;
-      const timestampB = positionTimestampsRef.current[b] ?? 0;
-      return timestampB - timestampA;
     });
 
     // Sort symbols without positions by volatility
@@ -358,6 +338,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                     if (result.emaAlignments) timeframes.push(...result.emaAlignments.map(e => e.timeframe));
                     if (result.macdReversals) timeframes.push(...result.macdReversals.map(m => m.timeframe));
                     if (result.rsiReversals) timeframes.push(...result.rsiReversals.map(r => r.timeframe));
+                    if (result.volumeSpikes) timeframes.push(...result.volumeSpikes.map(v => v.timeframe));
                     if (result.channels) timeframes.push(...result.channels.map(c => c.timeframe));
 
                     const uniqueTimeframes = [...new Set(timeframes)];
@@ -369,6 +350,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                           ema: false,
                           macd: false,
                           rsi: false,
+                          vol: false,
                           channel: null,
                           signalType: result.signalType
                         });
@@ -387,6 +369,9 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                       }
                       if (result.scanType === 'rsiReversal' && result.rsiReversals?.some(r => r.timeframe === tf)) {
                         tfData.rsi = true;
+                      }
+                      if (result.scanType === 'volumeSpike' && result.volumeSpikes?.some(v => v.timeframe === tf)) {
+                        tfData.vol = true;
                       }
                       if (result.scanType === 'channel' && result.channels) {
                         const channel = result.channels.find(c => c.timeframe === tf);
@@ -439,6 +424,9 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                                     )}
                                     {signals.rsi && (
                                       <span className={`${badgeBg} text-bg-primary px-1.5 py-0.5 rounded font-bold`}>RSI</span>
+                                    )}
+                                    {signals.vol && (
+                                      <span className={`${badgeBg} text-bg-primary px-1.5 py-0.5 rounded font-bold`}>VOL</span>
                                     )}
                                     {signals.channel && (
                                       <span className={`${badgeBg} text-bg-primary px-1.5 py-0.5 rounded font-bold`}>{signals.channel}CH</span>
@@ -545,11 +533,22 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                     <div className="flex flex-col justify-between min-w-0">
                       <div className="flex items-center gap-2">
                         <span
-                          className={`text-primary font-bold flex-shrink-0 text-xs ${
-                            positions[symbol] && positions[symbol].size > 0 ? 'animate-pulse' : ''
+                          className={`font-bold flex-shrink-0 text-xs ${
+                            positions[symbol] && positions[symbol].size > 0
+                              ? `animate-pulse ${positions[symbol].side === 'long' ? 'text-bullish' : 'text-bearish'}`
+                              : 'text-primary'
                           }`}
-                          title={`${symbol}/USD trading pair`}
+                          title={positions[symbol] && positions[symbol].size > 0
+                            ? `${positions[symbol].side === 'long' ? 'Long' : 'Short'} position volume: $${(Math.abs(positions[symbol].size * positions[symbol].currentPrice)).toFixed(2)}`
+                            : `${symbol}/USD trading pair`
+                          }
                         >
+                          {positions[symbol] && positions[symbol].size > 0 && (
+                            <>
+                              ${(Math.abs(positions[symbol].size * positions[symbol].currentPrice)).toFixed(0)}{' '}
+                              {positions[symbol].side.toUpperCase()}{' '}
+                            </>
+                          )}
                           {symbol}/USD
                         </span>
                       </div>

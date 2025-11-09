@@ -191,6 +191,13 @@ const mergeSettings = (storedSettings: any): AppSettings => {
           recentReversalLookback: storedSettings.scanner?.rsiReversalScanner?.recentReversalLookback ?? DEFAULT_SETTINGS.scanner.rsiReversalScanner.recentReversalLookback,
           minCandles: storedSettings.scanner?.rsiReversalScanner?.minCandles ?? DEFAULT_SETTINGS.scanner.rsiReversalScanner.minCandles,
         },
+        volumeSpikeScanner: {
+          enabled: storedSettings.scanner?.volumeSpikeScanner?.enabled ?? DEFAULT_SETTINGS.scanner.volumeSpikeScanner.enabled,
+          timeframes: storedSettings.scanner?.volumeSpikeScanner?.timeframes ?? DEFAULT_SETTINGS.scanner.volumeSpikeScanner.timeframes,
+          volumeThreshold: storedSettings.scanner?.volumeSpikeScanner?.volumeThreshold ?? DEFAULT_SETTINGS.scanner.volumeSpikeScanner.volumeThreshold,
+          priceChangeThreshold: storedSettings.scanner?.volumeSpikeScanner?.priceChangeThreshold ?? DEFAULT_SETTINGS.scanner.volumeSpikeScanner.priceChangeThreshold,
+          lookbackPeriod: storedSettings.scanner?.volumeSpikeScanner?.lookbackPeriod ?? DEFAULT_SETTINGS.scanner.volumeSpikeScanner.lookbackPeriod,
+        },
       },
       orders: {
         cloudPercentage: storedSettings.orders?.cloudPercentage ?? DEFAULT_SETTINGS.orders.cloudPercentage,

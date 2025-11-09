@@ -1,7 +1,7 @@
 import type { HyperliquidService } from './hyperliquid.service';
 import type { TimeInterval } from '@/types';
-import type { StochasticValue, ScanResult } from '@/models/Scanner';
-import type { StochasticScannerConfig, StochasticVariantConfig } from '@/models/Settings';
+import type { StochasticValue, ScanResult, VolumeValue } from '@/models/Scanner';
+import type { StochasticScannerConfig, StochasticVariantConfig, VolumeSpikeConfig } from '@/models/Settings';
 import { calculateStochastic } from '@/lib/indicators';
 
 export interface StochasticScanParams {
@@ -9,6 +9,12 @@ export interface StochasticScanParams {
   timeframes: TimeInterval[];
   config: StochasticScannerConfig;
   variants: Record<'ultraFast' | 'fast' | 'medium' | 'slow', StochasticVariantConfig>;
+}
+
+export interface VolumeScanParams {
+  symbol: string;
+  timeframes: TimeInterval[];
+  config: VolumeSpikeConfig;
 }
 
 export class ScannerService {
@@ -109,6 +115,67 @@ export class ScannerService {
     return null;
   }
 
+  async scanVolumeSpike(params: VolumeScanParams): Promise<ScanResult | null> {
+    const { symbol, timeframes, config } = params;
+
+    for (const timeframe of timeframes) {
+      try {
+        const intervalMinutes = this.getIntervalMinutes(timeframe);
+        const lookbackCandles = 150;
+        const endTime = Date.now();
+        const startTime = endTime - (lookbackCandles * intervalMinutes * 60 * 1000);
+
+        const candles = await this.hyperliquidService.getCandles({
+          coin: symbol,
+          interval: timeframe,
+          startTime,
+          endTime,
+        });
+
+        if (!candles || candles.length < config.lookbackPeriod + 1) {
+          continue;
+        }
+
+        const currentCandle = candles[candles.length - 1];
+        const volumeCandles = candles.slice(-(config.lookbackPeriod + 1), -1);
+        const avgVolume = volumeCandles.reduce((sum, c) => sum + c.volume, 0) / volumeCandles.length;
+
+        const volumeRatio = currentCandle.volume / avgVolume;
+        const isVolumeSpike = volumeRatio >= config.volumeThreshold;
+
+        const priceChangePercent = ((currentCandle.close - currentCandle.open) / currentCandle.open) * 100;
+        const isPriceMove = Math.abs(priceChangePercent) >= config.priceChangeThreshold;
+
+        if (isVolumeSpike && isPriceMove) {
+          const signalType: 'bullish' | 'bearish' = priceChangePercent > 0 ? 'bullish' : 'bearish';
+          const direction = signalType === 'bullish' ? 'increase' : 'decrease';
+
+          const volumeValue: VolumeValue = {
+            timeframe,
+            volumeRatio,
+            priceChangePercent,
+            avgVolume,
+            currentVolume: currentCandle.volume,
+          };
+
+          return {
+            symbol,
+            volumeSpikes: [volumeValue],
+            matchedAt: Date.now(),
+            signalType,
+            description: `Volume spike (${volumeRatio.toFixed(1)}x) with ${Math.abs(priceChangePercent).toFixed(2)}% price ${direction} on ${timeframe}`,
+            scanType: 'volumeSpike',
+          };
+        }
+      } catch (error) {
+        console.error(`Error scanning volume for ${symbol} on ${timeframe}:`, error);
+        continue;
+      }
+    }
+
+    return null;
+  }
+
   async scanMultipleSymbols(
     symbols: string[],
     params: Omit<StochasticScanParams, 'symbol'>
@@ -116,6 +183,23 @@ export class ScannerService {
     const results = await Promise.allSettled(
       symbols.map(symbol =>
         this.scanStochastic({ ...params, symbol })
+      )
+    );
+
+    return results
+      .filter((result): result is PromiseFulfilledResult<ScanResult | null> =>
+        result.status === 'fulfilled' && result.value !== null
+      )
+      .map(result => result.value as ScanResult);
+  }
+
+  async scanMultipleSymbolsForVolume(
+    symbols: string[],
+    params: Omit<VolumeScanParams, 'symbol'>
+  ): Promise<ScanResult[]> {
+    const results = await Promise.allSettled(
+      symbols.map(symbol =>
+        this.scanVolumeSpike({ ...params, symbol })
       )
     );
 

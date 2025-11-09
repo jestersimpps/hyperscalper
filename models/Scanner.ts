@@ -57,8 +57,16 @@ export interface RsiReversalValue {
   zone: 'oversold' | 'overbought';
 }
 
+export interface VolumeValue {
+  timeframe: TimeInterval;
+  volumeRatio: number;
+  priceChangePercent: number;
+  avgVolume: number;
+  currentVolume: number;
+}
+
 export type SignalType = 'bullish' | 'bearish';
-export type ScanType = 'stochastic' | 'emaAlignment' | 'channel' | 'divergence' | 'macdReversal' | 'rsiReversal';
+export type ScanType = 'stochastic' | 'emaAlignment' | 'channel' | 'divergence' | 'macdReversal' | 'rsiReversal' | 'volumeSpike';
 
 export interface ScanResult {
   symbol: string;
@@ -68,6 +76,7 @@ export interface ScanResult {
   divergences?: DivergenceValue[];
   macdReversals?: MacdReversalValue[];
   rsiReversals?: RsiReversalValue[];
+  volumeSpikes?: VolumeValue[];
   matchedAt: number;
   signalType: SignalType;
   description: string;

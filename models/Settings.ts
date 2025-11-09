@@ -106,6 +106,14 @@ export interface RsiReversalScannerConfig {
   minCandles: number;
 }
 
+export interface VolumeSpikeConfig {
+  enabled: boolean;
+  timeframes: ('1m' | '5m' | '15m' | '1h')[];
+  volumeThreshold: number;
+  priceChangeThreshold: number;
+  lookbackPeriod: number;
+}
+
 export interface ScannerSettings {
   enabled: boolean;
   scanInterval: number;
@@ -117,6 +125,7 @@ export interface ScannerSettings {
   divergenceScanner: DivergenceScannerConfig;
   macdReversalScanner: MacdReversalScannerConfig;
   rsiReversalScanner: RsiReversalScannerConfig;
+  volumeSpikeScanner: VolumeSpikeConfig;
 }
 
 export interface OrderSettings {
@@ -261,6 +270,13 @@ export const DEFAULT_SETTINGS: AppSettings = {
       overboughtLevel: 70,
       recentReversalLookback: 3,
       minCandles: 50,
+    },
+    volumeSpikeScanner: {
+      enabled: false,
+      timeframes: ['1m'],
+      volumeThreshold: 3.0,
+      priceChangeThreshold: 0.5,
+      lookbackPeriod: 10,
     },
   },
   orders: {

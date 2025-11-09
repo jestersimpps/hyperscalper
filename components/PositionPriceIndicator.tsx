@@ -25,10 +25,6 @@ export const PositionPriceIndicator = memo(({ symbol }: PositionPriceIndicatorPr
   const slPrice = stopLossOrder?.price;
   const tpPrice = takeProfitOrder?.price;
 
-  if (!slPrice && !tpPrice) {
-    return null;
-  }
-
   const isLong = position.side === 'long';
 
   let leftPrice: number;
@@ -41,10 +37,17 @@ export const PositionPriceIndicator = memo(({ symbol }: PositionPriceIndicatorPr
     leftPrice = slPrice;
     const slToEntry = Math.abs(entryPrice - slPrice);
     rightPrice = entryPrice + slToEntry;
-  } else {
-    const tpToEntry = Math.abs(tpPrice! - entryPrice);
+  } else if (!slPrice && tpPrice) {
+    const tpToEntry = Math.abs(tpPrice - entryPrice);
     leftPrice = entryPrice - tpToEntry;
-    rightPrice = tpPrice!;
+    rightPrice = tpPrice;
+  } else {
+    const minPrice = Math.min(entryPrice, currentPrice);
+    const maxPrice = Math.max(entryPrice, currentPrice);
+    const priceDistance = maxPrice - minPrice;
+    const buffer = Math.max(priceDistance * 0.5, entryPrice * 0.02);
+    leftPrice = minPrice - buffer;
+    rightPrice = maxPrice + buffer;
   }
 
   const priceRange = rightPrice - leftPrice;

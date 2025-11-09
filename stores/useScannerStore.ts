@@ -62,17 +62,6 @@ export const useScannerStore = create<ScannerStore>((set, get) => ({
       const settings = useSettingsStore.getState().settings.scanner;
       const indicatorSettings = useSettingsStore.getState().settings.indicators;
 
-      if (!settings.stochasticScanner.enabled) {
-        set({
-          status: {
-            ...get().status,
-            isScanning: false,
-            lastScanTime: Date.now(),
-          },
-        });
-        return;
-      }
-
       const topSymbolsStore = useTopSymbolsStore.getState();
       const symbols = topSymbolsStore.symbols
         .slice(0, settings.topMarkets)
@@ -99,6 +88,14 @@ export const useScannerStore = create<ScannerStore>((set, get) => ({
           variants: indicatorSettings.stochastic.variants,
         });
         newResults.push(...stochResults);
+      }
+
+      if (settings.volumeSpikeScanner.enabled) {
+        const volumeResults = await scannerService.scanMultipleSymbolsForVolume(symbols, {
+          timeframes: settings.volumeSpikeScanner.timeframes,
+          config: settings.volumeSpikeScanner,
+        });
+        newResults.push(...volumeResults);
       }
 
       const newSymbols = new Set(newResults.map((r: ScanResult) => r.symbol));
