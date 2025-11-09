@@ -55,7 +55,7 @@ function RightTradingPanel({
   const hasExitOrders = orders.some(order => order.orderType === 'stop' || order.orderType === 'tp');
 
   return (
-    <aside className="w-80 border-l-2 border-border-frame overflow-y-auto">
+    <aside className="w-[250px] border-l-2 border-border-frame overflow-y-auto">
       <div className="p-2 flex flex-col gap-2">
         <div className="terminal-border p-1.5 flex flex-col">
           <div className="text-[12px] text-primary-muted mb-1.5 uppercase tracking-wider">█ POSITION</div>
