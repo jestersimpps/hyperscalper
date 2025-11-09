@@ -192,19 +192,6 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
   useEffect(() => {
     const symbols = allSymbolsString.split(',').filter(s => s.length > 0);
     if (symbols.length > 0) {
-      startPollingMultiple(symbols);
-    }
-
-    return () => {
-      if (symbols.length > 0) {
-        stopPollingMultiple(symbols);
-      }
-    };
-  }, [allSymbolsString, startPollingMultiple, stopPollingMultiple]);
-
-  useEffect(() => {
-    const symbols = allSymbolsString.split(',').filter(s => s.length > 0);
-    if (symbols.length > 0) {
       useSymbolVolatilityStore.getState().subscribe(symbols);
     }
 

@@ -61,43 +61,15 @@ export const useOrderStore = create<OrderStore>((set, get) => ({
   },
 
   startPolling: (coin: string, interval: number = 5000) => {
-    const { stopPolling, fetchOrders, pollingIntervals } = get();
-
-    if (pollingIntervals[coin]) {
-      stopPolling(coin);
-    }
-
-    fetchOrders(coin);
-
-    const intervalId = setInterval(() => {
-      fetchOrders(coin);
-    }, interval);
-
-    set((state) => ({
-      pollingIntervals: { ...state.pollingIntervals, [coin]: intervalId },
-    }));
   },
 
   stopPolling: (coin: string) => {
-    const { pollingIntervals } = get();
-    const intervalId = pollingIntervals[coin];
-
-    if (intervalId) {
-      clearInterval(intervalId);
-
-      const { [coin]: _, ...remainingIntervals } = pollingIntervals;
-      set({ pollingIntervals: remainingIntervals });
-    }
   },
 
   subscribeToOrders: (coin: string) => {
-    const { startPolling } = get();
-    startPolling(coin, 5000);
   },
 
   unsubscribeFromOrders: (coin: string) => {
-    const { stopPolling } = get();
-    stopPolling(coin);
   },
 
   updateOrdersFromGlobalPoll: (allOrders: any[]) => {

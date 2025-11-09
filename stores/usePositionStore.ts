@@ -166,75 +166,21 @@ export const usePositionStore = create<PositionStore>((set, get) => ({
   },
 
   startPolling: (coin: string, interval: number = 5000) => {
-    const { stopPolling, fetchPosition, pollingIntervals } = get();
-
-    if (pollingIntervals[coin]) {
-      stopPolling(coin);
-    }
-
-    fetchPosition(coin);
-
-    const intervalId = setInterval(() => {
-      fetchPosition(coin);
-    }, interval);
-
-    set((state) => ({
-      pollingIntervals: { ...state.pollingIntervals, [coin]: intervalId },
-    }));
   },
 
   stopPolling: (coin: string) => {
-    const { pollingIntervals } = get();
-    const intervalId = pollingIntervals[coin];
-
-    if (intervalId) {
-      clearInterval(intervalId);
-
-      const { [coin]: _, ...remainingIntervals } = pollingIntervals;
-      set({ pollingIntervals: remainingIntervals });
-    }
   },
 
   subscribeToPosition: (coin: string) => {
-    const { batchPollingCoins, startPolling } = get();
-
-    if (batchPollingCoins.includes(coin)) {
-      return;
-    }
-
-    startPolling(coin, 5000);
   },
 
   unsubscribeFromPosition: (coin: string) => {
-    const { stopPolling } = get();
-    stopPolling(coin);
   },
 
   startPollingMultiple: (coins: string[], interval: number = 5000) => {
-    const { batchPollingInterval, fetchAllPositions } = get();
-
-    if (batchPollingInterval) {
-      clearInterval(batchPollingInterval);
-    }
-
-    set({ batchPollingCoins: coins });
-
-    fetchAllPositions(coins);
-
-    const intervalId = setInterval(() => {
-      fetchAllPositions(coins);
-    }, interval);
-
-    set({ batchPollingInterval: intervalId });
   },
 
   stopPollingMultiple: (coins: string[]) => {
-    const { batchPollingInterval } = get();
-
-    if (batchPollingInterval) {
-      clearInterval(batchPollingInterval);
-      set({ batchPollingInterval: null, batchPollingCoins: [] });
-    }
   },
 
   getPosition: (coin: string) => {

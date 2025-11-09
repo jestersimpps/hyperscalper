@@ -29,12 +29,7 @@ export default function ChartPopupView({ coin }: ChartPopupViewProps) {
   const unsubscribeFromCandles = useCandleStore((state) => state.unsubscribeFromCandles);
 
   const position = usePositionStore((state) => state.positions[coin]);
-  const subscribeToPosition = usePositionStore((state) => state.subscribeToPosition);
-  const unsubscribeFromPosition = usePositionStore((state) => state.unsubscribeFromPosition);
-
   const orders = useOrderStore((state) => state.orders[coin]) || [];
-  const subscribeToOrders = useOrderStore((state) => state.subscribeToOrders);
-  const unsubscribeFromOrders = useOrderStore((state) => state.unsubscribeFromOrders);
 
   const mainChartData = useCandleStore((state) => state.candles[`${coin}-${selectedTimeframe}`] ?? EMPTY_CANDLES);
   const candles1m = useCandleStore((state) => state.candles[`${coin}-1m`] ?? EMPTY_CANDLES);
@@ -55,17 +50,12 @@ export default function ChartPopupView({ coin }: ChartPopupViewProps) {
       subscribeToCandles(coin, interval);
     });
 
-    subscribeToPosition(coin);
-    subscribeToOrders(coin);
-
     return () => {
       intervals.forEach((interval) => {
         unsubscribeFromCandles(coin, interval);
       });
-      unsubscribeFromPosition(coin);
-      unsubscribeFromOrders(coin);
     };
-  }, [coin, candleService, fetchCandles, subscribeToCandles, unsubscribeFromCandles, subscribeToPosition, unsubscribeFromPosition, subscribeToOrders, unsubscribeFromOrders]);
+  }, [coin, candleService, fetchCandles, subscribeToCandles, unsubscribeFromCandles]);
 
   const stochasticCandleData: Record<TimeInterval, CandleData[]> = useMemo(() => ({
     '1m': candles1m,
