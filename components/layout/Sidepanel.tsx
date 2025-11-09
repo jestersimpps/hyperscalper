@@ -165,7 +165,7 @@ const SymbolItemSkeleton = memo(() => {
 SymbolItemSkeleton.displayName = 'SymbolItemSkeleton';
 
 export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelProps) {
-  console.log('[Sidepanel] Render', { selectedSymbol });
+  console.log('[Sidepanel] Render with selectedSymbol:', selectedSymbol);
   const router = useRouter();
   const address = useAddressFromUrl();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -463,9 +463,9 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                       }}
                       className={`${
                         selectedSymbol === symbol
-                          ? 'terminal-border bg-primary/20'
-                          : 'terminal-border hover:bg-primary/5'
-                      } cursor-pointer`}
+                          ? 'border-2 border-primary'
+                          : 'terminal-border hover:bg-primary/10'
+                      } cursor-pointer active:scale-[0.98] transition-all duration-150`}
                     >
                       <div className="flex items-start">
                         <div className="flex flex-col flex-1 relative">
@@ -554,7 +554,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
       )}
 
       {/* Right Column - Symbols */}
-      <div className="flex-[0.5] flex flex-col overflow-hidden gap-3">
+      <div className={`${settings.scanner.enabled ? 'flex-[0.5]' : 'flex-1'} flex flex-col overflow-hidden gap-3`}>
         {/* Open Positions Section */}
         {symbolsWithOpenPositions.length > 0 && (
           <div className="flex-shrink-0">
@@ -588,15 +588,20 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
               : '';
 
             const symbolClosePrices = getClosePrices(symbol);
+            const isSelected = selectedSymbol === symbol;
+
+            if (isSelected) {
+              console.log('[Sidepanel] Selected symbol match:', { selectedSymbol, symbol, isSelected });
+            }
 
             return (
             <div
               key={symbol}
               className={`${
-                selectedSymbol === symbol
-                  ? 'terminal-border bg-primary/20'
-                  : 'terminal-border hover:bg-primary/5'
-              } ${itemAnimationClass}`}
+                isSelected
+                  ? 'border-2 border-primary'
+                  : 'terminal-border hover:bg-primary/10'
+              } ${itemAnimationClass} transition-all duration-150`}
             >
               <div className="flex items-start">
               <div className="flex flex-col flex-1">
@@ -608,7 +613,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                       router.push(`/${address}/${symbol}`);
                     }
                   }}
-                  className="flex-1 text-left p-2 pb-0 cursor-pointer relative"
+                  className="flex-1 text-left p-2 pb-0 cursor-pointer relative active:scale-[0.98] transition-transform duration-100"
                 >
                   {symbolClosePrices && symbolClosePrices.length > 0 && (
                     <div className="absolute inset-y-0 left-0 right-[40%] opacity-50 pointer-events-none">
@@ -663,7 +668,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                       e.stopPropagation();
                       unpinSymbol(symbol);
                     }}
-                    className="p-2 text-primary-muted hover:text-bearish cursor-pointer transition-colors"
+                    className="p-2 text-primary-muted hover:text-bearish active:scale-90 cursor-pointer transition-all duration-150"
                     title="Unpin symbol"
                   >
                     <span className="text-lg font-bold">−</span>
@@ -674,7 +679,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                     e.stopPropagation();
                     window.open(`/${address}/chart-popup/${symbol}`, '_blank', 'width=1200,height=800');
                   }}
-                  className="p-2 text-primary-muted hover:text-primary cursor-pointer transition-colors"
+                  className="p-2 text-primary-muted hover:text-primary active:scale-90 cursor-pointer transition-all duration-150"
                   title="Open in new window"
                 >
                   <span className="text-lg">⧉</span>
@@ -732,7 +737,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                       return (
                         <div
                           key={symbol}
-                          className="flex items-center hover:bg-primary/5 transition-colors"
+                          className="flex items-center hover:bg-primary/10 transition-all duration-150"
                         >
                           <button
                             onClick={() => {
@@ -742,7 +747,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                                 router.push(`/${address}/${symbol}`);
                               }
                             }}
-                            className="flex-1 text-left p-2 cursor-pointer"
+                            className="flex-1 text-left p-2 cursor-pointer active:scale-[0.98] transition-transform duration-100"
                           >
                             <div className="flex justify-between items-center gap-2">
                               <span className="text-primary text-xs font-mono font-bold">
@@ -760,7 +765,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                                 pinSymbol(symbol);
                               }
                             }}
-                            className="p-2 text-primary-muted hover:text-primary cursor-pointer transition-colors"
+                            className="p-2 text-primary-muted hover:text-primary active:scale-90 cursor-pointer transition-all duration-150"
                             title={isPinned ? 'Unpin symbol' : 'Pin symbol'}
                           >
                             <span className="text-lg font-bold">{isPinned ? '−' : '+'}</span>
@@ -794,9 +799,9 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                       key={symbol}
                       className={`${
                         selectedSymbol === symbol
-                          ? 'terminal-border bg-primary/20'
-                          : 'terminal-border hover:bg-primary/5'
-                      }`}
+                          ? 'border-2 border-primary'
+                          : 'terminal-border hover:bg-primary/10'
+                      } transition-all duration-150`}
                     >
                       <div className="flex items-start">
                       <div className="flex flex-col flex-1">
@@ -808,7 +813,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                               router.push(`/${address}/${symbol}`);
                             }
                           }}
-                          className="flex-1 text-left p-2 pb-0 cursor-pointer relative"
+                          className="flex-1 text-left p-2 pb-0 cursor-pointer relative active:scale-[0.98] transition-transform duration-100"
                         >
                           {symbolClosePrices && symbolClosePrices.length > 0 && (
                             <div className="absolute inset-y-0 left-0 right-[40%] opacity-50 pointer-events-none">
@@ -850,7 +855,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                               e.stopPropagation();
                               unpinSymbol(symbol);
                             }}
-                            className="p-2 text-primary-muted hover:text-bearish cursor-pointer transition-colors"
+                            className="p-2 text-primary-muted hover:text-bearish active:scale-90 cursor-pointer transition-all duration-150"
                             title="Unpin symbol"
                           >
                             <span className="text-lg font-bold">−</span>
@@ -861,7 +866,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                             e.stopPropagation();
                             window.open(`/${address}/chart-popup/${symbol}`, '_blank', 'width=1200,height=800');
                           }}
-                          className="p-2 text-primary-muted hover:text-primary cursor-pointer transition-colors"
+                          className="p-2 text-primary-muted hover:text-primary active:scale-90 cursor-pointer transition-all duration-150"
                           title="Open in new window"
                         >
                           <span className="text-lg">⧉</span>
