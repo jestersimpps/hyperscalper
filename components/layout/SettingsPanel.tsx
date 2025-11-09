@@ -1456,7 +1456,7 @@ export default function SettingsPanel() {
                       <div>
                         <span className="text-primary-muted text-xs font-mono block">SCHMECKLES MODE</span>
                         <span className="text-primary-muted text-[10px] block mt-1">
-                          Show PnL in schmeckles (1 SH = $1 profit per $10000 position value)
+                          Show PnL in schmeckles (1 SH = $1 profit per $2000 position value)
                         </span>
                       </div>
                       <input
