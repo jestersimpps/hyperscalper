@@ -275,8 +275,17 @@ export default function AppShell({ sidepanel, children }: AppShellProps) {
       {/* Top Header with Title, Navigation Icons, and Wallet Indicator */}
       <header className="border-b-2 border-border-frame flex items-center justify-between px-4 py-1.5">
         {/* Left: Title */}
-        <div className="text-primary text-sm font-bold tracking-wider terminal-text">
-          █ HYPERLIQUID TERMINAL <span className="text-primary-muted font-normal text-xs">v1.0.0</span>
+        <div className="text-primary text-sm font-bold tracking-wider terminal-text flex items-center gap-2">
+          <span>█ HYPERLIQUID TERMINAL <span className="text-primary-muted font-normal text-xs">v1.0.0</span></span>
+          <span className="text-primary-muted font-normal text-xs">by</span>
+          <a
+            href="https://github.com/jestersimpps"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary-muted font-normal text-xs hover:text-primary hover:underline transition-colors"
+          >
+            @jestersimpps
+          </a>
         </div>
 
         {/* Right: Navigation Icons + Wallet Indicator */}
