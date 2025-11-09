@@ -318,7 +318,7 @@ export default function SettingsPanel() {
                             <div className="p-3 bg-bg-secondary border border-frame rounded space-y-3">
                               <div className="text-primary font-mono text-xs font-bold mb-2">TIMEFRAMES TO SCAN</div>
                               <div className="grid grid-cols-2 gap-2">
-                                {(['1m', '5m', '15m', '1h'] as const).map((tf) => (
+                                {(['1m', '5m'] as const).map((tf) => (
                                   <label key={tf} className="flex items-center gap-2 cursor-pointer">
                                     <input
                                       type="checkbox"
@@ -509,7 +509,7 @@ export default function SettingsPanel() {
                             <div className="p-3 bg-bg-secondary border border-frame rounded space-y-3">
                               <div className="text-primary font-mono text-xs font-bold mb-2">TIMEFRAMES TO SCAN</div>
                               <div className="grid grid-cols-2 gap-2">
-                                {(['1m', '5m', '15m', '1h'] as const).map((tf) => (
+                                {(['1m', '5m'] as const).map((tf) => (
                                   <label key={tf} className="flex items-center gap-2 cursor-pointer">
                                     <input
                                       type="checkbox"
@@ -582,7 +582,7 @@ export default function SettingsPanel() {
                             <div className="p-3 bg-bg-secondary border border-frame rounded space-y-3">
                               <div className="text-primary font-mono text-xs font-bold mb-2">TIMEFRAMES TO SCAN</div>
                               <div className="grid grid-cols-2 gap-2">
-                                {(['1m', '5m', '15m', '1h'] as const).map((tf) => (
+                                {(['1m', '5m'] as const).map((tf) => (
                                   <label key={tf} className="flex items-center gap-2 cursor-pointer">
                                     <input
                                       type="checkbox"
@@ -655,7 +655,7 @@ export default function SettingsPanel() {
                             <div className="p-3 bg-bg-secondary border border-frame rounded space-y-3">
                               <div className="text-primary font-mono text-xs font-bold mb-2">TIMEFRAMES TO SCAN</div>
                               <div className="grid grid-cols-2 gap-2">
-                                {(['1m', '5m', '15m', '1h'] as const).map((tf) => (
+                                {(['1m', '5m'] as const).map((tf) => (
                                   <label key={tf} className="flex items-center gap-2 cursor-pointer">
                                     <input
                                       type="checkbox"

@@ -57,12 +57,12 @@ export interface StochasticScannerConfig {
   enabled: boolean;
   oversoldThreshold: number;
   overboughtThreshold: number;
-  timeframes: ('1m' | '5m' | '15m' | '1h')[];
+  timeframes: ('1m' | '5m')[];
 }
 
 export interface EmaAlignmentScannerConfig {
   enabled: boolean;
-  timeframes: ('1m' | '5m' | '15m' | '1h')[];
+  timeframes: ('1m' | '5m')[];
   lookbackBars: number;
   ema1Period: number;
   ema2Period: number;
@@ -83,12 +83,12 @@ export interface DivergenceScannerConfig {
   scanBearish: boolean;
   scanHidden: boolean;
   pivotStrength: number;
-  timeframes: ('1m' | '5m' | '15m' | '1h')[];
+  timeframes: ('1m' | '5m')[];
 }
 
 export interface MacdReversalScannerConfig {
   enabled: boolean;
-  timeframes: ('1m' | '5m' | '15m' | '1h')[];
+  timeframes: ('1m' | '5m')[];
   fastPeriod: number;
   slowPeriod: number;
   signalPeriod: number;
@@ -98,7 +98,7 @@ export interface MacdReversalScannerConfig {
 
 export interface RsiReversalScannerConfig {
   enabled: boolean;
-  timeframes: ('1m' | '5m' | '15m' | '1h')[];
+  timeframes: ('1m' | '5m')[];
   period: number;
   oversoldLevel: number;
   overboughtLevel: number;
@@ -108,7 +108,7 @@ export interface RsiReversalScannerConfig {
 
 export interface VolumeSpikeConfig {
   enabled: boolean;
-  timeframes: ('1m' | '5m' | '15m' | '1h')[];
+  timeframes: ('1m' | '5m')[];
   volumeThreshold: number;
   priceChangeThreshold: number;
   lookbackPeriod: number;
@@ -232,7 +232,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     },
     emaAlignmentScanner: {
       enabled: false,
-      timeframes: ['1m', '5m', '15m'],
+      timeframes: ['1m', '5m'],
       lookbackBars: 3,
       ema1Period: 5,
       ema2Period: 13,
@@ -255,7 +255,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     },
     macdReversalScanner: {
       enabled: false,
-      timeframes: ['1m', '5m', '15m', '1h'],
+      timeframes: ['1m', '5m'],
       fastPeriod: 5,
       slowPeriod: 13,
       signalPeriod: 5,
@@ -264,7 +264,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     },
     rsiReversalScanner: {
       enabled: false,
-      timeframes: ['1m', '5m', '15m', '1h'],
+      timeframes: ['1m', '5m'],
       period: 14,
       oversoldLevel: 30,
       overboughtLevel: 70,
@@ -273,7 +273,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     },
     volumeSpikeScanner: {
       enabled: false,
-      timeframes: ['1m'],
+      timeframes: ['1m', '5m'],
       volumeThreshold: 3.0,
       priceChangeThreshold: 0.5,
       lookbackPeriod: 10,

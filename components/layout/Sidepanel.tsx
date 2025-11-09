@@ -12,10 +12,12 @@ import { usePositionStore } from '@/stores/usePositionStore';
 import { useOrderStore } from '@/stores/useOrderStore';
 import { useSymbolMetaStore } from '@/stores/useSymbolMetaStore';
 import { useSymbolVolatilityStore } from '@/stores/useSymbolVolatilityStore';
+import { useSymbolCandlesStore } from '@/stores/useSymbolCandlesStore';
 import { formatPrice } from '@/lib/format-utils';
 import { useAddressFromUrl } from '@/lib/hooks/use-address-from-url';
 import { PositionPriceIndicator } from '@/components/PositionPriceIndicator';
 import { usePositionAnimations } from '@/hooks/usePositionAnimations';
+import MiniPriceChart from '@/components/scanner/MiniPriceChart';
 import type { TimeInterval } from '@/types';
 
 interface SidepanelProps {
@@ -65,11 +67,11 @@ const VolatilityBlocks = memo(({ symbol }: SymbolPriceProps) => {
   const tooltip = `24h change: ${percentChange >= 0 ? '+' : ''}${percentChange.toFixed(2)}%`;
 
   return (
-    <div className="flex gap-0.5 items-center pb-1" title={tooltip}>
+    <div className="absolute inset-0 flex gap-px items-center opacity-30 pointer-events-none" title={tooltip}>
       {Array.from({ length: 10 }).map((_, index) => (
         <span
           key={index}
-          className={`text-[10px] ${index < blocks ? 'text-primary' : 'text-primary/20'}`}
+          className={`text-[6px] leading-none ${index < blocks ? 'text-primary' : 'text-primary/20'}`}
         >
           █
         </span>
@@ -123,6 +125,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
   const getPosition = usePositionStore((state) => state.getPosition);
   const positions = usePositionStore((state) => state.positions);
   const orders = useOrderStore((state) => state.orders);
+  const { setService: setCandlesService, fetchClosePrices, getClosePrices } = useSymbolCandlesStore();
 
   const symbolsWithOrders = useMemo(() => {
     return Object.entries(orders)
@@ -201,6 +204,19 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
       }
     };
   }, [allSymbolsString]);
+
+  useEffect(() => {
+    const symbols = allSymbolsString.split(',').filter(s => s.length > 0);
+    if (symbols.length > 0) {
+      fetchClosePrices(symbols);
+
+      const intervalId = setInterval(() => {
+        fetchClosePrices(symbols);
+      }, 60000);
+
+      return () => clearInterval(intervalId);
+    }
+  }, [allSymbolsString, fetchClosePrices]);
 
   const formatTimeSince = (timestamp: number | null) => {
     if (!timestamp) return 'Never';
@@ -291,7 +307,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                   {Object.keys(groupedBySymbol).length} symbol{Object.keys(groupedBySymbol).length !== 1 ? 's' : ''} ({results.length} signal{results.length !== 1 ? 's' : ''})
                 </div>
                 {Object.entries(groupedBySymbol).map(([symbol, symbolResults]) => {
-                  const timeframeOrder: TimeInterval[] = ['1m', '5m', '15m', '1h'];
+                  const timeframeOrder: TimeInterval[] = ['1m', '5m'];
 
                   const timeframeSignals = new Map<string, {
                     stoch: boolean;
@@ -374,23 +390,36 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                     .sort(([a], [b]) => timeframeOrder.indexOf(a as TimeInterval) - timeframeOrder.indexOf(b as TimeInterval));
 
                   return (
-                    <div key={symbol} className="terminal-border border-primary/20">
+                    <div
+                      key={symbol}
+                      onClick={() => {
+                        if (onSymbolSelect) {
+                          onSymbolSelect(symbol);
+                        } else {
+                          router.push(`/${address}/${symbol}`);
+                        }
+                      }}
+                      className={`${
+                        selectedSymbol === symbol
+                          ? 'terminal-border bg-primary/20'
+                          : 'terminal-border hover:bg-primary/5'
+                      } cursor-pointer`}
+                    >
                       <div className="flex items-start">
-                        <div className="flex flex-col flex-1">
-                          <button
-                            onClick={() => {
-                              if (onSymbolSelect) {
-                                onSymbolSelect(symbol);
-                              } else {
-                                router.push(`/${address}/${symbol}`);
-                              }
-                            }}
-                            className="text-left p-2 pb-1 cursor-pointer"
-                          >
+                        <div className="flex flex-col flex-1 relative">
+                          {symbolResults[0]?.closePrices && symbolResults[0].closePrices.length > 0 && (
+                            <div className="absolute inset-0 opacity-20 pointer-events-none">
+                              <MiniPriceChart
+                                closePrices={symbolResults[0].closePrices}
+                                signalType={symbolResults[0].signalType}
+                              />
+                            </div>
+                          )}
+                          <div className="p-2 pb-1 relative z-10">
                             <span className="text-primary font-bold text-xs">{symbol}/USD</span>
-                          </button>
+                          </div>
 
-                          <div className="px-2 pb-2 space-y-1">
+                          <div className="px-2 pb-2 space-y-1 relative z-10">
                             {sortedTimeframes.map(([timeframe, signals]) => {
                               const arrow = signals.signalType === 'bullish' ? '▲' : '▼';
                               const arrowColor = signals.signalType === 'bullish' ? 'text-bullish' : 'text-bearish';
@@ -496,6 +525,8 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
               ? 'animate-flash-pnl-decrease'
               : '';
 
+            const symbolClosePrices = getClosePrices(symbol);
+
             return (
             <div
               key={symbol}
@@ -515,11 +546,22 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                       router.push(`/${address}/${symbol}`);
                     }
                   }}
-                  className="flex-1 text-left p-2 pb-0 cursor-pointer"
+                  className="flex-1 text-left p-2 pb-0 cursor-pointer relative"
                 >
-                  <div className="flex justify-between items-stretch gap-2">
-                    <div className="flex flex-col justify-between min-w-0">
-                      <div className="flex items-center gap-2">
+                  {symbolClosePrices && symbolClosePrices.length > 0 && (
+                    <div className="absolute inset-y-0 left-0 right-[40%] opacity-20 pointer-events-none">
+                      <MiniPriceChart
+                        closePrices={symbolClosePrices}
+                        signalType={positions[symbol] && positions[symbol].size > 0
+                          ? (positions[symbol].side === 'long' ? 'bullish' : 'bearish')
+                          : 'bullish'}
+                      />
+                    </div>
+                  )}
+                  <div className="flex justify-between items-stretch gap-2 relative z-10">
+                    <div className="flex flex-col justify-between min-w-0 relative">
+                      <VolatilityBlocks symbol={symbol} />
+                      <div className="flex items-center gap-2 relative z-10">
                         <span
                           className={`font-bold flex-shrink-0 text-xs ${
                             positions[symbol] && positions[symbol].size > 0
@@ -540,9 +582,6 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                           {symbol}/USD
                         </span>
                       </div>
-                      <div>
-                        <VolatilityBlocks symbol={symbol} />
-                      </div>
                     </div>
                     <div className="flex-1">
                       {/* Reserved space for minimal chart */}
@@ -560,7 +599,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                     </div>
                   </div>
                 </button>
-                <div className="px-2">
+                <div className="px-2 relative z-10">
                   <PositionPriceIndicator symbol={symbol} />
                 </div>
               </div>
@@ -695,6 +734,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                   const top20Data = topSymbols.find(s => s.name === symbol);
                   const isTop20 = !!top20Data;
                   const volumeInMillions = top20Data ? (top20Data.volume / 1000000).toFixed(1) : null;
+                  const symbolClosePrices = getClosePrices(symbol);
 
                   return (
                     <div
@@ -715,20 +755,26 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                               router.push(`/${address}/${symbol}`);
                             }
                           }}
-                          className="flex-1 text-left p-2 pb-0 cursor-pointer"
+                          className="flex-1 text-left p-2 pb-0 cursor-pointer relative"
                         >
-                          <div className="flex justify-between items-stretch gap-2">
-                            <div className="flex flex-col justify-between min-w-0">
-                              <div className="flex items-center gap-2">
+                          {symbolClosePrices && symbolClosePrices.length > 0 && (
+                            <div className="absolute inset-y-0 left-0 right-[40%] opacity-20 pointer-events-none">
+                              <MiniPriceChart
+                                closePrices={symbolClosePrices}
+                                signalType="bullish"
+                              />
+                            </div>
+                          )}
+                          <div className="flex justify-between items-stretch gap-2 relative z-10">
+                            <div className="flex flex-col justify-between min-w-0 relative">
+                              <VolatilityBlocks symbol={symbol} />
+                              <div className="flex items-center gap-2 relative z-10">
                                 <span
                                   className="text-primary font-bold flex-shrink-0 text-xs"
                                   title={`${symbol}/USD trading pair`}
                                 >
                                   {symbol}/USD
                                 </span>
-                              </div>
-                              <div>
-                                <VolatilityBlocks symbol={symbol} />
                               </div>
                             </div>
                             <div className="flex-1">
@@ -747,7 +793,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                             </div>
                           </div>
                         </button>
-                        <div className="px-2">
+                        <div className="px-2 relative z-10">
                           <PositionPriceIndicator symbol={symbol} />
                         </div>
                       </div>

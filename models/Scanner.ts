@@ -81,6 +81,7 @@ export interface ScanResult {
   signalType: SignalType;
   description: string;
   scanType: ScanType;
+  closePrices?: number[];
 }
 
 export interface ScannerStatus {

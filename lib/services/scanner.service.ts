@@ -1,8 +1,38 @@
 import type { HyperliquidService } from './hyperliquid.service';
 import type { TimeInterval } from '@/types';
-import type { StochasticValue, ScanResult, VolumeValue } from '@/models/Scanner';
-import type { StochasticScannerConfig, StochasticVariantConfig, VolumeSpikeConfig } from '@/models/Settings';
-import { calculateStochastic } from '@/lib/indicators';
+import type {
+  StochasticValue,
+  ScanResult,
+  VolumeValue,
+  EmaAlignmentValue,
+  MacdReversalValue,
+  RsiReversalValue,
+  ChannelValue,
+  DivergenceValue
+} from '@/models/Scanner';
+import type {
+  StochasticScannerConfig,
+  StochasticVariantConfig,
+  VolumeSpikeConfig,
+  EmaAlignmentScannerConfig,
+  MacdReversalScannerConfig,
+  RsiReversalScannerConfig,
+  ChannelScannerConfig,
+  DivergenceScannerConfig
+} from '@/models/Settings';
+import type { TransformedCandle } from './types';
+import {
+  calculateStochastic,
+  detectEmaAlignment,
+  calculateMACD,
+  calculateRSI,
+  detectChannels,
+  detectPivots,
+  detectStochasticPivots,
+  detectDivergence
+} from '@/lib/indicators';
+import { aggregate1mTo5m, aggregate15mTo1h } from '@/lib/candle-aggregator';
+import { downsampleCandles } from '@/lib/candle-utils';
 
 export interface StochasticScanParams {
   symbol: string;
@@ -17,8 +47,44 @@ export interface VolumeScanParams {
   config: VolumeSpikeConfig;
 }
 
+export interface EmaAlignmentScanParams {
+  symbol: string;
+  timeframes: TimeInterval[];
+  config: EmaAlignmentScannerConfig;
+}
+
+export interface MacdReversalScanParams {
+  symbol: string;
+  timeframes: TimeInterval[];
+  config: MacdReversalScannerConfig;
+}
+
+export interface RsiReversalScanParams {
+  symbol: string;
+  timeframes: TimeInterval[];
+  config: RsiReversalScannerConfig;
+}
+
+export interface ChannelScanParams {
+  symbol: string;
+  timeframes: TimeInterval[];
+  config: ChannelScannerConfig;
+}
+
+export interface DivergenceScanParams {
+  symbol: string;
+  timeframes: TimeInterval[];
+  config: DivergenceScannerConfig;
+}
+
 export class ScannerService {
+  private candleCache: Map<string, TransformedCandle[]> = new Map();
+
   constructor(private hyperliquidService: HyperliquidService) {}
+
+  clearCandleCache(): void {
+    this.candleCache.clear();
+  }
 
   private getIntervalMinutes(interval: TimeInterval): number {
     const intervalMap: Record<TimeInterval, number> = {
@@ -28,6 +94,56 @@ export class ScannerService {
       '1h': 60,
     };
     return intervalMap[interval];
+  }
+
+  private async getOrDeriveCandles(
+    symbol: string,
+    targetTimeframe: TimeInterval,
+    lookbackCandles: number
+  ): Promise<TransformedCandle[]> {
+    const cacheKey = `${symbol}-${targetTimeframe}-${lookbackCandles}`;
+
+    if (this.candleCache.has(cacheKey)) {
+      return this.candleCache.get(cacheKey)!;
+    }
+
+    let baseTimeframe: TimeInterval;
+    let baseMultiplier: number;
+    let deriveFn: ((candles: TransformedCandle[]) => TransformedCandle[]) | null = null;
+
+    if (targetTimeframe === '1m') {
+      baseTimeframe = '1m';
+      baseMultiplier = 1;
+    } else if (targetTimeframe === '5m') {
+      baseTimeframe = '1m';
+      baseMultiplier = 5;
+      deriveFn = aggregate1mTo5m;
+    } else if (targetTimeframe === '15m') {
+      baseTimeframe = '15m';
+      baseMultiplier = 1;
+    } else {
+      baseTimeframe = '15m';
+      baseMultiplier = 4;
+      deriveFn = aggregate15mTo1h;
+    }
+
+    const baseCandleCount = lookbackCandles * baseMultiplier;
+    const intervalMinutes = this.getIntervalMinutes(baseTimeframe);
+    const endTime = Date.now();
+    const startTime = endTime - (baseCandleCount * intervalMinutes * 60 * 1000);
+
+    const baseCandles = await this.hyperliquidService.getCandles({
+      coin: symbol,
+      interval: baseTimeframe,
+      startTime,
+      endTime,
+    });
+
+    const result = deriveFn ? deriveFn(baseCandles) : baseCandles;
+
+    this.candleCache.set(cacheKey, result);
+
+    return result;
   }
 
   async scanStochastic(params: StochasticScanParams): Promise<ScanResult | null> {
@@ -40,19 +156,14 @@ export class ScannerService {
       return null;
     }
 
+    const candles1m = await this.getOrDeriveCandles(symbol, '1m', 150);
+    const closePrices = downsampleCandles(candles1m, 100);
+
     for (const timeframe of timeframes) {
       try {
-        const intervalMinutes = this.getIntervalMinutes(timeframe);
         const lookbackCandles = 150;
-        const endTime = Date.now();
-        const startTime = endTime - (lookbackCandles * intervalMinutes * 60 * 1000);
 
-        const candles = await this.hyperliquidService.getCandles({
-          coin: symbol,
-          interval: timeframe,
-          startTime,
-          endTime,
-        });
+        const candles = await this.getOrDeriveCandles(symbol, timeframe, lookbackCandles);
 
         if (!candles || candles.length === 0) {
           continue;
@@ -103,6 +214,7 @@ export class ScannerService {
               signalType,
               description,
               scanType: 'stochastic',
+              closePrices,
             };
           }
         }
@@ -118,19 +230,14 @@ export class ScannerService {
   async scanVolumeSpike(params: VolumeScanParams): Promise<ScanResult | null> {
     const { symbol, timeframes, config } = params;
 
+    const candles1m = await this.getOrDeriveCandles(symbol, '1m', 150);
+    const closePrices = downsampleCandles(candles1m, 100);
+
     for (const timeframe of timeframes) {
       try {
-        const intervalMinutes = this.getIntervalMinutes(timeframe);
         const lookbackCandles = 150;
-        const endTime = Date.now();
-        const startTime = endTime - (lookbackCandles * intervalMinutes * 60 * 1000);
 
-        const candles = await this.hyperliquidService.getCandles({
-          coin: symbol,
-          interval: timeframe,
-          startTime,
-          endTime,
-        });
+        const candles = await this.getOrDeriveCandles(symbol, timeframe, lookbackCandles);
 
         if (!candles || candles.length < config.lookbackPeriod + 1) {
           continue;
@@ -165,10 +272,370 @@ export class ScannerService {
             signalType,
             description: `Volume spike (${volumeRatio.toFixed(1)}x) with ${Math.abs(priceChangePercent).toFixed(2)}% price ${direction} on ${timeframe}`,
             scanType: 'volumeSpike',
+            closePrices,
           };
         }
       } catch (error) {
         console.error(`Error scanning volume for ${symbol} on ${timeframe}:`, error);
+        continue;
+      }
+    }
+
+    return null;
+  }
+
+  async scanEmaAlignment(params: EmaAlignmentScanParams): Promise<ScanResult | null> {
+    const { symbol, timeframes, config } = params;
+
+    const candles1m = await this.getOrDeriveCandles(symbol, '1m', 150);
+    const closePrices = downsampleCandles(candles1m, 100);
+
+    for (const timeframe of timeframes) {
+      try {
+        const lookbackCandles = 150;
+
+        const candles = await this.getOrDeriveCandles(symbol, timeframe, lookbackCandles);
+
+        if (!candles || candles.length < config.lookbackBars) {
+          continue;
+        }
+
+        const emaAlignment = detectEmaAlignment(
+          candles as any,
+          config.ema1Period,
+          config.ema2Period,
+          config.ema3Period,
+          config.lookbackBars
+        );
+
+        if (emaAlignment) {
+          const emaValue: EmaAlignmentValue = {
+            timeframe,
+            alignmentType: emaAlignment.type,
+            barsAgo: emaAlignment.barsAgo,
+            ema1: emaAlignment.ema1,
+            ema2: emaAlignment.ema2,
+            ema3: emaAlignment.ema3,
+          };
+
+          const description = emaAlignment.barsAgo === 0
+            ? `EMA alignment just formed on ${timeframe} (${emaAlignment.type})`
+            : `EMA ${emaAlignment.type} alignment ${emaAlignment.barsAgo} bars ago on ${timeframe}`;
+
+          return {
+            symbol,
+            emaAlignments: [emaValue],
+            matchedAt: Date.now(),
+            signalType: emaAlignment.type,
+            description,
+            scanType: 'emaAlignment',
+            closePrices,
+          };
+        }
+      } catch (error) {
+        console.error(`Error scanning EMA alignment for ${symbol} on ${timeframe}:`, error);
+        continue;
+      }
+    }
+
+    return null;
+  }
+
+  async scanMacdReversal(params: MacdReversalScanParams): Promise<ScanResult | null> {
+    const { symbol, timeframes, config } = params;
+
+    const candles1m = await this.getOrDeriveCandles(symbol, '1m', 150);
+    const closePrices = downsampleCandles(candles1m, 100);
+
+    for (const timeframe of timeframes) {
+      try {
+        const lookbackCandles = Math.max(150, config.minCandles);
+
+        const candles = await this.getOrDeriveCandles(symbol, timeframe, lookbackCandles);
+
+        if (!candles || candles.length < config.minCandles) {
+          continue;
+        }
+
+        const closes = candles.map(c => c.close);
+        const macdResult = calculateMACD(closes, config.fastPeriod, config.slowPeriod, config.signalPeriod);
+
+        if (macdResult.histogram.length < config.recentReversalLookback + 1) {
+          continue;
+        }
+
+        const recentHistogram = macdResult.histogram.slice(-config.recentReversalLookback);
+        let foundReversal = false;
+        let signalType: 'bullish' | 'bearish' | null = null;
+
+        for (let i = 1; i < recentHistogram.length; i++) {
+          const prev = recentHistogram[i - 1];
+          const curr = recentHistogram[i];
+          const prevMacd = macdResult.macd[macdResult.macd.length - config.recentReversalLookback + i - 1];
+          const currMacd = macdResult.macd[macdResult.macd.length - config.recentReversalLookback + i];
+          const prevSignal = macdResult.signal[macdResult.signal.length - config.recentReversalLookback + i - 1];
+          const currSignal = macdResult.signal[macdResult.signal.length - config.recentReversalLookback + i];
+
+          if (prevMacd <= prevSignal && currMacd > currSignal) {
+            foundReversal = true;
+            signalType = 'bullish';
+            break;
+          }
+
+          if (prevMacd >= prevSignal && currMacd < currSignal) {
+            foundReversal = true;
+            signalType = 'bearish';
+            break;
+          }
+        }
+
+        if (foundReversal && signalType) {
+          const lastIndex = macdResult.histogram.length - 1;
+          const lastCandle = candles[candles.length - 1];
+          const macdValue: MacdReversalValue = {
+            timeframe,
+            direction: signalType,
+            time: lastCandle.time,
+            price: lastCandle.close,
+            macdValue: macdResult.macd[lastIndex],
+            signalValue: macdResult.signal[lastIndex],
+          };
+
+          const description = `MACD ${signalType} crossover on ${timeframe}`;
+
+          return {
+            symbol,
+            macdReversals: [macdValue],
+            matchedAt: Date.now(),
+            signalType,
+            description,
+            scanType: 'macdReversal',
+            closePrices,
+          };
+        }
+      } catch (error) {
+        console.error(`Error scanning MACD reversal for ${symbol} on ${timeframe}:`, error);
+        continue;
+      }
+    }
+
+    return null;
+  }
+
+  async scanRsiReversal(params: RsiReversalScanParams): Promise<ScanResult | null> {
+    const { symbol, timeframes, config } = params;
+
+    const candles1m = await this.getOrDeriveCandles(symbol, '1m', 150);
+    const closePrices = downsampleCandles(candles1m, 100);
+
+    for (const timeframe of timeframes) {
+      try {
+        const lookbackCandles = Math.max(150, config.minCandles);
+
+        const candles = await this.getOrDeriveCandles(symbol, timeframe, lookbackCandles);
+
+        if (!candles || candles.length < config.minCandles) {
+          continue;
+        }
+
+        const closes = candles.map(c => c.close);
+        const rsi = calculateRSI(closes, config.period);
+
+        if (rsi.length < config.recentReversalLookback + 1) {
+          continue;
+        }
+
+        const recentRsi = rsi.slice(-config.recentReversalLookback);
+        let foundReversal = false;
+        let signalType: 'bullish' | 'bearish' | null = null;
+
+        for (let i = 1; i < recentRsi.length; i++) {
+          const prev = recentRsi[i - 1];
+          const curr = recentRsi[i];
+
+          if (prev <= config.oversoldLevel && curr > config.oversoldLevel) {
+            foundReversal = true;
+            signalType = 'bullish';
+            break;
+          }
+
+          if (prev >= config.overboughtLevel && curr < config.overboughtLevel) {
+            foundReversal = true;
+            signalType = 'bearish';
+            break;
+          }
+        }
+
+        if (foundReversal && signalType) {
+          const lastCandle = candles[candles.length - 1];
+          const zone = signalType === 'bullish' ? 'oversold' : 'overbought';
+          const rsiValue: RsiReversalValue = {
+            timeframe,
+            direction: signalType,
+            time: lastCandle.time,
+            price: lastCandle.close,
+            rsiValue: rsi[rsi.length - 1],
+            zone,
+          };
+
+          const zoneText = signalType === 'bullish' ? 'oversold' : 'overbought';
+          const description = `RSI ${zoneText} reversal on ${timeframe} (${rsi[rsi.length - 1].toFixed(1)})`;
+
+          return {
+            symbol,
+            rsiReversals: [rsiValue],
+            matchedAt: Date.now(),
+            signalType,
+            description,
+            scanType: 'rsiReversal',
+            closePrices,
+          };
+        }
+      } catch (error) {
+        console.error(`Error scanning RSI reversal for ${symbol} on ${timeframe}:`, error);
+        continue;
+      }
+    }
+
+    return null;
+  }
+
+  async scanChannel(params: ChannelScanParams): Promise<ScanResult | null> {
+    const { symbol, timeframes, config } = params;
+
+    const candles1m = await this.getOrDeriveCandles(symbol, '1m', 150);
+    const closePrices = downsampleCandles(candles1m, 100);
+
+    for (const timeframe of timeframes) {
+      try {
+        const lookbackCandles = config.lookbackBars;
+
+        const candles = await this.getOrDeriveCandles(symbol, timeframe, lookbackCandles);
+
+        if (!candles || candles.length < config.lookbackBars) {
+          continue;
+        }
+
+        const channels = detectChannels(candles as any, {
+          pivotStrength: config.pivotStrength,
+          lookbackBars: config.lookbackBars,
+          minTouches: config.minTouches,
+        });
+
+        if (channels.length > 0) {
+          const bestChannel = channels[0];
+          const currentPrice = candles[candles.length - 1].close;
+          const lastIndex = candles.length - 1;
+          const upperPrice = bestChannel.upperLine.slope * lastIndex + bestChannel.upperLine.intercept;
+          const lowerPrice = bestChannel.lowerLine.slope * lastIndex + bestChannel.lowerLine.intercept;
+
+          const distanceToUpper = ((upperPrice - currentPrice) / currentPrice) * 100;
+          const distanceToLower = ((currentPrice - lowerPrice) / currentPrice) * 100;
+
+          let signalType: 'bullish' | 'bearish';
+          if (Math.abs(distanceToLower) < Math.abs(distanceToUpper)) {
+            signalType = 'bullish';
+          } else {
+            signalType = 'bearish';
+          }
+
+          const channelValue: ChannelValue = {
+            timeframe,
+            type: bestChannel.type,
+            touches: bestChannel.touches,
+            strength: bestChannel.strength,
+            angle: bestChannel.angle,
+            upperPrice,
+            lowerPrice,
+            currentPrice,
+            distanceToUpper,
+            distanceToLower,
+          };
+
+          const channelTypeStr = bestChannel.type === 'horizontal' ? 'Horizontal' :
+                                 bestChannel.type === 'ascending' ? 'Ascending' : 'Descending';
+          const description = `${channelTypeStr} channel detected on ${timeframe} (${bestChannel.touches} touches)`;
+
+          return {
+            symbol,
+            channels: [channelValue],
+            matchedAt: Date.now(),
+            signalType,
+            description,
+            scanType: 'channel',
+            closePrices,
+          };
+        }
+      } catch (error) {
+        console.error(`Error scanning channel for ${symbol} on ${timeframe}:`, error);
+        continue;
+      }
+    }
+
+    return null;
+  }
+
+  async scanDivergence(params: DivergenceScanParams): Promise<ScanResult | null> {
+    const { symbol, timeframes, config } = params;
+
+    const candles1m = await this.getOrDeriveCandles(symbol, '1m', 150);
+    const closePrices = downsampleCandles(candles1m, 100);
+
+    for (const timeframe of timeframes) {
+      try {
+        const lookbackCandles = 150;
+
+        const candles = await this.getOrDeriveCandles(symbol, timeframe, lookbackCandles);
+
+        if (!candles || candles.length < 50) {
+          continue;
+        }
+
+        const pricePivots = detectPivots(candles as any, config.pivotStrength);
+        const stochData = calculateStochastic(candles as any, 14, 3, 3);
+        const stochPivots = detectStochasticPivots(stochData, candles as any, config.pivotStrength);
+
+        const divergences = detectDivergence(pricePivots, stochPivots, candles as any);
+
+        if (divergences.length > 0) {
+          const recentDivergence = divergences[divergences.length - 1];
+
+          const shouldReport =
+            (config.scanBullish && recentDivergence.type === 'bullish') ||
+            (config.scanBearish && recentDivergence.type === 'bearish') ||
+            (config.scanHidden && (recentDivergence.type === 'hidden-bullish' || recentDivergence.type === 'hidden-bearish'));
+
+          if (shouldReport) {
+            const signalType: 'bullish' | 'bearish' =
+              recentDivergence.type === 'bullish' || recentDivergence.type === 'hidden-bullish' ? 'bullish' : 'bearish';
+
+            const divergenceValue: DivergenceValue = {
+              type: recentDivergence.type,
+              startTime: recentDivergence.startTime,
+              endTime: recentDivergence.endTime,
+              startPriceValue: recentDivergence.startPriceValue,
+              endPriceValue: recentDivergence.endPriceValue,
+              startStochValue: recentDivergence.startStochValue,
+              endStochValue: recentDivergence.endStochValue,
+              variant: 'medium',
+            };
+
+            const typeStr = recentDivergence.type.replace('-', ' ');
+            const description = `${typeStr} divergence detected on ${timeframe}`;
+
+            return {
+              symbol,
+              divergences: [divergenceValue],
+              matchedAt: Date.now(),
+              signalType,
+              description,
+              scanType: 'divergence',
+              closePrices,
+            };
+          }
+        }
+      } catch (error) {
+        console.error(`Error scanning divergence for ${symbol} on ${timeframe}:`, error);
         continue;
       }
     }
@@ -200,6 +667,91 @@ export class ScannerService {
     const results = await Promise.allSettled(
       symbols.map(symbol =>
         this.scanVolumeSpike({ ...params, symbol })
+      )
+    );
+
+    return results
+      .filter((result): result is PromiseFulfilledResult<ScanResult | null> =>
+        result.status === 'fulfilled' && result.value !== null
+      )
+      .map(result => result.value as ScanResult);
+  }
+
+  async scanMultipleSymbolsForEmaAlignment(
+    symbols: string[],
+    params: Omit<EmaAlignmentScanParams, 'symbol'>
+  ): Promise<ScanResult[]> {
+    const results = await Promise.allSettled(
+      symbols.map(symbol =>
+        this.scanEmaAlignment({ ...params, symbol })
+      )
+    );
+
+    return results
+      .filter((result): result is PromiseFulfilledResult<ScanResult | null> =>
+        result.status === 'fulfilled' && result.value !== null
+      )
+      .map(result => result.value as ScanResult);
+  }
+
+  async scanMultipleSymbolsForMacdReversal(
+    symbols: string[],
+    params: Omit<MacdReversalScanParams, 'symbol'>
+  ): Promise<ScanResult[]> {
+    const results = await Promise.allSettled(
+      symbols.map(symbol =>
+        this.scanMacdReversal({ ...params, symbol })
+      )
+    );
+
+    return results
+      .filter((result): result is PromiseFulfilledResult<ScanResult | null> =>
+        result.status === 'fulfilled' && result.value !== null
+      )
+      .map(result => result.value as ScanResult);
+  }
+
+  async scanMultipleSymbolsForRsiReversal(
+    symbols: string[],
+    params: Omit<RsiReversalScanParams, 'symbol'>
+  ): Promise<ScanResult[]> {
+    const results = await Promise.allSettled(
+      symbols.map(symbol =>
+        this.scanRsiReversal({ ...params, symbol })
+      )
+    );
+
+    return results
+      .filter((result): result is PromiseFulfilledResult<ScanResult | null> =>
+        result.status === 'fulfilled' && result.value !== null
+      )
+      .map(result => result.value as ScanResult);
+  }
+
+  async scanMultipleSymbolsForChannel(
+    symbols: string[],
+    params: Omit<ChannelScanParams, 'symbol'>
+  ): Promise<ScanResult[]> {
+    const results = await Promise.allSettled(
+      symbols.map(symbol =>
+        this.scanChannel({ ...params, symbol })
+      )
+    );
+
+    return results
+      .filter((result): result is PromiseFulfilledResult<ScanResult | null> =>
+        result.status === 'fulfilled' && result.value !== null
+      )
+      .map(result => result.value as ScanResult);
+  }
+
+  async scanMultipleSymbolsForDivergence(
+    symbols: string[],
+    params: Omit<DivergenceScanParams, 'symbol'>
+  ): Promise<ScanResult[]> {
+    const results = await Promise.allSettled(
+      symbols.map(symbol =>
+        this.scanDivergence({ ...params, symbol })
       )
     );
 

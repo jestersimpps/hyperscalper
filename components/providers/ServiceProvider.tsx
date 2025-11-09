@@ -13,6 +13,7 @@ import { useUserFillsStore } from '@/stores/useUserFillsStore';
 import { useScannerStore } from '@/stores/useScannerStore';
 import { useSymbolVolatilityStore } from '@/stores/useSymbolVolatilityStore';
 import { useGlobalPollingStore } from '@/stores/useGlobalPollingStore';
+import { useSymbolCandlesStore } from '@/stores/useSymbolCandlesStore';
 
 export function ServiceProvider({ children }: { children: React.ReactNode }) {
   const addressFromUrl = useAddressFromUrl();
@@ -29,6 +30,7 @@ export function ServiceProvider({ children }: { children: React.ReactNode }) {
   const setScannerService = useScannerStore((state) => state.setService);
   const setVolatilityService = useSymbolVolatilityStore((state) => state.setService);
   const setGlobalPollingService = useGlobalPollingStore((state) => state.setService);
+  const setSymbolCandlesService = useSymbolCandlesStore((state) => state.setService);
 
   useEffect(() => {
     if (service) {
@@ -42,6 +44,7 @@ export function ServiceProvider({ children }: { children: React.ReactNode }) {
       setScannerService(service);
       setVolatilityService(service);
       setGlobalPollingService(service);
+      setSymbolCandlesService(service);
 
       fetchMetadata();
       fetchAndStoreAllOpenPositions();

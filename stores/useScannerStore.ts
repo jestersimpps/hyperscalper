@@ -59,6 +59,8 @@ export const useScannerStore = create<ScannerStore>((set, get) => ({
     });
 
     try {
+      scannerService.clearCandleCache();
+
       const settings = useSettingsStore.getState().settings.scanner;
       const indicatorSettings = useSettingsStore.getState().settings.indicators;
 
@@ -96,6 +98,46 @@ export const useScannerStore = create<ScannerStore>((set, get) => ({
           config: settings.volumeSpikeScanner,
         });
         newResults.push(...volumeResults);
+      }
+
+      if (settings.emaAlignmentScanner.enabled) {
+        const emaResults = await scannerService.scanMultipleSymbolsForEmaAlignment(symbols, {
+          timeframes: settings.emaAlignmentScanner.timeframes,
+          config: settings.emaAlignmentScanner,
+        });
+        newResults.push(...emaResults);
+      }
+
+      if (settings.macdReversalScanner.enabled) {
+        const macdResults = await scannerService.scanMultipleSymbolsForMacdReversal(symbols, {
+          timeframes: settings.macdReversalScanner.timeframes,
+          config: settings.macdReversalScanner,
+        });
+        newResults.push(...macdResults);
+      }
+
+      if (settings.rsiReversalScanner.enabled) {
+        const rsiResults = await scannerService.scanMultipleSymbolsForRsiReversal(symbols, {
+          timeframes: settings.rsiReversalScanner.timeframes,
+          config: settings.rsiReversalScanner,
+        });
+        newResults.push(...rsiResults);
+      }
+
+      if (settings.channelScanner.enabled) {
+        const channelResults = await scannerService.scanMultipleSymbolsForChannel(symbols, {
+          timeframes: settings.channelScanner.timeframes,
+          config: settings.channelScanner,
+        });
+        newResults.push(...channelResults);
+      }
+
+      if (settings.divergenceScanner.enabled) {
+        const divergenceResults = await scannerService.scanMultipleSymbolsForDivergence(symbols, {
+          timeframes: settings.divergenceScanner.timeframes,
+          config: settings.divergenceScanner,
+        });
+        newResults.push(...divergenceResults);
       }
 
       const newSymbols = new Set(newResults.map((r: ScanResult) => r.symbol));
