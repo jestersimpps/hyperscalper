@@ -19,6 +19,7 @@ interface SymbolVolatilityStore {
   unsubscribe: (symbols: string[]) => void;
   getVolatility: (symbol: string) => VolatilityData | null;
   fetchAllVolatility: () => Promise<void>;
+  updateFromGlobalPoll: (data: { meta: any; assetCtxs: any[] }) => void;
 }
 
 const calculateBlocksFromPercentChange = (percentChange: number): number => {
@@ -129,13 +130,54 @@ export const useSymbolVolatilityStore = create<SymbolVolatilityStore>((set, get)
       console.error('[SymbolVolatilityStore] Error fetching volatility:', error);
     }
   },
+
+  updateFromGlobalPoll: (data: { meta: any; assetCtxs: any[] }) => {
+    const { subscribedSymbols } = get();
+    const { meta, assetCtxs } = data;
+
+    const newVolatility: Record<string, VolatilityData> = {};
+
+    meta.universe.forEach((universeItem: any, index: number) => {
+      const symbol = universeItem.name;
+
+      if (!subscribedSymbols.has(symbol)) {
+        return;
+      }
+
+      const assetCtx = assetCtxs[index];
+      if (!assetCtx) {
+        return;
+      }
+
+      const currentPrice = parseFloat(assetCtx.markPx);
+      const prevDayPrice = parseFloat(assetCtx.prevDayPx);
+
+      if (!currentPrice || !prevDayPrice || prevDayPrice === 0) {
+        newVolatility[symbol] = {
+          blocks: 0,
+          percentChange: 0,
+          currentPrice: currentPrice || 0,
+          prevDayPrice: prevDayPrice || 0,
+          lastUpdate: Date.now()
+        };
+        return;
+      }
+
+      const percentChange = ((currentPrice - prevDayPrice) / prevDayPrice) * 100;
+      const blocks = calculateBlocksFromPercentChange(percentChange);
+
+      newVolatility[symbol] = {
+        blocks,
+        percentChange,
+        currentPrice,
+        prevDayPrice,
+        lastUpdate: Date.now()
+      };
+    });
+
+    set((state) => ({
+      volatility: { ...state.volatility, ...newVolatility }
+    }));
+  },
 }));
 
-if (typeof window !== 'undefined') {
-  setInterval(() => {
-    const { fetchAllVolatility, subscribedSymbols } = useSymbolVolatilityStore.getState();
-    if (subscribedSymbols.size > 0) {
-      fetchAllVolatility();
-    }
-  }, 30000);
-}

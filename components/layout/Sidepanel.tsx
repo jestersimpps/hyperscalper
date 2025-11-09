@@ -311,6 +311,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                     ema: boolean;
                     macd: boolean;
                     rsi: boolean;
+                    vol: boolean;
                     channel: string | null;
                     signalType: 'bullish' | 'bearish';
                   }>();

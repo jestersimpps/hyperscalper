@@ -16,6 +16,7 @@ interface OrderStore {
   unsubscribeFromOrders: (coin: string) => void;
   startPolling: (coin: string, interval: number) => void;
   stopPolling: (coin: string) => void;
+  updateOrdersFromGlobalPoll: (allOrders: any[]) => void;
 }
 
 export const useOrderStore = create<OrderStore>((set, get) => ({
@@ -97,5 +98,26 @@ export const useOrderStore = create<OrderStore>((set, get) => ({
   unsubscribeFromOrders: (coin: string) => {
     const { stopPolling } = get();
     stopPolling(coin);
+  },
+
+  updateOrdersFromGlobalPoll: (allOrders: any[]) => {
+    const ordersByCoin: Record<string, Order[]> = {};
+
+    allOrders.forEach((order: any) => {
+      const coin = order.coin;
+      if (!ordersByCoin[coin]) {
+        ordersByCoin[coin] = [];
+      }
+      ordersByCoin[coin].push(order);
+    });
+
+    const mappedOrders: Record<string, Order[]> = {};
+    Object.keys(ordersByCoin).forEach(coin => {
+      mappedOrders[coin] = mapHyperliquidOrders(ordersByCoin[coin]);
+    });
+
+    set((state) => ({
+      orders: { ...state.orders, ...mappedOrders },
+    }));
   },
 }));

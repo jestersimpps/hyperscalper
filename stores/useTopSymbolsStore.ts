@@ -15,6 +15,7 @@ interface TopSymbolsStore {
   fetchTopSymbols: () => Promise<void>;
   startAutoRefresh: () => void;
   stopAutoRefresh: () => void;
+  updateFromGlobalPoll: (data: { meta: any; assetCtxs: any[] }) => void;
 }
 
 export const useTopSymbolsStore = create<TopSymbolsStore>((set, get) => ({
@@ -64,5 +65,22 @@ export const useTopSymbolsStore = create<TopSymbolsStore>((set, get) => ({
   },
 
   stopAutoRefresh: () => {
+  },
+
+  updateFromGlobalPoll: (data: { meta: any; assetCtxs: any[] }) => {
+    const { meta, assetCtxs } = data;
+
+    const symbolsWithVolume: SymbolWithVolume[] = meta.universe
+      .map((u: any, index: number) => ({
+        name: u.name,
+        volume: parseFloat(assetCtxs[index]?.dayNtlVlm || '0'),
+        isDelisted: u.isDelisted,
+      }))
+      .filter((s: any) => !s.isDelisted)
+      .sort((a: any, b: any) => b.volume - a.volume)
+      .slice(0, 20)
+      .map(({ name, volume }: any) => ({ name, volume }));
+
+    set({ symbols: symbolsWithVolume });
   },
 }));

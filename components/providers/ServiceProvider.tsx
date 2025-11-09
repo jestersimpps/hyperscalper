@@ -12,6 +12,7 @@ import { useTopSymbolsStore } from '@/stores/useTopSymbolsStore';
 import { useUserFillsStore } from '@/stores/useUserFillsStore';
 import { useScannerStore } from '@/stores/useScannerStore';
 import { useSymbolVolatilityStore } from '@/stores/useSymbolVolatilityStore';
+import { useGlobalPollingStore } from '@/stores/useGlobalPollingStore';
 
 export function ServiceProvider({ children }: { children: React.ReactNode }) {
   const addressFromUrl = useAddressFromUrl();
@@ -27,6 +28,7 @@ export function ServiceProvider({ children }: { children: React.ReactNode }) {
   const setUserFillsService = useUserFillsStore((state) => state.setService);
   const setScannerService = useScannerStore((state) => state.setService);
   const setVolatilityService = useSymbolVolatilityStore((state) => state.setService);
+  const setGlobalPollingService = useGlobalPollingStore((state) => state.setService);
 
   useEffect(() => {
     if (service) {
@@ -39,6 +41,7 @@ export function ServiceProvider({ children }: { children: React.ReactNode }) {
       setUserFillsService(service);
       setScannerService(service);
       setVolatilityService(service);
+      setGlobalPollingService(service);
 
       fetchMetadata();
       fetchAndStoreAllOpenPositions();

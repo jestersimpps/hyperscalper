@@ -41,6 +41,7 @@ interface PositionStore {
   startPollingMultiple: (coins: string[], interval?: number) => void;
   stopPollingMultiple: (coins: string[]) => void;
   getPosition: (coin: string) => Position | null;
+  updatePositionsFromGlobalPoll: (allPositions: any[]) => void;
 }
 
 export const usePositionStore = create<PositionStore>((set, get) => ({
@@ -238,5 +239,18 @@ export const usePositionStore = create<PositionStore>((set, get) => ({
 
   getPosition: (coin: string) => {
     return get().positions[coin] || null;
+  },
+
+  updatePositionsFromGlobalPoll: (allPositions: any[]) => {
+    const positionMap: Record<string, Position | null> = {};
+
+    allPositions.forEach((rawPosition: any) => {
+      const position = mapHyperliquidPosition(rawPosition);
+      positionMap[position.symbol] = position;
+    });
+
+    set((state) => ({
+      positions: { ...state.positions, ...positionMap },
+    }));
   },
 }));
