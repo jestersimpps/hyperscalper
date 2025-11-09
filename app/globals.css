@@ -113,6 +113,22 @@
   --status-bearish-bg: #3d1e1e;
 }
 
+[data-theme="psychedelic"] {
+  --background-primary: #1a0a2e;
+  --background-secondary: #0f051d;
+  --border-frame: #8b2fc9;
+  --primary: #00ffff;
+  --primary-muted: #b377d9;
+  --primary-dark: #4d2b7a;
+  --accent-blue: #00d4ff;
+  --accent-blue-dark: #0088cc;
+  --accent-rose: #ff00ff;
+  --accent-dark-blue: #2d1554;
+  --status-bullish: #39ff14;
+  --status-bearish: #ff0080;
+  --status-bearish-bg: #660033;
+}
+
 @theme inline {
   --color-bg-primary: var(--background-primary);
   --color-bg-secondary: var(--background-secondary);

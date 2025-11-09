@@ -1272,7 +1272,7 @@ export default function SettingsPanel() {
                   Choose a color theme for the application. Changes apply instantly.
                 </p>
                 <div className="space-y-2">
-                  {(['hyper', 'hyper-black', 'dark', 'dark-blue', 'midnight', 'light', 'afternoon'] as ThemeName[]).map((themeName) => (
+                  {(['hyper', 'hyper-black', 'dark', 'dark-blue', 'midnight', 'light', 'afternoon', 'psychedelic'] as ThemeName[]).map((themeName) => (
                     <label
                       key={themeName}
                       className="flex items-center gap-3 p-3 bg-bg-primary border border-frame rounded cursor-pointer hover:border-primary/50 transition-colors"
