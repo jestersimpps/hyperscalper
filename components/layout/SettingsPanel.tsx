@@ -1394,11 +1394,11 @@ export default function SettingsPanel() {
                 <p className="text-primary-muted text-[10px] mb-4 leading-relaxed">
                   Choose a color theme for the application. Changes apply instantly.
                 </p>
-                <div className="space-y-2">
-                  {(['hyper', 'hyper-black', 'dark', 'dark-blue', 'midnight', 'light', 'afternoon', 'psychedelic'] as ThemeName[]).map((themeName) => (
+                <div className="grid grid-cols-3 gap-2">
+                  {(['hyper', 'hyper-black', 'dark', 'dark-blue', 'midnight', 'light', 'afternoon', 'psychedelic', 'nintendo', 'gameboy', 'sega', 'playstation', 'cyberpunk', 'vaporwave', 'matrix', 'synthwave', 'ocean', 'c64', 'amber'] as ThemeName[]).map((themeName) => (
                     <label
                       key={themeName}
-                      className="flex items-center gap-3 p-3 bg-bg-primary border border-frame rounded cursor-pointer hover:border-primary/50 transition-colors"
+                      className="flex items-center gap-2 p-2 bg-bg-primary border border-frame rounded cursor-pointer hover:border-primary/50 transition-colors"
                     >
                       <input
                         type="radio"
@@ -1406,21 +1406,9 @@ export default function SettingsPanel() {
                         value={themeName}
                         checked={settings.theme.selected === themeName}
                         onChange={() => updateThemeSettings({ selected: themeName })}
-                        className="w-4 h-4 accent-primary cursor-pointer"
+                        className="w-3 h-3 accent-primary cursor-pointer flex-shrink-0"
                       />
-                      <div className="flex-1">
-                        <div className="text-primary font-mono text-xs capitalize">{themeName.replace('-', ' ')}</div>
-                        <div className="text-primary-muted text-[10px] mt-0.5">
-                          {themeName === 'hyper' && 'Teal/cyan theme (current default)'}
-                          {themeName === 'hyper-black' && 'Hyper theme with pure black background'}
-                          {themeName === 'dark' && 'Pure black with blue-gray accents'}
-                          {themeName === 'dark-blue' && 'Soft navy blue, easy on the eyes'}
-                          {themeName === 'midnight' && 'Deep blue with purple accents'}
-                          {themeName === 'light' && 'Clean light theme'}
-                          {themeName === 'afternoon' && 'Solarized Dark - warm, muted colors easy on the eyes'}
-                          {themeName === 'psychedelic' && 'For when the charts start moving on their own'}
-                        </div>
-                      </div>
+                      <div className="text-primary font-mono text-[10px] capitalize leading-tight">{themeName.replace('-', ' ')}</div>
                     </label>
                   ))}
                 </div>
