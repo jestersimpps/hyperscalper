@@ -42,14 +42,18 @@ function MiniPriceChart({ closePrices, signalType }: MiniPriceChartProps) {
       ? (signalType === 'bullish' ? 'rgba(34, 197, 94, 1)' : 'rgba(239, 68, 68, 1)')
       : (isPriceUp ? 'rgba(34, 197, 94, 1)' : 'rgba(239, 68, 68, 1)');
 
+    const fillColor = signalType
+      ? (signalType === 'bullish' ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)')
+      : (isPriceUp ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)');
+
     return {
       labels,
       datasets: [
         {
           data: closePrices,
           borderColor: lineColor,
-          backgroundColor: 'transparent',
-          fill: false,
+          backgroundColor: fillColor,
+          fill: true,
           tension: 0.3,
           pointRadius: 0,
           pointHoverRadius: 0,

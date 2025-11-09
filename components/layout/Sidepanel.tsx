@@ -31,9 +31,10 @@ interface SymbolPriceProps {
   symbol: string;
   pnlAnimationClass?: string;
   closePrices?: number[];
+  show24hChange?: boolean;
 }
 
-const SymbolPrice = memo(({ symbol, pnlAnimationClass, closePrices }: SymbolPriceProps) => {
+const SymbolPrice = memo(({ symbol, pnlAnimationClass, closePrices, show24hChange = false }: SymbolPriceProps) => {
   const price = useSidebarPricesStore((state) => state.prices[symbol]);
   const position = usePositionStore((state) => state.positions[symbol]);
 
@@ -53,6 +54,12 @@ const SymbolPrice = memo(({ symbol, pnlAnimationClass, closePrices }: SymbolPric
   const pnlTooltip = position && position.size > 0
     ? `Unrealized PnL: ${position.pnl >= 0 ? '+' : ''}$${position.pnl.toFixed(2)}`
     : 'No active position';
+
+  const volatilityData = useSymbolVolatilityStore.getState().volatility[symbol];
+  const percentChange = volatilityData?.percentChange || 0;
+  const changeColorClass = percentChange >= 0 ? 'text-bullish' : 'text-bearish';
+  const changeText = `${percentChange >= 0 ? '+' : ''}${percentChange.toFixed(1)}%`;
+  const changeTooltip = `24h change: ${percentChange >= 0 ? '+' : ''}${percentChange.toFixed(2)}%`;
 
   let priceTrend: 'up' | 'down' | null = null;
   if (closePrices && closePrices.length >= 5) {
@@ -74,7 +81,11 @@ const SymbolPrice = memo(({ symbol, pnlAnimationClass, closePrices }: SymbolPric
 
   return (
     <div className="flex flex-col text-xs font-mono text-right flex-shrink-0 w-24 tabular-nums">
-      <span className={`${pnlColorClass} ${pnlAnimationClass || ''}`} title={pnlTooltip}>{pnlText}</span>
+      {show24hChange ? (
+        <span className={`${changeColorClass}`} title={changeTooltip}>{changeText}</span>
+      ) : (
+        <span className={`${pnlColorClass} ${pnlAnimationClass || ''}`} title={pnlTooltip}>{pnlText}</span>
+      )}
       <span className={`${priceColorClass} ${priceBlinkClass}`} title={`Current price: $${formattedPrice}`}>${formattedPrice}</span>
     </div>
   );
@@ -115,20 +126,15 @@ SymbolVolume.displayName = 'SymbolVolume';
 const VolatilityBlocks = memo(({ symbol }: SymbolPriceProps) => {
   const volatilityData = useSymbolVolatilityStore((state) => state.volatility[symbol]);
 
-  const blocks = volatilityData?.blocks || 0;
   const percentChange = volatilityData?.percentChange || 0;
   const tooltip = `24h change: ${percentChange >= 0 ? '+' : ''}${percentChange.toFixed(2)}%`;
+  const colorClass = percentChange >= 0 ? 'text-bullish' : 'text-bearish';
 
   return (
-    <div className="absolute inset-0 flex gap-px items-center opacity-30 pointer-events-none" title={tooltip}>
-      {Array.from({ length: 10 }).map((_, index) => (
-        <span
-          key={index}
-          className={`text-[6px] leading-none ${index < blocks ? 'text-primary' : 'text-primary/20'}`}
-        >
-          █
-        </span>
-      ))}
+    <div className="absolute inset-0 flex items-center justify-start pointer-events-none" title={tooltip}>
+      <span className={`text-[10px] leading-none font-mono ${colorClass}`}>
+        {percentChange >= 0 ? '+' : ''}{percentChange.toFixed(1)}%
+      </span>
     </div>
   );
 });
@@ -316,7 +322,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
     <div className="p-2 h-full flex gap-2 overflow-hidden">
       {/* Left Column - Scanner */}
       {settings.scanner.enabled && (
-        <div className="flex-[0.4] flex flex-col overflow-hidden">
+        <div className="flex-[0.5] flex flex-col overflow-hidden">
           <div className="terminal-border p-2 mb-2 flex-shrink-0">
             <div className="flex items-center justify-between mb-2">
               <span className="text-primary text-xs font-bold tracking-wider">█ SCANNER</span>
@@ -548,7 +554,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
       )}
 
       {/* Right Column - Symbols */}
-      <div className="flex-[0.6] flex flex-col overflow-hidden gap-3">
+      <div className="flex-[0.5] flex flex-col overflow-hidden gap-3">
         {/* Open Positions Section */}
         {symbolsWithOpenPositions.length > 0 && (
           <div className="flex-shrink-0">
@@ -612,9 +618,8 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                     </div>
                   )}
                   <div className="flex justify-between items-stretch gap-2 relative z-10">
-                    <div className="flex flex-col justify-between min-w-0 relative">
-                      <VolatilityBlocks symbol={symbol} />
-                      <div className="flex items-center gap-2 relative z-10">
+                    <div className="flex flex-col justify-between min-w-0">
+                      <div className="flex items-center gap-2">
                         <span
                           className={`font-bold flex-shrink-0 text-xs ${
                             positions[symbol] && positions[symbol].size > 0
@@ -743,7 +748,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                               <span className="text-primary text-xs font-mono font-bold">
                                 {symbol}/USD
                               </span>
-                              <SymbolPrice symbol={symbol} />
+                              <SymbolPrice symbol={symbol} show24hChange={true} />
                             </div>
                           </button>
                           <button
@@ -813,9 +818,8 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                             </div>
                           )}
                           <div className="flex justify-between items-stretch gap-2 relative z-10">
-                            <div className="flex flex-col justify-between min-w-0 relative">
-                              <VolatilityBlocks symbol={symbol} />
-                              <div className="flex items-center gap-2 relative z-10">
+                            <div className="flex flex-col justify-between min-w-0">
+                              <div className="flex items-center gap-2">
                                 <span
                                   className="text-primary font-bold flex-shrink-0 text-xs"
                                   title={`${symbol}/USD trading pair`}
@@ -828,7 +832,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                               {/* Reserved space for minimal chart */}
                             </div>
                             <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
-                              <SymbolPrice symbol={symbol} closePrices={symbolClosePrices || undefined} />
+                              <SymbolPrice symbol={symbol} closePrices={symbolClosePrices || undefined} show24hChange={true} />
                               {volumeInMillions && (
                                 <SymbolVolume symbol={symbol} volumeInMillions={volumeInMillions} />
                               )}
