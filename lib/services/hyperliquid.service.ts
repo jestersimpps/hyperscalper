@@ -22,7 +22,6 @@ import type { UserFill } from '@/types';
 import type {
   IHyperliquidService,
   CandleParams,
-  OrderBookParams,
   TradesParams,
   OrderParams,
   StopLossParams,
@@ -104,26 +103,8 @@ export class HyperliquidService implements IHyperliquidService {
     return transformed;
   }
 
-  async getOrderBook(params: OrderBookParams): Promise<Book> {
-    return await this.publicClient.l2Book({
-      coin: params.coin,
-      nSigFigs: params.nSigFigs,
-      mantissa: params.mantissa
-    });
-  }
-
   async getRecentTrades(params: TradesParams): Promise<any[]> {
     return await (this.publicClient as any).recentTrades?.({ coin: params.coin }) || [];
-  }
-
-  async subscribeToOrderBook(params: OrderBookParams, callback: (data: Book) => void): Promise<() => void> {
-    this.initWebSocket();
-    const subscription = await this.eventClient!.l2Book({
-      coin: params.coin,
-      nSigFigs: params.nSigFigs,
-      mantissa: params.mantissa
-    }, callback);
-    return () => subscription.unsubscribe();
   }
 
   async subscribeToCandles(params: CandleParams, callback: (data: TransformedCandle) => void): Promise<() => void> {

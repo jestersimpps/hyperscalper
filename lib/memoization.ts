@@ -62,8 +62,10 @@ function hashCandleData(candles: any[]): string {
 
   const first = candles[0];
   const last = candles[candles.length - 1];
+  const mid = Math.floor(candles.length / 2);
+  const midCandle = candles[mid];
 
-  return `${candles.length}-${first.time}-${last.time}-${last.close}`;
+  return `${candles.length}-${first.time}-${midCandle?.time || 0}-${last.time}-${last.close.toFixed(4)}`;
 }
 
 export function createMemoizedFunction<TArgs extends any[], TResult>(

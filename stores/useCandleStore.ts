@@ -55,6 +55,15 @@ export const useCandleStore = create<CandleStore>((set, get) => ({
       return;
     }
 
+    if (interval === '1m') {
+      const { useGlobalPollingStore } = await import('./useGlobalPollingStore');
+      const isGlobalPolling = useGlobalPollingStore.getState().isPolling;
+
+      if (isGlobalPolling && candles[key] && candles[key].length > 0) {
+        return;
+      }
+    }
+
     if (candles[key] && candles[key].length > 0 && isCacheFresh(coin, interval)) {
       set((state) => ({
         lastFetchTimes: { ...state.lastFetchTimes, [key]: Date.now() }

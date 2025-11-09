@@ -1,42 +1,28 @@
 import type {
   ExchangeWebSocketService,
   CandleSubscriptionParams,
-  OrderBookSubscriptionParams,
   TradeSubscriptionParams,
   CandleCallback,
-  OrderBookCallback,
   TradeCallback,
   AllMidsCallback,
   CandleData,
-  OrderBookData,
   TradeData,
-  AllMidsData,
-  OrderBookLevel
+  AllMidsData
 } from './exchange-websocket.interface';
 
 import { EventClient, WebSocketTransport } from '@nktkas/hyperliquid';
-import type { Candle, Book, WsTrade } from '@nktkas/hyperliquid';
+import type { Candle, WsTrade } from '@nktkas/hyperliquid';
 import { useSymbolMetaStore } from '@/stores/useSymbolMetaStore';
 import { useWebSocketStatusStore } from '@/stores/useWebSocketStatusStore';
 import { formatPrice, formatSize } from '@/lib/format-utils';
 
 interface Subscription {
   id: string;
-  type: 'candle' | 'orderBook' | 'trade' | 'allMids';
+  type: 'candle' | 'trade' | 'allMids';
   params: any;
   callback: any;
   unsubscribeFn: Promise<{ unsubscribe: () => void }> | (() => void);
 }
-
-const formatOrderBookLevel = (level: Omit<OrderBookLevel, 'priceFormatted' | 'sizeFormatted' | 'totalFormatted'>, coin: string): OrderBookLevel => {
-  const decimals = useSymbolMetaStore.getState().getDecimals(coin);
-  return {
-    ...level,
-    priceFormatted: formatPrice(level.price, decimals.price),
-    sizeFormatted: formatSize(level.size, decimals.size),
-    totalFormatted: formatSize(level.total, decimals.size),
-  };
-};
 
 export class HyperliquidWebSocketService implements ExchangeWebSocketService {
   private wsTransport: WebSocketTransport | null = null;
@@ -109,75 +95,6 @@ export class HyperliquidWebSocketService implements ExchangeWebSocketService {
       const subscription: Subscription = {
         id: subscriptionId,
         type: 'candle',
-        params,
-        callback,
-        unsubscribeFn
-      };
-
-      this.subscriptions.set(subscriptionId, subscription);
-    }).catch(() => {});
-
-    return subscriptionId;
-  }
-
-  subscribeToOrderBook(params: OrderBookSubscriptionParams, callback: OrderBookCallback): string {
-    const precisionSuffix = params.nSigFigs ? `_${params.nSigFigs}` : '';
-    const subscriptionId = `orderbook_${params.coin}${precisionSuffix}_${Date.now()}`;
-
-    this.initialize().then(() => {
-      if (!this.eventClient) {
-        return;
-      }
-
-      const unsubscribeFn = this.eventClient.l2Book(
-        {
-          coin: params.coin,
-          nSigFigs: params.nSigFigs,
-          mantissa: params.mantissa
-        },
-        (book: Book) => {
-          try {
-            const bids = book.levels[0].map(level => ({
-              price: parseFloat(level.px),
-              size: parseFloat(level.sz),
-              total: 0
-            }));
-
-            const asks = book.levels[1].map(level => ({
-              price: parseFloat(level.px),
-              size: parseFloat(level.sz),
-              total: 0
-            }));
-
-            let bidTotal = 0;
-            bids.forEach(bid => {
-              bidTotal += bid.size;
-              bid.total = bidTotal;
-            });
-
-            let askTotal = 0;
-            asks.forEach(ask => {
-              askTotal += ask.size;
-              ask.total = askTotal;
-            });
-
-            const formattedBook: OrderBookData = {
-              coin: params.coin,
-              timestamp: Date.now(),
-              bids: bids.map(level => formatOrderBookLevel(level, params.coin)),
-              asks: asks.map(level => formatOrderBookLevel(level, params.coin))
-            };
-
-            callback(formattedBook);
-          } catch (error) {
-            // Error processing order book
-          }
-        }
-      );
-
-      const subscription: Subscription = {
-        id: subscriptionId,
-        type: 'orderBook',
         params,
         callback,
         unsubscribeFn

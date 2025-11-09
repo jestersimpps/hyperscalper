@@ -29,12 +29,6 @@ export interface CandleParams {
   endTime?: number;
 }
 
-export interface OrderBookParams {
-  coin: string;
-  nSigFigs?: 2 | 3 | 4 | 5 | null;
-  mantissa?: 2 | 5 | null;
-}
-
 export interface TradesParams {
   coin: string;
 }
@@ -100,10 +94,8 @@ export interface MetaAndAssetCtxs {
 
 export interface IHyperliquidService {
   getCandles(params: CandleParams): Promise<TransformedCandle[]>;
-  getOrderBook(params: OrderBookParams): Promise<Book>;
   getRecentTrades(params: TradesParams): Promise<any[]>;
 
-  subscribeToOrderBook(params: OrderBookParams, callback: (data: Book) => void): Promise<() => void>;
   subscribeToCandles(params: CandleParams, callback: (data: TransformedCandle) => void): Promise<() => void>;
   subscribeToTrades(params: TradesParams, callback: (data: WsTrade[]) => void): Promise<() => void>;
 
