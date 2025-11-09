@@ -7,35 +7,40 @@ import { useTopSymbolsStore } from './useTopSymbolsStore';
 
 interface GlobalPollingStore {
   service: HyperliquidService | null;
-  pollingInterval: NodeJS.Timeout | null;
+  fastPollingInterval: NodeJS.Timeout | null;
+  slowPollingInterval: NodeJS.Timeout | null;
   isPolling: boolean;
-  lastPollTime: number | null;
+  lastFastPollTime: number | null;
+  lastSlowPollTime: number | null;
 
   setService: (service: HyperliquidService) => void;
   startGlobalPolling: () => void;
   stopGlobalPolling: () => void;
-  fetchAllData: () => Promise<void>;
+  fetchFastData: () => Promise<void>;
+  fetchSlowData: () => Promise<void>;
 }
 
 export const useGlobalPollingStore = create<GlobalPollingStore>((set, get) => ({
   service: null,
-  pollingInterval: null,
+  fastPollingInterval: null,
+  slowPollingInterval: null,
   isPolling: false,
-  lastPollTime: null,
+  lastFastPollTime: null,
+  lastSlowPollTime: null,
 
   setService: (service: HyperliquidService) => {
     set({ service });
     get().startGlobalPolling();
   },
 
-  fetchAllData: async () => {
+  fetchFastData: async () => {
     const { service } = get();
     if (!service) {
       return;
     }
 
     try {
-      const [ordersData, positionsData, metaData] = await Promise.all([
+      const [ordersData, positionsData] = await Promise.all([
         service.getOpenOrders().catch(err => {
           console.error('[GlobalPolling] Error fetching orders:', err);
           return [];
@@ -44,16 +49,10 @@ export const useGlobalPollingStore = create<GlobalPollingStore>((set, get) => ({
           console.error('[GlobalPolling] Error fetching positions:', err);
           return [];
         }),
-        service.getMetaAndAssetCtxs().catch(err => {
-          console.error('[GlobalPolling] Error fetching meta:', err);
-          return null;
-        }),
       ]);
 
       const orderStore = useOrderStore.getState();
       const positionStore = usePositionStore.getState();
-      const volatilityStore = useSymbolVolatilityStore.getState();
-      const topSymbolsStore = useTopSymbolsStore.getState();
 
       if (ordersData) {
         orderStore.updateOrdersFromGlobalPoll(ordersData);
@@ -63,40 +62,79 @@ export const useGlobalPollingStore = create<GlobalPollingStore>((set, get) => ({
         positionStore.updatePositionsFromGlobalPoll(positionsData);
       }
 
+      set({ lastFastPollTime: Date.now() });
+    } catch (error) {
+      console.error('[GlobalPolling] Error in fetchFastData:', error);
+    }
+  },
+
+  fetchSlowData: async () => {
+    const { service } = get();
+    if (!service) {
+      return;
+    }
+
+    try {
+      const metaData = await service.getMetaAndAssetCtxs().catch(err => {
+        console.error('[GlobalPolling] Error fetching meta:', err);
+        return null;
+      });
+
       if (metaData) {
+        const volatilityStore = useSymbolVolatilityStore.getState();
+        const topSymbolsStore = useTopSymbolsStore.getState();
+
         volatilityStore.updateFromGlobalPoll(metaData);
         topSymbolsStore.updateFromGlobalPoll(metaData);
       }
 
-      set({ lastPollTime: Date.now() });
+      set({ lastSlowPollTime: Date.now() });
     } catch (error) {
-      console.error('[GlobalPolling] Error in fetchAllData:', error);
+      console.error('[GlobalPolling] Error in fetchSlowData:', error);
     }
   },
 
   startGlobalPolling: () => {
-    const { pollingInterval, fetchAllData } = get();
+    const { fastPollingInterval, slowPollingInterval, fetchFastData, fetchSlowData } = get();
 
-    if (pollingInterval) {
+    if (fastPollingInterval || slowPollingInterval) {
       return;
     }
 
-    fetchAllData();
+    fetchFastData();
+    fetchSlowData();
 
-    const intervalId = setInterval(() => {
-      fetchAllData();
+    const fastIntervalId = setInterval(() => {
+      fetchFastData();
     }, 3000);
 
-    set({ pollingInterval: intervalId, isPolling: true });
+    const slowIntervalId = setInterval(() => {
+      fetchSlowData();
+    }, 60000);
+
+    set({
+      fastPollingInterval: fastIntervalId,
+      slowPollingInterval: slowIntervalId,
+      isPolling: true
+    });
   },
 
   stopGlobalPolling: () => {
-    const { pollingInterval } = get();
+    const { fastPollingInterval, slowPollingInterval } = get();
 
-    if (pollingInterval) {
-      clearInterval(pollingInterval);
-      set({ pollingInterval: null, isPolling: false });
+    if (fastPollingInterval) {
+      clearInterval(fastPollingInterval);
     }
+
+    if (slowPollingInterval) {
+      clearInterval(slowPollingInterval);
+    }
+
+    set({
+      fastPollingInterval: null,
+      slowPollingInterval: null,
+      isPolling: false
+    });
   },
 }));
 
