@@ -2,6 +2,8 @@
 
 import { memo } from 'react';
 import QuickCloseButtons from '@/components/layout/QuickCloseButtons';
+import { useSettingsStore } from '@/stores/useSettingsStore';
+import { formatPnlSchmeckles } from '@/lib/format-utils';
 import type { Position } from '@/models/Position';
 import type { Order } from '@/models/Order';
 
@@ -53,6 +55,7 @@ function RightTradingPanel({
   onCancelAllOrders,
 }: RightTradingPanelProps) {
   const hasExitOrders = orders.some(order => order.orderType === 'stop' || order.orderType === 'tp');
+  const schmecklesMode = useSettingsStore((state) => state.settings.chart.schmecklesMode);
 
   return (
     <aside className="w-[250px] border-l-2 border-border-frame overflow-y-auto">
@@ -81,7 +84,11 @@ function RightTradingPanel({
             <div className="flex justify-between">
               <span className="text-primary-muted">PNL:</span>
               <span className={position ? (position.pnl >= 0 ? 'text-bullish' : 'text-bearish') : 'text-primary'}>
-                {position ? `${position.pnl >= 0 ? '+' : ''}${position.pnl.toFixed(2)} USD (${position.pnlPercentage >= 0 ? '+' : ''}${position.pnlPercentage.toFixed(2)}%)` : '+-.-- USD'}
+                {position
+                  ? schmecklesMode
+                    ? `${formatPnlSchmeckles(position.pnl, position.size * position.currentPrice)} / ${position.pnlPercentage >= 0 ? '+' : ''}${position.pnlPercentage.toFixed(2)}%`
+                    : `${position.pnl >= 0 ? '+' : ''}${position.pnl.toFixed(2)} USD (${position.pnlPercentage >= 0 ? '+' : ''}${position.pnlPercentage.toFixed(2)}%)`
+                  : schmecklesMode ? '+- SH' : '+-.-- USD'}
               </span>
             </div>
             <div className="flex justify-between">

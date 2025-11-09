@@ -85,7 +85,6 @@ const PositionItem = memo(({
                   >
                     {positions[symbol] && positions[symbol].size > 0 && (
                       <>
-                        ${(Math.abs(positions[symbol].size * positions[symbol].currentPrice)).toFixed(0)}{' '}
                         {positions[symbol].side.toUpperCase()}{' '}
                       </>
                     )}

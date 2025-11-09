@@ -1431,24 +1431,45 @@ export default function SettingsPanel() {
                 <p className="text-primary-muted text-[10px] mb-4 leading-relaxed">
                   Configure chart display options.
                 </p>
-                <div className="p-3 bg-bg-primary border border-frame rounded">
-                  <label className="flex items-center justify-between cursor-pointer">
-                    <div>
-                      <span className="text-primary-muted text-xs font-mono block">SHOW PIVOT MARKERS</span>
-                      <span className="text-primary-muted text-[10px] block mt-1">
-                        Display red and green dots at pivot highs/lows on price and stochastic charts
-                      </span>
-                    </div>
-                    <input
-                      type="checkbox"
-                      checked={Boolean(settings.chart?.showPivotMarkers ?? true)}
-                      onChange={(e) => {
-                        const { updateSettings } = useSettingsStore.getState();
-                        updateSettings({ chart: { showPivotMarkers: e.target.checked } });
-                      }}
-                      className="w-4 h-4 accent-primary cursor-pointer"
-                    />
-                  </label>
+                <div className="space-y-2">
+                  <div className="p-3 bg-bg-primary border border-frame rounded">
+                    <label className="flex items-center justify-between cursor-pointer">
+                      <div>
+                        <span className="text-primary-muted text-xs font-mono block">SHOW PIVOT MARKERS</span>
+                        <span className="text-primary-muted text-[10px] block mt-1">
+                          Display red and green dots at pivot highs/lows on price and stochastic charts
+                        </span>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={Boolean(settings.chart?.showPivotMarkers ?? true)}
+                        onChange={(e) => {
+                          const { updateSettings } = useSettingsStore.getState();
+                          updateSettings({ chart: { ...settings.chart, showPivotMarkers: e.target.checked } });
+                        }}
+                        className="w-4 h-4 accent-primary cursor-pointer"
+                      />
+                    </label>
+                  </div>
+                  <div className="p-3 bg-bg-primary border border-frame rounded">
+                    <label className="flex items-center justify-between cursor-pointer">
+                      <div>
+                        <span className="text-primary-muted text-xs font-mono block">SCHMECKLES MODE</span>
+                        <span className="text-primary-muted text-[10px] block mt-1">
+                          Show PnL in schmeckles (1 SH = $1 profit per $1000 position value)
+                        </span>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={Boolean(settings.chart?.schmecklesMode ?? false)}
+                        onChange={(e) => {
+                          const { updateSettings } = useSettingsStore.getState();
+                          updateSettings({ chart: { ...settings.chart, schmecklesMode: e.target.checked } });
+                        }}
+                        className="w-4 h-4 accent-primary cursor-pointer"
+                      />
+                    </label>
+                  </div>
                 </div>
               </div>
 

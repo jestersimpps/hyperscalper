@@ -152,6 +152,7 @@ export interface ThemeSettings {
 
 export interface ChartSettings {
   showPivotMarkers: boolean;
+  schmecklesMode: boolean;
 }
 
 export interface AppSettings {
@@ -306,6 +307,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   },
   chart: {
     showPivotMarkers: true,
+    schmecklesMode: false,
   },
   pinnedSymbols: [],
 };

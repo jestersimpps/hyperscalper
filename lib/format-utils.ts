@@ -39,3 +39,12 @@ export const formatTrade = (
     sizeFormatted: formatSize(trade.size, decimals.size),
   };
 };
+
+export const formatPnlSchmeckles = (pnl: number, positionValue: number): string => {
+  if (pnl === undefined || pnl === null || positionValue === undefined || positionValue === null || positionValue === 0) {
+    return '+- SH';
+  }
+
+  const schmeckles = (pnl / positionValue) * 1000;
+  return `${schmeckles >= 0 ? '+' : ''}${schmeckles.toFixed(2)} SH`;
+};

@@ -22,6 +22,7 @@ import { usePriceVolumeAnimation } from '@/hooks/usePriceVolumeAnimation';
 import MiniPriceChart from '@/components/scanner/MiniPriceChart';
 import PositionItem from '@/components/sidepanel/PositionItem';
 import SymbolItem from '@/components/sidepanel/SymbolItem';
+import { formatPnlSchmeckles } from '@/lib/format-utils';
 import type { TimeInterval } from '@/types';
 
 interface SidepanelProps {
@@ -39,15 +40,20 @@ interface SymbolPriceProps {
 const SymbolPrice = memo(({ symbol, pnlAnimationClass, closePrices, show24hChange = false }: SymbolPriceProps) => {
   const price = useSidebarPricesStore((state) => state.prices[symbol]);
   const position = usePositionStore((state) => state.positions[symbol]);
+  const schmecklesMode = useSettingsStore((state) => state.settings.chart.schmecklesMode);
 
   const { priceDirection } = usePriceVolumeAnimation(symbol, closePrices, undefined);
 
   const decimals = useSymbolMetaStore.getState().getDecimals(symbol);
   const formattedPrice = price ? formatPrice(price, decimals.price) : '-.--';
 
+  const positionValue = position && position.size > 0 ? position.size * position.currentPrice : 0;
+
   const pnlText = position && position.size > 0
-    ? `${position.pnl >= 0 ? '+' : ''}${position.pnl.toFixed(2)} USD`
-    : '+-.-- USD';
+    ? schmecklesMode
+      ? formatPnlSchmeckles(position.pnl, positionValue)
+      : `${position.pnl >= 0 ? '+' : ''}${position.pnl.toFixed(2)} USD`
+    : schmecklesMode ? '+- SH' : '+-.-- USD';
 
   const pnlColorClass = position && position.size > 0
     ? (position.pnl >= 0 ? 'text-bullish' : 'text-bearish')
