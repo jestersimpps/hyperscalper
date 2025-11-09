@@ -138,6 +138,14 @@ export const useScannerStore = create<ScannerStore>((set, get) => ({
         newResults.push(...divergenceResults);
       }
 
+      if (settings.supportResistanceScanner?.enabled) {
+        const supportResistanceResults = await scannerService.scanMultipleSymbolsForSupportResistance(symbols, {
+          timeframes: settings.supportResistanceScanner.timeframes,
+          config: settings.supportResistanceScanner,
+        });
+        newResults.push(...supportResistanceResults);
+      }
+
       const newSymbols = new Set(newResults.map((r: ScanResult) => r.symbol));
 
       if (newResults.length > 0 && settings.playSound) {

@@ -199,6 +199,12 @@ const mergeSettings = (storedSettings: any): AppSettings => {
           priceChangeThreshold: storedSettings.scanner?.volumeSpikeScanner?.priceChangeThreshold ?? DEFAULT_SETTINGS.scanner.volumeSpikeScanner.priceChangeThreshold,
           lookbackPeriod: storedSettings.scanner?.volumeSpikeScanner?.lookbackPeriod ?? DEFAULT_SETTINGS.scanner.volumeSpikeScanner.lookbackPeriod,
         },
+        supportResistanceScanner: {
+          enabled: storedSettings.scanner?.supportResistanceScanner?.enabled ?? DEFAULT_SETTINGS.scanner.supportResistanceScanner.enabled,
+          timeframes: storedSettings.scanner?.supportResistanceScanner?.timeframes ?? DEFAULT_SETTINGS.scanner.supportResistanceScanner.timeframes,
+          distanceThreshold: storedSettings.scanner?.supportResistanceScanner?.distanceThreshold ?? DEFAULT_SETTINGS.scanner.supportResistanceScanner.distanceThreshold,
+          minTouches: storedSettings.scanner?.supportResistanceScanner?.minTouches ?? DEFAULT_SETTINGS.scanner.supportResistanceScanner.minTouches,
+        },
       },
       orders: {
         cloudPercentage: storedSettings.orders?.cloudPercentage ?? DEFAULT_SETTINGS.orders.cloudPercentage,

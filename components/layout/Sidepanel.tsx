@@ -20,6 +20,8 @@ import { PositionPriceIndicator } from '@/components/PositionPriceIndicator';
 import { usePositionAnimations } from '@/hooks/usePositionAnimations';
 import { usePriceVolumeAnimation } from '@/hooks/usePriceVolumeAnimation';
 import MiniPriceChart from '@/components/scanner/MiniPriceChart';
+import PositionItem from '@/components/sidepanel/PositionItem';
+import SymbolItem from '@/components/sidepanel/SymbolItem';
 import type { TimeInterval } from '@/types';
 
 interface SidepanelProps {
@@ -165,7 +167,6 @@ const SymbolItemSkeleton = memo(() => {
 SymbolItemSkeleton.displayName = 'SymbolItemSkeleton';
 
 export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelProps) {
-  console.log('[Sidepanel] Render with selectedSymbol:', selectedSymbol);
   const router = useRouter();
   const address = useAddressFromUrl();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -183,17 +184,17 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
   const startPollingMultiple = usePositionStore((state) => state.startPollingMultiple);
   const stopPollingMultiple = usePositionStore((state) => state.stopPollingMultiple);
   const getPosition = usePositionStore((state) => state.getPosition);
-  const positions = usePositionStore((state) => state.positions);
-  const orders = useOrderStore((state) => state.orders);
   const { setService: setCandlesService, fetchClosePrices, getClosePrices } = useSymbolCandlesStore();
   const lastCandlePollTime = useGlobalPollingStore((state) => state.lastCandlePollTime);
 
+  const orders = useOrderStore((state) => state.orders);
   const symbolsWithOrders = useMemo(() => {
     return Object.entries(orders)
       .filter(([_, orderList]) => orderList && orderList.length > 0)
       .map(([symbol]) => symbol);
   }, [orders]);
 
+  const positions = usePositionStore((state) => state.positions);
   const symbolsWithPositions = useMemo(() => {
     return Object.entries(positions)
       .filter(([_, position]) => position !== null && position.size > 0)
@@ -267,7 +268,6 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
   }, [allSymbolsString]);
 
   useEffect(() => {
-    console.log('[Sidepanel] Fetching close prices, allSymbolsString:', allSymbolsString, 'lastCandlePollTime:', lastCandlePollTime);
     const symbols = allSymbolsString.split(',').filter(s => s.length > 0);
     if (symbols.length > 0) {
       fetchClosePrices(symbols);
@@ -313,7 +313,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
     });
 
     return { symbolsWithOpenPositions: withPositions, symbolsWithoutPositions: withoutPositions };
-  }, [allSymbolsToShow, getPosition, positions]);
+  }, [allSymbolsToShow, symbolsWithPositions]);
 
   const [positionListRef] = useAutoAnimate();
   const positionAnimations = usePositionAnimations(symbolsWithOpenPositions, positions);
@@ -378,6 +378,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                     rsi: boolean;
                     vol: boolean;
                     channel: string | null;
+                    sr: 'support' | 'resistance' | null;
                     signalType: 'bullish' | 'bearish';
                   }>();
 
@@ -406,6 +407,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                     if (result.rsiReversals) timeframes.push(...result.rsiReversals.map(r => r.timeframe));
                     if (result.volumeSpikes) timeframes.push(...result.volumeSpikes.map(v => v.timeframe));
                     if (result.channels) timeframes.push(...result.channels.map(c => c.timeframe));
+                    if (result.supportResistanceLevels) timeframes.push(...result.supportResistanceLevels.map(sr => sr.timeframe));
 
                     const uniqueTimeframes = [...new Set(timeframes)];
 
@@ -418,6 +420,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                           rsi: false,
                           vol: false,
                           channel: null,
+                          sr: null,
                           signalType: result.signalType
                         });
                       }
@@ -443,6 +446,12 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                         const channel = result.channels.find(c => c.timeframe === tf);
                         if (channel) {
                           tfData.channel = channel.type === 'ascending' ? '↗' : channel.type === 'descending' ? '↘' : '→';
+                        }
+                      }
+                      if (result.scanType === 'supportResistance' && result.supportResistanceLevels) {
+                        const srLevel = result.supportResistanceLevels.find(sr => sr.timeframe === tf);
+                        if (srLevel) {
+                          tfData.sr = srLevel.nearLevel;
                         }
                       }
                     });
@@ -510,6 +519,11 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                                     {signals.channel && (
                                       <span className={`${badgeBg} text-bg-primary px-1.5 py-0.5 rounded font-bold`}>{signals.channel}CH</span>
                                     )}
+                                    {signals.sr && (
+                                      <span className={`${badgeBg} text-bg-primary px-1.5 py-0.5 rounded font-bold`} title={signals.sr === 'support' ? 'Near support level' : 'Near resistance level'}>
+                                        {signals.sr === 'support' ? 'S' : 'R'}
+                                      </span>
+                                    )}
                                   </div>
                                 </div>
                               );
@@ -571,123 +585,43 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                 </>
               ) : (
                 symbolsWithOpenPositions.map((symbol) => {
-            const isPinned = pinnedSymbols.includes(symbol);
-            const top20Data = topSymbols.find(s => s.name === symbol);
-            const isTop20 = !!top20Data;
-            const volumeInMillions = top20Data ? (top20Data.volume / 1000000).toFixed(1) : null;
+                  const isPinned = pinnedSymbols.includes(symbol);
+                  const top20Data = topSymbols.find(s => s.name === symbol);
+                  const isTop20 = !!top20Data;
+                  const volumeInMillions = top20Data ? (top20Data.volume / 1000000).toFixed(1) : null;
 
-            const animationState = positionAnimations[symbol];
-            const itemAnimationClass = animationState?.isNew
-              ? animationState.side === 'long' ? 'animate-highlight-new-long' : 'animate-highlight-new-short'
-              : animationState?.sizeChange ? 'animate-pulse-scale' : '';
+                  const animationState = positionAnimations[symbol];
+                  const itemAnimationClass = animationState?.isNew
+                    ? animationState.side === 'long' ? 'animate-highlight-new-long' : 'animate-highlight-new-short'
+                    : animationState?.sizeChange ? 'animate-pulse-scale' : '';
 
-            const pnlAnimationClass = animationState?.pnlChange === 'increase'
-              ? 'animate-flash-pnl-increase'
-              : animationState?.pnlChange === 'decrease'
-              ? 'animate-flash-pnl-decrease'
-              : '';
+                  const pnlAnimationClass = animationState?.pnlChange === 'increase'
+                    ? 'animate-flash-pnl-increase'
+                    : animationState?.pnlChange === 'decrease'
+                    ? 'animate-flash-pnl-decrease'
+                    : '';
 
-            const symbolClosePrices = getClosePrices(symbol);
-            const isSelected = selectedSymbol === symbol;
+                  const symbolClosePrices = getClosePrices(symbol);
 
-            if (isSelected) {
-              console.log('[Sidepanel] Selected symbol match:', { selectedSymbol, symbol, isSelected });
-            }
-
-            return (
-            <div
-              key={symbol}
-              className={`${
-                isSelected
-                  ? 'border-2 border-primary'
-                  : 'terminal-border hover:bg-primary/10'
-              } ${itemAnimationClass} transition-all duration-150`}
-            >
-              <div className="flex items-start">
-              <div className="flex flex-col flex-1">
-                <button
-                  onClick={() => {
-                    if (onSymbolSelect) {
-                      onSymbolSelect(symbol);
-                    } else {
-                      router.push(`/${address}/${symbol}`);
-                    }
-                  }}
-                  className="flex-1 text-left p-2 pb-0 cursor-pointer relative active:scale-[0.98] transition-transform duration-100"
-                >
-                  {symbolClosePrices && symbolClosePrices.length > 0 && (
-                    <div className="absolute inset-y-0 left-0 right-[40%] opacity-50 pointer-events-none">
-                      <MiniPriceChart
-                        closePrices={symbolClosePrices}
-                      />
-                    </div>
-                  )}
-                  <div className="flex justify-between items-stretch gap-2 relative z-10">
-                    <div className="flex flex-col justify-between min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`font-bold flex-shrink-0 text-xs ${
-                            positions[symbol] && positions[symbol].size > 0
-                              ? `animate-pulse ${positions[symbol].side === 'long' ? 'text-bullish' : 'text-bearish'}`
-                              : 'text-primary'
-                          }`}
-                          title={positions[symbol] && positions[symbol].size > 0
-                            ? `${positions[symbol].side === 'long' ? 'Long' : 'Short'} position volume: $${(Math.abs(positions[symbol].size * positions[symbol].currentPrice)).toFixed(2)}`
-                            : `${symbol}/USD trading pair`
-                          }
-                        >
-                          {positions[symbol] && positions[symbol].size > 0 && (
-                            <>
-                              ${(Math.abs(positions[symbol].size * positions[symbol].currentPrice)).toFixed(0)}{' '}
-                              {positions[symbol].side.toUpperCase()}{' '}
-                            </>
-                          )}
-                          {symbol}/USD
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex-1">
-                      {/* Reserved space for minimal chart */}
-                    </div>
-                    <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
-                      <SymbolPrice symbol={symbol} pnlAnimationClass={pnlAnimationClass} closePrices={symbolClosePrices || undefined} />
-                      {volumeInMillions && (
-                        <SymbolVolume symbol={symbol} volumeInMillions={volumeInMillions} />
-                      )}
-                    </div>
-                  </div>
-                </button>
-                <div className="px-2 relative z-10">
-                  <PositionPriceIndicator symbol={symbol} />
-                </div>
-              </div>
-              <div className="flex flex-col">
-                {!isTop20 && isPinned && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      unpinSymbol(symbol);
-                    }}
-                    className="p-2 text-primary-muted hover:text-bearish active:scale-90 cursor-pointer transition-all duration-150"
-                    title="Unpin symbol"
-                  >
-                    <span className="text-lg font-bold">−</span>
-                  </button>
-                )}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    window.open(`/${address}/chart-popup/${symbol}`, '_blank', 'width=1200,height=800');
-                  }}
-                  className="p-2 text-primary-muted hover:text-primary active:scale-90 cursor-pointer transition-all duration-150"
-                  title="Open in new window"
-                >
-                  <span className="text-lg">⧉</span>
-                </button>
-              </div>
-              </div>
-            </div>
-            );
+                  return (
+                    <PositionItem
+                      key={symbol}
+                      symbol={symbol}
+                      selectedSymbol={selectedSymbol}
+                      onSymbolSelect={onSymbolSelect}
+                      address={address}
+                      position={positions[symbol]}
+                      isPinned={isPinned}
+                      isTop20={isTop20}
+                      volumeInMillions={volumeInMillions}
+                      itemAnimationClass={itemAnimationClass}
+                      pnlAnimationClass={pnlAnimationClass}
+                      closePrices={symbolClosePrices || undefined}
+                      unpinSymbol={unpinSymbol}
+                      SymbolPrice={SymbolPrice}
+                      SymbolVolume={SymbolVolume}
+                    />
+                  );
                 })
               )}
             </div>
@@ -795,85 +729,20 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                   const symbolClosePrices = getClosePrices(symbol);
 
                   return (
-                    <div
+                    <SymbolItem
                       key={symbol}
-                      className={`${
-                        selectedSymbol === symbol
-                          ? 'border-2 border-primary'
-                          : 'terminal-border hover:bg-primary/10'
-                      } transition-all duration-150`}
-                    >
-                      <div className="flex items-start">
-                      <div className="flex flex-col flex-1">
-                        <button
-                          onClick={() => {
-                            if (onSymbolSelect) {
-                              onSymbolSelect(symbol);
-                            } else {
-                              router.push(`/${address}/${symbol}`);
-                            }
-                          }}
-                          className="flex-1 text-left p-2 pb-0 cursor-pointer relative active:scale-[0.98] transition-transform duration-100"
-                        >
-                          {symbolClosePrices && symbolClosePrices.length > 0 && (
-                            <div className="absolute inset-y-0 left-0 right-[40%] opacity-50 pointer-events-none">
-                              <MiniPriceChart
-                                closePrices={symbolClosePrices}
-                              />
-                            </div>
-                          )}
-                          <div className="flex justify-between items-stretch gap-2 relative z-10">
-                            <div className="flex flex-col justify-between min-w-0">
-                              <div className="flex items-center gap-2">
-                                <span
-                                  className="text-primary font-bold flex-shrink-0 text-xs"
-                                  title={`${symbol}/USD trading pair`}
-                                >
-                                  {symbol}/USD
-                                </span>
-                              </div>
-                            </div>
-                            <div className="flex-1">
-                              {/* Reserved space for minimal chart */}
-                            </div>
-                            <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
-                              <SymbolPrice symbol={symbol} closePrices={symbolClosePrices || undefined} show24hChange={true} />
-                              {volumeInMillions && (
-                                <SymbolVolume symbol={symbol} volumeInMillions={volumeInMillions} />
-                              )}
-                            </div>
-                          </div>
-                        </button>
-                        <div className="px-2 relative z-10">
-                          <PositionPriceIndicator symbol={symbol} />
-                        </div>
-                      </div>
-                      <div className="flex flex-col">
-                        {!isTop20 && isPinned && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              unpinSymbol(symbol);
-                            }}
-                            className="p-2 text-primary-muted hover:text-bearish active:scale-90 cursor-pointer transition-all duration-150"
-                            title="Unpin symbol"
-                          >
-                            <span className="text-lg font-bold">−</span>
-                          </button>
-                        )}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            window.open(`/${address}/chart-popup/${symbol}`, '_blank', 'width=1200,height=800');
-                          }}
-                          className="p-2 text-primary-muted hover:text-primary active:scale-90 cursor-pointer transition-all duration-150"
-                          title="Open in new window"
-                        >
-                          <span className="text-lg">⧉</span>
-                        </button>
-                      </div>
-                      </div>
-                    </div>
+                      symbol={symbol}
+                      selectedSymbol={selectedSymbol}
+                      onSymbolSelect={onSymbolSelect}
+                      address={address}
+                      isPinned={isPinned}
+                      isTop20={isTop20}
+                      volumeInMillions={volumeInMillions}
+                      closePrices={symbolClosePrices || undefined}
+                      unpinSymbol={unpinSymbol}
+                      SymbolPrice={SymbolPrice}
+                      SymbolVolume={SymbolVolume}
+                    />
                   );
                 })
               )}

@@ -3,6 +3,7 @@
 import { ReactNode, useMemo, useCallback } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import RightTradingPanel from '@/components/symbol/RightTradingPanel';
+import Sidepanel from '@/components/layout/Sidepanel';
 import WalletIndicator from '@/components/layout/WalletIndicator';
 import CalendarIcon from '@/components/icons/CalendarIcon';
 import SettingsIcon from '@/components/icons/SettingsIcon';
@@ -17,11 +18,11 @@ import { calculateAverageCandleHeight } from '@/lib/trading-utils';
 import { playNotificationSound } from '@/lib/sound-utils';
 
 interface AppShellProps {
-  sidepanel: ReactNode;
+  selectedSymbol: string;
   children: ReactNode;
 }
 
-export default function AppShell({ sidepanel, children }: AppShellProps) {
+export default function AppShell({ selectedSymbol, children }: AppShellProps) {
   const pathname = usePathname();
   const router = useRouter();
   const coin = pathname?.split('/')[2]?.toUpperCase() || 'BTC';
@@ -316,7 +317,7 @@ export default function AppShell({ sidepanel, children }: AppShellProps) {
       <div className="flex flex-1 overflow-hidden">
         {/* Left Sidepanel */}
         <aside className={`${scannerEnabled ? 'w-[550px]' : 'w-[270px]'} border-r-2 border-border-frame overflow-y-auto transition-all duration-300`}>
-          {sidepanel}
+          <Sidepanel selectedSymbol={selectedSymbol} />
         </aside>
 
         {/* Center Content */}

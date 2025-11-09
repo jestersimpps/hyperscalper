@@ -8,7 +8,8 @@ import type {
   MacdReversalValue,
   RsiReversalValue,
   ChannelValue,
-  DivergenceValue
+  DivergenceValue,
+  SupportResistanceValue
 } from '@/models/Scanner';
 import type {
   StochasticScannerConfig,
@@ -18,7 +19,8 @@ import type {
   MacdReversalScannerConfig,
   RsiReversalScannerConfig,
   ChannelScannerConfig,
-  DivergenceScannerConfig
+  DivergenceScannerConfig,
+  SupportResistanceScannerConfig
 } from '@/models/Settings';
 import type { TransformedCandle } from './types';
 import {
@@ -29,7 +31,8 @@ import {
   detectChannels,
   detectPivots,
   detectStochasticPivots,
-  detectDivergence
+  detectDivergence,
+  calculateTrendlines
 } from '@/lib/indicators';
 import { aggregate1mTo5m } from '@/lib/candle-aggregator';
 import { downsampleCandles } from '@/lib/candle-utils';
@@ -76,6 +79,12 @@ export interface DivergenceScanParams {
   symbol: string;
   timeframes: TimeInterval[];
   config: DivergenceScannerConfig;
+}
+
+export interface SupportResistanceScanParams {
+  symbol: string;
+  timeframes: TimeInterval[];
+  config: SupportResistanceScannerConfig;
 }
 
 export class ScannerService {
@@ -614,6 +623,119 @@ export class ScannerService {
     return null;
   }
 
+  async scanSupportResistance(params: SupportResistanceScanParams): Promise<ScanResult | null> {
+    const { symbol, timeframes, config } = params;
+
+    const candleStore = useCandleStore.getState();
+    const closePrices = candleStore.getClosePrices(symbol, '1m', 100) || [];
+
+    for (const timeframe of timeframes) {
+      try {
+        const lookbackCandles = 150;
+
+        const candles = this.getCandlesFromStore(symbol, timeframe, lookbackCandles);
+
+        if (!candles || candles.length < 30) {
+          continue;
+        }
+
+        const trendlines = calculateTrendlines(candles as any);
+
+        if (trendlines.supportLine.length === 0 && trendlines.resistanceLine.length === 0) {
+          continue;
+        }
+
+        const currentPrice = candles[candles.length - 1].close;
+        const currentTime = candles[candles.length - 1].time;
+
+        let supportLevel: number | null = null;
+        let resistanceLevel: number | null = null;
+        let supportTouches = 0;
+        let resistanceTouches = 0;
+
+        if (trendlines.supportLine.length > 0) {
+          const supportPoints = trendlines.supportLine[0].points;
+          if (supportPoints.length >= 2) {
+            const lastPoint = supportPoints[supportPoints.length - 1];
+            const prevPoint = supportPoints[supportPoints.length - 2];
+            const slope = (lastPoint.value - prevPoint.value) / (lastPoint.time - prevPoint.time);
+            const intercept = lastPoint.value - slope * lastPoint.time;
+            supportLevel = slope * currentTime + intercept;
+            supportTouches = supportPoints.length;
+          }
+        }
+
+        if (trendlines.resistanceLine.length > 0) {
+          const resistancePoints = trendlines.resistanceLine[0].points;
+          if (resistancePoints.length >= 2) {
+            const lastPoint = resistancePoints[resistancePoints.length - 1];
+            const prevPoint = resistancePoints[resistancePoints.length - 2];
+            const slope = (lastPoint.value - prevPoint.value) / (lastPoint.time - prevPoint.time);
+            const intercept = lastPoint.value - slope * lastPoint.time;
+            resistanceLevel = slope * currentTime + intercept;
+            resistanceTouches = resistancePoints.length;
+          }
+        }
+
+        if (supportLevel === null && resistanceLevel === null) {
+          continue;
+        }
+
+        if (supportTouches < config.minTouches && resistanceTouches < config.minTouches) {
+          continue;
+        }
+
+        const distanceToSupport = supportLevel !== null
+          ? ((currentPrice - supportLevel) / currentPrice) * 100
+          : Infinity;
+        const distanceToResistance = resistanceLevel !== null
+          ? ((resistanceLevel - currentPrice) / currentPrice) * 100
+          : Infinity;
+
+        const nearSupport = Math.abs(distanceToSupport) <= config.distanceThreshold && supportTouches >= config.minTouches;
+        const nearResistance = Math.abs(distanceToResistance) <= config.distanceThreshold && resistanceTouches >= config.minTouches;
+
+        if (nearSupport || nearResistance) {
+          const nearLevel = nearSupport ? 'support' : 'resistance';
+          const signalType: 'bullish' | 'bearish' = nearLevel === 'support' ? 'bullish' : 'bearish';
+
+          const supportResistanceValue: SupportResistanceValue = {
+            timeframe,
+            supportLevel: supportLevel ?? 0,
+            resistanceLevel: resistanceLevel ?? 0,
+            currentPrice,
+            distanceToSupport,
+            distanceToResistance,
+            supportTouches,
+            resistanceTouches,
+            nearLevel,
+          };
+
+          const levelPrice = nearLevel === 'support' ? supportLevel : resistanceLevel;
+          const distance = nearLevel === 'support' ? Math.abs(distanceToSupport) : Math.abs(distanceToResistance);
+          const touches = nearLevel === 'support' ? supportTouches : resistanceTouches;
+
+          const description = `Price near ${nearLevel} level (${levelPrice?.toFixed(2)}) on ${timeframe} - ${distance.toFixed(2)}% away, ${touches} touches`;
+
+          return {
+            symbol,
+            supportResistanceLevels: [supportResistanceValue],
+            matchedAt: Date.now(),
+            signalType,
+            description,
+            scanType: 'supportResistance',
+            closePrices,
+          };
+        }
+      } catch (error) {
+        console.error(`Error scanning support/resistance for ${symbol} on ${timeframe}:`, error);
+        continue;
+      }
+    }
+
+    return null;
+  }
+
   async scanMultipleSymbols(
     symbols: string[],
     params: Omit<StochasticScanParams, 'symbol'>
@@ -723,6 +845,23 @@ export class ScannerService {
     const results = await Promise.allSettled(
       symbols.map(symbol =>
         this.scanDivergence({ ...params, symbol })
+      )
+    );
+
+    return results
+      .filter((result): result is PromiseFulfilledResult<ScanResult | null> =>
+        result.status === 'fulfilled' && result.value !== null
+      )
+      .map(result => result.value as ScanResult);
+  }
+
+  async scanMultipleSymbolsForSupportResistance(
+    symbols: string[],
+    params: Omit<SupportResistanceScanParams, 'symbol'>
+  ): Promise<ScanResult[]> {
+    const results = await Promise.allSettled(
+      symbols.map(symbol =>
+        this.scanSupportResistance({ ...params, symbol })
       )
     );
 

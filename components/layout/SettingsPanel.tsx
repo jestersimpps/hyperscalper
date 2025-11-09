@@ -16,6 +16,7 @@ export default function SettingsPanel() {
   const [isScannerMacdExpanded, setIsScannerMacdExpanded] = useState(false);
   const [isScannerRsiExpanded, setIsScannerRsiExpanded] = useState(false);
   const [isScannerVolumeExpanded, setIsScannerVolumeExpanded] = useState(false);
+  const [isScannerSRExpanded, setIsScannerSRExpanded] = useState(false);
 
   const handleBackdropClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget) {
@@ -769,6 +770,128 @@ export default function SettingsPanel() {
                             <div className="p-3 bg-bg-secondary border border-frame rounded">
                               <div className="text-primary-muted text-xs font-mono">
                                 Detects when volume is ≥{settings.scanner.volumeSpikeScanner.volumeThreshold}x average AND price changes ≥{settings.scanner.volumeSpikeScanner.priceChangeThreshold}%
+                              </div>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Support/Resistance Scanner - Collapsible Section */}
+                  <div className="border border-frame rounded overflow-hidden">
+                    <button
+                      onClick={() => setIsScannerSRExpanded(!isScannerSRExpanded)}
+                      className="w-full p-3 bg-bg-secondary flex items-center justify-between hover:bg-primary/5 transition-colors"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-primary font-mono text-xs font-bold">█ SUPPORT/RESISTANCE SCANNER</span>
+                      </div>
+                      <span className="text-primary text-base">{isScannerSRExpanded ? '▼' : '▶'}</span>
+                    </button>
+
+                    {isScannerSRExpanded && (
+                      <div className="p-4 space-y-4 bg-bg-primary">
+                        <div className="p-3 bg-bg-secondary border border-frame rounded">
+                          <label className="flex items-center justify-between cursor-pointer">
+                            <span className="text-primary-muted text-xs font-mono">ENABLE SUPPORT/RESISTANCE SCANNER</span>
+                            <input
+                              type="checkbox"
+                              checked={settings.scanner.supportResistanceScanner?.enabled || false}
+                              onChange={(e) =>
+                                updateScannerSettings({
+                                  supportResistanceScanner: {
+                                    ...settings.scanner.supportResistanceScanner,
+                                    enabled: e.target.checked,
+                                  },
+                                })
+                              }
+                              className="w-4 h-4 accent-primary cursor-pointer"
+                            />
+                          </label>
+                        </div>
+
+                        {settings.scanner.supportResistanceScanner?.enabled && (
+                          <>
+                            <div className="p-3 bg-bg-secondary border border-frame rounded space-y-3">
+                              <div className="text-primary font-mono text-xs font-bold mb-2">TIMEFRAMES TO SCAN</div>
+                              <div className="grid grid-cols-2 gap-2">
+                                {(['1m', '5m'] as const).map((tf) => (
+                                  <label key={tf} className="flex items-center gap-2 cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={settings.scanner.supportResistanceScanner?.timeframes.includes(tf) || false}
+                                      onChange={(e) => {
+                                        const newTimeframes = e.target.checked
+                                          ? [...(settings.scanner.supportResistanceScanner?.timeframes || []), tf]
+                                          : (settings.scanner.supportResistanceScanner?.timeframes || []).filter((t) => t !== tf);
+                                        updateScannerSettings({
+                                          supportResistanceScanner: {
+                                            ...settings.scanner.supportResistanceScanner,
+                                            timeframes: newTimeframes,
+                                          },
+                                        });
+                                      }}
+                                      className="w-4 h-4 accent-primary cursor-pointer"
+                                    />
+                                    <span className="text-primary-muted text-xs font-mono">{tf.toUpperCase()}</span>
+                                  </label>
+                                ))}
+                              </div>
+                            </div>
+
+                            <div className="p-3 bg-bg-secondary border border-frame rounded">
+                              <div className="text-primary font-mono text-xs font-bold mb-3">THRESHOLDS</div>
+                              <div className="grid grid-cols-2 gap-3 text-xs">
+                                <div>
+                                  <label className="text-primary-muted font-mono block mb-1">DISTANCE THRESHOLD (%)</label>
+                                  <input
+                                    type="number"
+                                    min="0.1"
+                                    max="5"
+                                    step="0.1"
+                                    value={settings.scanner.supportResistanceScanner?.distanceThreshold || 1.0}
+                                    onChange={(e) =>
+                                      updateScannerSettings({
+                                        supportResistanceScanner: {
+                                          ...settings.scanner.supportResistanceScanner,
+                                          distanceThreshold: Number(e.target.value),
+                                        },
+                                      })
+                                    }
+                                    className="w-full bg-bg-primary border border-frame text-primary px-2 py-1 rounded font-mono text-xs"
+                                  />
+                                  <div className="text-primary-muted font-mono text-[10px] mt-1">
+                                    Alert when within {settings.scanner.supportResistanceScanner?.distanceThreshold || 1.0}% of level
+                                  </div>
+                                </div>
+                                <div>
+                                  <label className="text-primary-muted font-mono block mb-1">MIN TOUCHES</label>
+                                  <input
+                                    type="number"
+                                    min="2"
+                                    max="10"
+                                    value={settings.scanner.supportResistanceScanner?.minTouches || 3}
+                                    onChange={(e) =>
+                                      updateScannerSettings({
+                                        supportResistanceScanner: {
+                                          ...settings.scanner.supportResistanceScanner,
+                                          minTouches: Number(e.target.value),
+                                        },
+                                      })
+                                    }
+                                    className="w-full bg-bg-primary border border-frame text-primary px-2 py-1 rounded font-mono text-xs"
+                                  />
+                                  <div className="text-primary-muted font-mono text-[10px] mt-1">
+                                    Minimum: {settings.scanner.supportResistanceScanner?.minTouches || 3} touches
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="p-3 bg-bg-secondary border border-frame rounded">
+                              <div className="text-primary-muted text-xs font-mono">
+                                Uses trendline-based support/resistance detection. Alerts when price approaches a valid S/R level.
                               </div>
                             </div>
                           </>

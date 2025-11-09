@@ -8,6 +8,7 @@ import { HyperliquidService } from '@/lib/services/hyperliquid.service';
 import { downsampleCandles } from '@/lib/candle-utils';
 import type { TransformedCandle } from '@/lib/services/types';
 import { INTERVAL_TO_MS } from '@/lib/time-utils';
+import { useGlobalPollingStore } from '@/stores/useGlobalPollingStore';
 
 interface CandleStore {
   candles: Record<string, CandleData[]>;
@@ -40,7 +41,6 @@ export const useCandleStore = create<CandleStore>((set, get) => ({
   lastFetchTimes: {},
 
   setService: (service: HyperliquidService) => {
-    console.log('[CandleStore] setService called', { service: !!service });
     set({ service });
   },
 
@@ -48,24 +48,18 @@ export const useCandleStore = create<CandleStore>((set, get) => ({
     const key = getCandleKey(coin, interval);
     const { loading, candles, service, isCacheFresh } = get();
 
-    console.log(`[CandleStore] fetchCandles called for ${key}`);
-
     if (!service) {
-      console.log(`[CandleStore] ${key} - No service, skipping`);
       return;
     }
 
     if (loading[key]) {
-      console.log(`[CandleStore] ${key} - Already loading, skipping`);
       return;
     }
 
     if (interval === '1m') {
-      const { useGlobalPollingStore } = await import('./useGlobalPollingStore');
       const isGlobalPolling = useGlobalPollingStore.getState().isPolling;
 
       if (isGlobalPolling && candles[key] && candles[key].length > 0) {
-        console.log(`[CandleStore] ${key} - Skipping, handled by global polling`);
         return;
       }
     }
@@ -111,16 +105,8 @@ export const useCandleStore = create<CandleStore>((set, get) => ({
         const nonOverlappingExisting = existingCandles.filter(c => c.time < earliestNewTime);
         const merged = [...nonOverlappingExisting, ...formattedData];
         finalCandles = merged.slice(-MAX_CANDLES);
-
-        console.log(`[Fetch Candles] ${key} - Incremental: merged ${existingCandles.length} existing + ${formattedData.length} new = ${finalCandles.length} total`);
       } else {
         finalCandles = formattedData;
-        console.log(`[Fetch Candles] ${key} - Full fetch: ${formattedData.length} candles`);
-      }
-
-      if (finalCandles.length > 1) {
-        const timeDiff = finalCandles[1].time - finalCandles[0].time;
-        console.log(`[Fetch Candles] ${key} - Time difference between first two candles: ${timeDiff}ms (${timeDiff / 60000} minutes)`);
       }
 
       set((state) => ({

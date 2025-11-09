@@ -65,8 +65,20 @@ export interface VolumeValue {
   currentVolume: number;
 }
 
+export interface SupportResistanceValue {
+  timeframe: TimeInterval;
+  supportLevel: number;
+  resistanceLevel: number;
+  currentPrice: number;
+  distanceToSupport: number;
+  distanceToResistance: number;
+  supportTouches: number;
+  resistanceTouches: number;
+  nearLevel: 'support' | 'resistance';
+}
+
 export type SignalType = 'bullish' | 'bearish';
-export type ScanType = 'stochastic' | 'emaAlignment' | 'channel' | 'divergence' | 'macdReversal' | 'rsiReversal' | 'volumeSpike';
+export type ScanType = 'stochastic' | 'emaAlignment' | 'channel' | 'divergence' | 'macdReversal' | 'rsiReversal' | 'volumeSpike' | 'supportResistance';
 
 export interface ScanResult {
   symbol: string;
@@ -77,6 +89,7 @@ export interface ScanResult {
   macdReversals?: MacdReversalValue[];
   rsiReversals?: RsiReversalValue[];
   volumeSpikes?: VolumeValue[];
+  supportResistanceLevels?: SupportResistanceValue[];
   matchedAt: number;
   signalType: SignalType;
   description: string;

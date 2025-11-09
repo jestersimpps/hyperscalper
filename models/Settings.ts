@@ -114,6 +114,13 @@ export interface VolumeSpikeConfig {
   lookbackPeriod: number;
 }
 
+export interface SupportResistanceScannerConfig {
+  enabled: boolean;
+  timeframes: ('1m' | '5m')[];
+  distanceThreshold: number;
+  minTouches: number;
+}
+
 export interface ScannerSettings {
   enabled: boolean;
   scanInterval: number;
@@ -127,6 +134,7 @@ export interface ScannerSettings {
   macdReversalScanner: MacdReversalScannerConfig;
   rsiReversalScanner: RsiReversalScannerConfig;
   volumeSpikeScanner: VolumeSpikeConfig;
+  supportResistanceScanner: SupportResistanceScannerConfig;
 }
 
 export interface OrderSettings {
@@ -279,6 +287,12 @@ export const DEFAULT_SETTINGS: AppSettings = {
       volumeThreshold: 3.0,
       priceChangeThreshold: 0.5,
       lookbackPeriod: 10,
+    },
+    supportResistanceScanner: {
+      enabled: false,
+      timeframes: ['1m', '5m'],
+      distanceThreshold: 1.0,
+      minTouches: 3,
     },
   },
   orders: {

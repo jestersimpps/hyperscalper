@@ -20,18 +20,13 @@ export const useSymbolCandlesStore = create<SymbolCandlesStore>((set, get) => ({
   },
 
   fetchClosePrices: async (symbols: string[]) => {
-    console.log('[SymbolCandlesStore] fetchClosePrices called for symbols:', symbols);
-
     const candleStore = useCandleStore.getState();
     const newClosePrices: Record<string, number[]> = {};
 
     symbols.forEach((symbol) => {
       const cachedClosePrices = candleStore.getClosePrices(symbol, '1m', 100);
       if (cachedClosePrices && cachedClosePrices.length > 0) {
-        console.log(`[SymbolCandlesStore] ${symbol} - Using cache`);
         newClosePrices[symbol] = cachedClosePrices;
-      } else {
-        console.log(`[SymbolCandlesStore] ${symbol} - No cache available, skipping (will be populated by global polling)`);
       }
     });
 

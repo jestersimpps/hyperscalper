@@ -94,7 +94,7 @@ function SymbolView({ coin }: SymbolViewProps) {
         unsubscribeFromCandles(coin, interval);
       });
     };
-  }, [coin]);
+  }, [coin, candleService]);
 
   useEffect(() => {
     if (trades.length === 0) return;

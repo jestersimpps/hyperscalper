@@ -3,7 +3,6 @@
 import { use, ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import AppShell from '@/components/layout/AppShell';
-import Sidepanel from '@/components/layout/Sidepanel';
 
 interface AddressLayoutProps {
   children: ReactNode;
@@ -14,17 +13,12 @@ export default function AddressLayout({ children, params }: AddressLayoutProps) 
   const { address } = use(params);
   const pathname = usePathname();
 
-  // Check if this is a chart-popup route
   const isChartPopup = pathname.includes('/chart-popup/');
 
-  // If it's a chart popup, render without AppShell
   if (isChartPopup) {
     return <>{children}</>;
   }
 
-  // Extract symbol from pathname - handles routes like:
-  // /{address}/{symbol} -> symbol
-  // /{address}/trades -> TRADES (won't match any symbol)
   const pathSegments = pathname.split('/').filter(Boolean);
   const lastSegment = pathSegments[pathSegments.length - 1];
   const selectedSymbol = lastSegment?.toUpperCase() || '';
@@ -32,7 +26,7 @@ export default function AddressLayout({ children, params }: AddressLayoutProps) 
   console.log('[AddressLayout] pathname:', pathname, 'selectedSymbol:', selectedSymbol);
 
   return (
-    <AppShell sidepanel={<Sidepanel selectedSymbol={selectedSymbol} />}>
+    <AppShell selectedSymbol={selectedSymbol}>
       {children}
     </AppShell>
   );
