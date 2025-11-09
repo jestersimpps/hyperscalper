@@ -1,8 +1,6 @@
 'use client';
 
 import { use, ReactNode, useEffect } from 'react';
-import AppShell from '@/components/layout/AppShell';
-import Sidepanel from '@/components/layout/Sidepanel';
 
 interface SymbolLayoutProps {
   children: ReactNode;
@@ -10,7 +8,7 @@ interface SymbolLayoutProps {
 }
 
 export default function SymbolLayout({ children, params }: SymbolLayoutProps) {
-  const { address, symbol } = use(params);
+  const { symbol } = use(params);
   const upperSymbol = symbol.toUpperCase();
 
   useEffect(() => {
@@ -31,11 +29,7 @@ export default function SymbolLayout({ children, params }: SymbolLayoutProps) {
         }
       `}</style>
 
-      <AppShell
-        sidepanel={<Sidepanel selectedSymbol={upperSymbol} />}
-      >
-        {children}
-      </AppShell>
+      {children}
     </>
   );
 }

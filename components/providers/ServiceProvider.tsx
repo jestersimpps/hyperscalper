@@ -33,6 +33,7 @@ export function ServiceProvider({ children }: { children: React.ReactNode }) {
   const setSymbolCandlesService = useSymbolCandlesStore((state) => state.setService);
 
   useEffect(() => {
+    console.log('[ServiceProvider] Service changed, updating all stores');
     if (service) {
       setPositionService(service);
       setMetaService(service);

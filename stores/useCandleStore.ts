@@ -40,6 +40,7 @@ export const useCandleStore = create<CandleStore>((set, get) => ({
   lastFetchTimes: {},
 
   setService: (service: HyperliquidService) => {
+    console.log('[CandleStore] setService called', { service: !!service });
     set({ service });
   },
 
@@ -47,11 +48,15 @@ export const useCandleStore = create<CandleStore>((set, get) => ({
     const key = getCandleKey(coin, interval);
     const { loading, candles, service, isCacheFresh } = get();
 
+    console.log(`[CandleStore] fetchCandles called for ${key}`);
+
     if (!service) {
+      console.log(`[CandleStore] ${key} - No service, skipping`);
       return;
     }
 
     if (loading[key]) {
+      console.log(`[CandleStore] ${key} - Already loading, skipping`);
       return;
     }
 
@@ -60,6 +65,7 @@ export const useCandleStore = create<CandleStore>((set, get) => ({
       const isGlobalPolling = useGlobalPollingStore.getState().isPolling;
 
       if (isGlobalPolling && candles[key] && candles[key].length > 0) {
+        console.log(`[CandleStore] ${key} - Skipping, handled by global polling`);
         return;
       }
     }

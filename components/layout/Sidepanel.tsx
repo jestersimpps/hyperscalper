@@ -13,6 +13,7 @@ import { useOrderStore } from '@/stores/useOrderStore';
 import { useSymbolMetaStore } from '@/stores/useSymbolMetaStore';
 import { useSymbolVolatilityStore } from '@/stores/useSymbolVolatilityStore';
 import { useSymbolCandlesStore } from '@/stores/useSymbolCandlesStore';
+import { useGlobalPollingStore } from '@/stores/useGlobalPollingStore';
 import { formatPrice } from '@/lib/format-utils';
 import { useAddressFromUrl } from '@/lib/hooks/use-address-from-url';
 import { PositionPriceIndicator } from '@/components/PositionPriceIndicator';
@@ -158,6 +159,7 @@ const SymbolItemSkeleton = memo(() => {
 SymbolItemSkeleton.displayName = 'SymbolItemSkeleton';
 
 export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelProps) {
+  console.log('[Sidepanel] Render', { selectedSymbol });
   const router = useRouter();
   const address = useAddressFromUrl();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -178,6 +180,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
   const positions = usePositionStore((state) => state.positions);
   const orders = useOrderStore((state) => state.orders);
   const { setService: setCandlesService, fetchClosePrices, getClosePrices } = useSymbolCandlesStore();
+  const lastCandlePollTime = useGlobalPollingStore((state) => state.lastCandlePollTime);
 
   const symbolsWithOrders = useMemo(() => {
     return Object.entries(orders)
@@ -226,7 +229,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
     return () => {
       stopAutoScan();
     };
-  }, [settings.scanner.enabled, settings.scanner.scanInterval, startAutoScanWithDelay, stopAutoScan]);
+  }, [settings.scanner.enabled, settings.scanner.scanInterval]);
 
   useEffect(() => {
     startAutoRefresh();
@@ -234,7 +237,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
     return () => {
       stopAutoRefresh();
     };
-  }, [startAutoRefresh, stopAutoRefresh]);
+  }, []);
 
   useEffect(() => {
     subscribe();
@@ -242,7 +245,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
     return () => {
       unsubscribe();
     };
-  }, [subscribe, unsubscribe]);
+  }, []);
 
   useEffect(() => {
     const symbols = allSymbolsString.split(',').filter(s => s.length > 0);
@@ -258,17 +261,18 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
   }, [allSymbolsString]);
 
   useEffect(() => {
+    console.log('[Sidepanel] Fetching close prices, allSymbolsString:', allSymbolsString, 'lastCandlePollTime:', lastCandlePollTime);
     const symbols = allSymbolsString.split(',').filter(s => s.length > 0);
     if (symbols.length > 0) {
       fetchClosePrices(symbols);
 
       const intervalId = setInterval(() => {
         fetchClosePrices(symbols);
-      }, 60000);
+      }, 5000);
 
       return () => clearInterval(intervalId);
     }
-  }, [allSymbolsString, fetchClosePrices]);
+  }, [allSymbolsString, lastCandlePollTime]);
 
   const formatTimeSince = (timestamp: number | null) => {
     if (!timestamp) return 'Never';
@@ -460,7 +464,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                       <div className="flex items-start">
                         <div className="flex flex-col flex-1 relative">
                           {symbolResults[0]?.closePrices && symbolResults[0].closePrices.length > 0 && (
-                            <div className="absolute inset-0 opacity-20 pointer-events-none">
+                            <div className="absolute inset-0 opacity-50 pointer-events-none">
                               <MiniPriceChart
                                 closePrices={symbolResults[0].closePrices}
                                 signalType={symbolResults[0].signalType}
@@ -601,7 +605,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                   className="flex-1 text-left p-2 pb-0 cursor-pointer relative"
                 >
                   {symbolClosePrices && symbolClosePrices.length > 0 && (
-                    <div className="absolute inset-y-0 left-0 right-[40%] opacity-20 pointer-events-none">
+                    <div className="absolute inset-y-0 left-0 right-[40%] opacity-50 pointer-events-none">
                       <MiniPriceChart
                         closePrices={symbolClosePrices}
                       />
@@ -802,7 +806,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                           className="flex-1 text-left p-2 pb-0 cursor-pointer relative"
                         >
                           {symbolClosePrices && symbolClosePrices.length > 0 && (
-                            <div className="absolute inset-y-0 left-0 right-[40%] opacity-20 pointer-events-none">
+                            <div className="absolute inset-y-0 left-0 right-[40%] opacity-50 pointer-events-none">
                               <MiniPriceChart
                                 closePrices={symbolClosePrices}
                               />

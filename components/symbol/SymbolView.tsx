@@ -73,25 +73,28 @@ function SymbolView({ coin }: SymbolViewProps) {
       unsubscribeFromTrades(coin);
       unsubscribeFromOrders(coin);
     };
-  }, [coin, subscribeToTrades, unsubscribeFromTrades, subscribeToOrders, unsubscribeFromOrders]);
+  }, [coin]);
 
   useEffect(() => {
+    console.log(`[SymbolView] Candle effect triggered for ${coin}`, { candleService: !!candleService });
     if (!candleService) return;
 
     const timeframes: TimeInterval[] = ['1m', '5m', '15m', '1h'];
 
     timeframes.forEach((interval) => {
       const { startTime, endTime } = getCandleTimeWindow(interval, DEFAULT_CANDLE_COUNT);
+      console.log(`[SymbolView] Fetching ${coin}-${interval}`);
       fetchCandles(coin, interval, startTime, endTime);
       subscribeToCandles(coin, interval);
     });
 
     return () => {
+      console.log(`[SymbolView] Cleanup for ${coin}`);
       timeframes.forEach((interval) => {
         unsubscribeFromCandles(coin, interval);
       });
     };
-  }, [coin, candleService, fetchCandles, subscribeToCandles, unsubscribeFromCandles]);
+  }, [coin]);
 
   useEffect(() => {
     if (trades.length === 0) return;

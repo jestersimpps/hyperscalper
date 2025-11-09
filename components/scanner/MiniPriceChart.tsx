@@ -39,8 +39,8 @@ function MiniPriceChart({ closePrices, signalType }: MiniPriceChartProps) {
     const endPrice = closePrices[closePrices.length - 1];
     const isPriceUp = endPrice > startPrice;
     const lineColor = signalType
-      ? (signalType === 'bullish' ? 'rgb(34, 197, 94)' : 'rgb(239, 68, 68)')
-      : (isPriceUp ? 'rgb(34, 197, 94)' : 'rgb(239, 68, 68)');
+      ? (signalType === 'bullish' ? 'rgba(34, 197, 94, 1)' : 'rgba(239, 68, 68, 1)')
+      : (isPriceUp ? 'rgba(34, 197, 94, 1)' : 'rgba(239, 68, 68, 1)');
 
     return {
       labels,

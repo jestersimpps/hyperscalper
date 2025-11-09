@@ -20,39 +20,20 @@ export const useSymbolCandlesStore = create<SymbolCandlesStore>((set, get) => ({
   },
 
   fetchClosePrices: async (symbols: string[]) => {
-    const { service } = get();
-    if (!service) return;
+    console.log('[SymbolCandlesStore] fetchClosePrices called for symbols:', symbols);
 
     const candleStore = useCandleStore.getState();
     const newClosePrices: Record<string, number[]> = {};
 
-    await Promise.all(
-      symbols.map(async (symbol) => {
-        try {
-          if (candleStore.isCacheFresh(symbol, '1m')) {
-            const cachedClosePrices = candleStore.getClosePrices(symbol, '1m', 100);
-            if (cachedClosePrices && cachedClosePrices.length > 0) {
-              newClosePrices[symbol] = cachedClosePrices;
-              return;
-            }
-          }
-
-          const endTime = Date.now();
-          const startTime = endTime - (150 * 60 * 1000);
-
-          const candles = await service.getCandles({
-            coin: symbol,
-            interval: '1m',
-            startTime,
-            endTime
-          });
-          const closePrices = downsampleCandles(candles, 100);
-          newClosePrices[symbol] = closePrices;
-        } catch (error) {
-          console.error(`Error fetching candles for ${symbol}:`, error);
-        }
-      })
-    );
+    symbols.forEach((symbol) => {
+      const cachedClosePrices = candleStore.getClosePrices(symbol, '1m', 100);
+      if (cachedClosePrices && cachedClosePrices.length > 0) {
+        console.log(`[SymbolCandlesStore] ${symbol} - Using cache`);
+        newClosePrices[symbol] = cachedClosePrices;
+      } else {
+        console.log(`[SymbolCandlesStore] ${symbol} - No cache available, skipping (will be populated by global polling)`);
+      }
+    });
 
     set({ closePrices: newClosePrices });
   },

@@ -1,8 +1,6 @@
 'use client';
 
 import { ReactNode, useEffect } from 'react';
-import AppShell from '@/components/layout/AppShell';
-import Sidepanel from '@/components/layout/Sidepanel';
 
 interface TradesLayoutProps {
   children: ReactNode;
@@ -27,11 +25,7 @@ export default function TradesLayout({ children }: TradesLayoutProps) {
         }
       `}</style>
 
-      <AppShell
-        sidepanel={<Sidepanel selectedSymbol="BTC" />}
-      >
-        {children}
-      </AppShell>
+      {children}
     </>
   );
 }

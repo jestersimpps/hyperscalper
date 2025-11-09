@@ -37,6 +37,7 @@ export const useGlobalPollingStore = create<GlobalPollingStore>((set, get) => ({
   isFirstCandleFetch: true,
 
   setService: (service: HyperliquidService) => {
+    console.log('[GlobalPolling] setService called, starting global polling');
     set({ service });
     get().startGlobalPolling();
   },
@@ -83,6 +84,9 @@ export const useGlobalPollingStore = create<GlobalPollingStore>((set, get) => ({
     }
 
     try {
+      const topSymbolsStore = useTopSymbolsStore.getState();
+      const symbolsBeforeUpdate = topSymbolsStore.symbols.length;
+
       const metaData = await service.getMetaAndAssetCtxs().catch(err => {
         console.error('[GlobalPolling] Error fetching meta:', err);
         return null;
@@ -90,10 +94,16 @@ export const useGlobalPollingStore = create<GlobalPollingStore>((set, get) => ({
 
       if (metaData) {
         const volatilityStore = useSymbolVolatilityStore.getState();
-        const topSymbolsStore = useTopSymbolsStore.getState();
 
         volatilityStore.updateFromGlobalPoll(metaData);
         topSymbolsStore.updateFromGlobalPoll(metaData);
+
+        const symbolsAfterUpdate = topSymbolsStore.symbols.length;
+
+        if (symbolsBeforeUpdate === 0 && symbolsAfterUpdate > 0) {
+          console.log('[GlobalPolling] Top symbols just loaded, triggering immediate candle fetch');
+          get().fetchCandleData();
+        }
       }
 
       set({ lastSlowPollTime: Date.now() });
@@ -105,6 +115,7 @@ export const useGlobalPollingStore = create<GlobalPollingStore>((set, get) => ({
   fetchCandleData: async () => {
     const { service, isFirstCandleFetch } = get();
     if (!service) {
+      console.log('[GlobalPolling] fetchCandleData: no service, skipping');
       return;
     }
 
@@ -112,6 +123,13 @@ export const useGlobalPollingStore = create<GlobalPollingStore>((set, get) => ({
       const candleStore = useCandleStore.getState();
       const topSymbolsStore = useTopSymbolsStore.getState();
       const topSymbols = topSymbolsStore.symbols.slice(0, 20);
+
+      if (topSymbols.length === 0) {
+        console.log('[GlobalPolling] fetchCandleData: no symbols loaded yet, skipping');
+        return;
+      }
+
+      console.log(`[GlobalPolling] fetchCandleData: fetching for ${topSymbols.length} symbols`);
 
       for (const symbol of topSymbols) {
         const symbolName = symbol.name;
@@ -132,6 +150,7 @@ export const useGlobalPollingStore = create<GlobalPollingStore>((set, get) => ({
         await candleStore.fetchCandles(symbolName, '1m', startTime, endTime);
       }
 
+      console.log('[GlobalPolling] fetchCandleData: completed, updating lastCandlePollTime');
       set({
         lastCandlePollTime: Date.now(),
         isFirstCandleFetch: false
@@ -145,9 +164,11 @@ export const useGlobalPollingStore = create<GlobalPollingStore>((set, get) => ({
     const { fastPollingInterval, slowPollingInterval, candlePollingInterval, fetchFastData, fetchSlowData, fetchCandleData } = get();
 
     if (fastPollingInterval || slowPollingInterval || candlePollingInterval) {
+      console.log('[GlobalPolling] startGlobalPolling: already running, skipping');
       return;
     }
 
+    console.log('[GlobalPolling] startGlobalPolling: starting all polling intervals');
     fetchFastData();
     fetchSlowData();
     fetchCandleData();
@@ -170,6 +191,7 @@ export const useGlobalPollingStore = create<GlobalPollingStore>((set, get) => ({
       candlePollingInterval: candleIntervalId,
       isPolling: true
     });
+    console.log('[GlobalPolling] startGlobalPolling: all intervals started');
   },
 
   stopGlobalPolling: () => {
