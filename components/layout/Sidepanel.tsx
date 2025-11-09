@@ -312,7 +312,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
     <div className="p-2 h-full flex gap-2 overflow-hidden">
       {/* Left Column - Scanner */}
       {settings.scanner.enabled && (
-        <div className="flex-[0.25] flex flex-col overflow-hidden">
+        <div className="flex-[0.6] flex flex-col overflow-hidden">
           <div className="terminal-border p-2 mb-2 flex-shrink-0">
             <div className="flex items-center justify-between mb-2">
               <span className="text-primary text-xs font-bold tracking-wider">█ SCANNER</span>
