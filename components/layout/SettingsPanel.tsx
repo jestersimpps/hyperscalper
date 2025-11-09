@@ -1295,6 +1295,7 @@ export default function SettingsPanel() {
                           {themeName === 'midnight' && 'Deep blue with purple accents'}
                           {themeName === 'light' && 'Clean light theme'}
                           {themeName === 'afternoon' && 'Solarized Dark - warm, muted colors easy on the eyes'}
+                          {themeName === 'psychedelic' && 'For when the charts start moving on their own'}
                         </div>
                       </div>
                     </label>
