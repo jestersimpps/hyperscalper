@@ -40,11 +40,25 @@ export const formatTrade = (
   };
 };
 
-export const formatPnlSchmeckles = (pnl: number, positionValue: number): string => {
-  if (pnl === undefined || pnl === null || positionValue === undefined || positionValue === null || positionValue === 0) {
+export const formatPnlSchmeckles = (
+  pnl: number,
+  positionValue: number,
+  accountValue?: number
+): string => {
+  if (pnl === undefined || pnl === null) {
     return '+- SH';
   }
 
-  const schmeckles = (pnl / positionValue) * 2000;
+  let divisor: number;
+  if (accountValue !== undefined && accountValue !== null && accountValue > 0) {
+    divisor = accountValue;
+  } else {
+    if (positionValue === undefined || positionValue === null || positionValue === 0) {
+      return '+- SH';
+    }
+    divisor = positionValue;
+  }
+
+  const schmeckles = (pnl / divisor) * 2000;
   return `${schmeckles >= 0 ? '+' : ''}${schmeckles.toFixed(2)} SH`;
 };
