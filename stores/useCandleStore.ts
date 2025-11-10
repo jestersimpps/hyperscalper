@@ -71,17 +71,10 @@ export const useCandleStore = create<CandleStore>((set, get) => ({
       return;
     }
 
-    const existingCandles = candles[key] || [];
-    const isIncrementalFetch = interval === '1m' && existingCandles.length >= 10;
-
-    let actualStartTime = startTime;
-    let actualEndTime = endTime;
-
-    if (isIncrementalFetch) {
-      const intervalMs = INTERVAL_TO_MS[interval];
-      actualEndTime = Date.now();
-      actualStartTime = actualEndTime - (5 * intervalMs);
-    }
+    // Always fetch last 1200 candles, no merging needed
+    const intervalMs = INTERVAL_TO_MS[interval];
+    const actualEndTime = Date.now();
+    const actualStartTime = actualEndTime - (1200 * intervalMs);
 
     set((state) => ({
       loading: { ...state.loading, [key]: true },
@@ -98,19 +91,8 @@ export const useCandleStore = create<CandleStore>((set, get) => ({
 
       const formattedData = data.map((candle) => formatCandle(candle, coin));
 
-      let finalCandles: CandleData[];
-
-      if (isIncrementalFetch && formattedData.length > 0) {
-        const earliestNewTime = Math.min(...formattedData.map(c => c.time));
-        const nonOverlappingExisting = existingCandles.filter(c => c.time < earliestNewTime);
-        const merged = [...nonOverlappingExisting, ...formattedData];
-        finalCandles = merged.slice(-MAX_CANDLES);
-      } else {
-        finalCandles = formattedData;
-      }
-
       set((state) => ({
-        candles: { ...state.candles, [key]: finalCandles },
+        candles: { ...state.candles, [key]: formattedData },
         loading: { ...state.loading, [key]: false },
         lastFetchTimes: { ...state.lastFetchTimes, [key]: Date.now() },
       }));
