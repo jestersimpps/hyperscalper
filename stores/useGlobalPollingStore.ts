@@ -133,6 +133,12 @@ export const useGlobalPollingStore = create<GlobalPollingStore>((set, get) => ({
 
       for (const symbol of topSymbols) {
         const symbolName = symbol.name;
+
+        if (candleStore.activeSymbol === symbolName) {
+          console.log(`[GlobalPolling] Skipping active symbol: ${symbolName}`);
+          continue;
+        }
+
         const existingCandles = candleStore.candles[`${symbolName}-1m`];
         const hasData = existingCandles && existingCandles.length >= 10;
 

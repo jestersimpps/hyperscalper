@@ -16,8 +16,10 @@ interface CandleStore {
   subscriptions: Record<string, { subscriptionId: string; cleanup: () => void; refCount: number }>;
   wsService: ExchangeWebSocketService | null;
   service: HyperliquidService | null;
+  activeSymbol: string | null;
 
   setService: (service: HyperliquidService) => void;
+  setActiveSymbol: (coin: string | null) => void;
   fetchCandles: (coin: string, interval: TimeInterval, startTime: number, endTime: number) => Promise<void>;
   subscribeToCandles: (coin: string, interval: TimeInterval) => void;
   unsubscribeFromCandles: (coin: string, interval: TimeInterval) => void;
@@ -36,9 +38,14 @@ export const useCandleStore = create<CandleStore>((set, get) => ({
   subscriptions: {},
   wsService: null,
   service: null,
+  activeSymbol: null,
 
   setService: (service: HyperliquidService) => {
     set({ service });
+  },
+
+  setActiveSymbol: (coin: string | null) => {
+    set({ activeSymbol: coin });
   },
 
   fetchCandles: async (coin, interval, startTime, endTime) => {

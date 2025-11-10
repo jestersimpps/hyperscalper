@@ -50,6 +50,7 @@ function SymbolView({ coin }: SymbolViewProps) {
   const subscribeToCandles = useCandleStore((state) => state.subscribeToCandles);
   const unsubscribeFromCandles = useCandleStore((state) => state.unsubscribeFromCandles);
   const clearCandles = useCandleStore((state) => state.clearCandles);
+  const setActiveSymbol = useCandleStore((state) => state.setActiveSymbol);
   const candleService = useCandleStore((state) => state.service);
 
   const getDecimals = useSymbolMetaStore((state) => state.getDecimals);
@@ -70,12 +71,14 @@ function SymbolView({ coin }: SymbolViewProps) {
     seenTimestampsRef.current.clear();
     subscribeToTrades(coin);
     subscribeToOrders(coin);
+    setActiveSymbol(coin);
 
     return () => {
       unsubscribeFromTrades(coin);
       unsubscribeFromOrders(coin);
+      setActiveSymbol(null);
     };
-  }, [coin]);
+  }, [coin, setActiveSymbol]);
 
   useEffect(() => {
     console.log(`[SymbolView] Candle effect triggered for ${coin}`, { candleService: !!candleService });
