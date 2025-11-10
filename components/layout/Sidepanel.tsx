@@ -396,12 +396,13 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                   symbolResults.forEach((result) => {
                     if (result.scanType === 'divergence' && result.divergences) {
                       result.divergences.forEach(div => {
-                        const variantLabel =
-                          div.variant === 'ultraFast' ? 'UF' :
-                          div.variant === 'fast' ? 'F' :
-                          div.variant === 'medium' ? 'M' : 'S';
+                        const strength = div.strength ?? 0;
+                        const strengthLabel =
+                          strength >= 60 ? 'S+' :
+                          strength >= 40 ? 'S' :
+                          strength >= 30 ? 'M' : 'W';
                         divergenceSignals.push({
-                          variant: variantLabel,
+                          variant: strengthLabel,
                           isHidden: div.type.includes('hidden'),
                           signalType: result.signalType
                         });
