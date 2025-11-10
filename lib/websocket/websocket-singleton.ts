@@ -51,7 +51,7 @@ class WebSocketServiceManager {
           this.instance.disconnect();
           this.instance = null;
         }
-      }, 1000);
+      }, 30000);
     }
   }
 

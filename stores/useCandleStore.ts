@@ -43,18 +43,13 @@ export const useCandleStore = create<CandleStore>((set, get) => ({
 
   fetchCandles: async (coin, interval, startTime, endTime) => {
     const key = getCandleKey(coin, interval);
-    const { loading, candles, service } = get();
+    const { loading, service } = get();
 
     if (!service) {
       return;
     }
 
     if (loading[key]) {
-      return;
-    }
-
-    const existingCandles = candles[key];
-    if (existingCandles && existingCandles.length >= 10) {
       return;
     }
 
@@ -116,11 +111,16 @@ export const useCandleStore = create<CandleStore>((set, get) => ({
         { coin, interval },
         (candle) => {
           const state = get();
-          const existingCandles = state.candles[key];
-
-          if (!existingCandles || existingCandles.length === 0) return;
-
+          const existingCandles = state.candles[key] || [];
           const formattedCandle = formatCandle(candle, coin);
+
+          if (existingCandles.length === 0) {
+            set((state) => ({
+              candles: { ...state.candles, [key]: [formattedCandle] },
+            }));
+            return;
+          }
+
           const lastCandle = existingCandles[existingCandles.length - 1];
 
           if (candle.time === lastCandle.time) {
