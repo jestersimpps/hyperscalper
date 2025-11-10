@@ -656,11 +656,17 @@ export class ScannerService {
         if (trendlines.supportLine.length > 0) {
           const supportPoints = trendlines.supportLine[0].points;
           if (supportPoints.length >= 2) {
-            const lastPoint = supportPoints[supportPoints.length - 1];
-            const prevPoint = supportPoints[supportPoints.length - 2];
-            const slope = (lastPoint.value - prevPoint.value) / (lastPoint.time - prevPoint.time);
-            const intercept = lastPoint.value - slope * lastPoint.time;
-            supportLevel = slope * currentTime + intercept;
+            // Use first two points to calculate slope (it's a linear trendline)
+            const p1 = supportPoints[0];
+            const p2 = supportPoints[1];
+
+            if (p2.time !== p1.time) {
+              const slope = (p2.value - p1.value) / (p2.time - p1.time);
+              supportLevel = p1.value + slope * (currentTime - p1.time);
+            } else {
+              supportLevel = p1.value;
+            }
+
             supportTouches = supportPoints.length;
           }
         }
@@ -668,11 +674,17 @@ export class ScannerService {
         if (trendlines.resistanceLine.length > 0) {
           const resistancePoints = trendlines.resistanceLine[0].points;
           if (resistancePoints.length >= 2) {
-            const lastPoint = resistancePoints[resistancePoints.length - 1];
-            const prevPoint = resistancePoints[resistancePoints.length - 2];
-            const slope = (lastPoint.value - prevPoint.value) / (lastPoint.time - prevPoint.time);
-            const intercept = lastPoint.value - slope * lastPoint.time;
-            resistanceLevel = slope * currentTime + intercept;
+            // Use first two points to calculate slope (it's a linear trendline)
+            const p1 = resistancePoints[0];
+            const p2 = resistancePoints[1];
+
+            if (p2.time !== p1.time) {
+              const slope = (p2.value - p1.value) / (p2.time - p1.time);
+              resistanceLevel = p1.value + slope * (currentTime - p1.time);
+            } else {
+              resistanceLevel = p1.value;
+            }
+
             resistanceTouches = resistancePoints.length;
           }
         }
@@ -685,48 +697,111 @@ export class ScannerService {
           continue;
         }
 
+        // Check if S/R line crosses last 3 candles
+        const last3Candles = candles.slice(-3);
+        let supportCrossesRecent = false;
+        let resistanceCrossesRecent = false;
+
+        if (supportLevel !== null && trendlines.supportLine.length > 0) {
+          const supportPoints = trendlines.supportLine[0].points;
+          if (supportPoints.length >= 2) {
+            supportCrossesRecent = last3Candles.some(candle => {
+              // Calculate support line value at this candle's time
+              const lastPoint = supportPoints[supportPoints.length - 1];
+              const firstPoint = supportPoints[0];
+              const slope = (lastPoint.value - firstPoint.value) / (lastPoint.time - firstPoint.time);
+              const intercept = firstPoint.value - slope * firstPoint.time;
+              const lineValueAtCandle = slope * candle.time + intercept;
+
+              // Check if line crosses through candle (within high/low range) with 2% tolerance
+              const tolerance = candle.close * 0.02;
+              return lineValueAtCandle >= (candle.low - tolerance) &&
+                     lineValueAtCandle <= (candle.high + tolerance);
+            });
+          }
+        }
+
+        if (resistanceLevel !== null && trendlines.resistanceLine.length > 0) {
+          const resistancePoints = trendlines.resistanceLine[0].points;
+          if (resistancePoints.length >= 2) {
+            resistanceCrossesRecent = last3Candles.some(candle => {
+              // Calculate resistance line value at this candle's time
+              const lastPoint = resistancePoints[resistancePoints.length - 1];
+              const firstPoint = resistancePoints[0];
+              const slope = (lastPoint.value - firstPoint.value) / (lastPoint.time - firstPoint.time);
+              const intercept = firstPoint.value - slope * firstPoint.time;
+              const lineValueAtCandle = slope * candle.time + intercept;
+
+              // Check if line crosses through candle (within high/low range) with 2% tolerance
+              const tolerance = candle.close * 0.02;
+              return lineValueAtCandle >= (candle.low - tolerance) &&
+                     lineValueAtCandle <= (candle.high + tolerance);
+            });
+          }
+        }
+
+        // Only show alert if at least one line crosses recent candles
+        if (!supportCrossesRecent && !resistanceCrossesRecent) {
+          continue;
+        }
+
         const distanceToSupport = supportLevel !== null
-          ? ((currentPrice - supportLevel) / supportLevel) * 100
+          ? ((currentPrice - supportLevel) / currentPrice) * 100
           : Infinity;
         const distanceToResistance = resistanceLevel !== null
-          ? ((resistanceLevel - currentPrice) / resistanceLevel) * 100
+          ? ((resistanceLevel - currentPrice) / currentPrice) * 100
           : Infinity;
 
-        const nearSupport = Math.abs(distanceToSupport) <= config.distanceThreshold && supportTouches >= config.minTouches;
-        const nearResistance = Math.abs(distanceToResistance) <= config.distanceThreshold && resistanceTouches >= config.minTouches;
+        const supportDistance = Math.abs(distanceToSupport);
+        const resistanceDistance = Math.abs(distanceToResistance);
 
-        if (nearSupport || nearResistance) {
-          const nearLevel = nearSupport ? 'support' : 'resistance';
-          const signalType: 'bullish' | 'bearish' = nearLevel === 'support' ? 'bullish' : 'bearish';
-
-          const supportResistanceValue: SupportResistanceValue = {
-            timeframe,
-            supportLevel: supportLevel ?? 0,
-            resistanceLevel: resistanceLevel ?? 0,
-            currentPrice,
-            distanceToSupport,
-            distanceToResistance,
-            supportTouches,
-            resistanceTouches,
-            nearLevel,
-          };
-
-          const levelPrice = nearLevel === 'support' ? supportLevel : resistanceLevel;
-          const distance = nearLevel === 'support' ? Math.abs(distanceToSupport) : Math.abs(distanceToResistance);
-          const touches = nearLevel === 'support' ? supportTouches : resistanceTouches;
-
-          const description = `Price near ${nearLevel} level (${levelPrice?.toFixed(2)}) on ${timeframe} - ${distance.toFixed(2)}% away, ${touches} touches`;
-
-          return {
-            symbol,
-            supportResistanceLevels: [supportResistanceValue],
-            matchedAt: Date.now(),
-            signalType,
-            description,
-            scanType: 'supportResistance',
-            closePrices,
-          };
+        // Determine which level to report - prefer the one crossing recent candles
+        let nearLevel: 'support' | 'resistance';
+        if (supportCrossesRecent && !resistanceCrossesRecent) {
+          nearLevel = 'support';
+        } else if (resistanceCrossesRecent && !supportCrossesRecent) {
+          nearLevel = 'resistance';
+        } else {
+          // Both crossing or neither, use closest
+          nearLevel = supportDistance < resistanceDistance ? 'support' : 'resistance';
         }
+
+        const signalType: 'bullish' | 'bearish' = nearLevel === 'support' ? 'bullish' : 'bearish';
+
+        const supportResistanceValue: SupportResistanceValue = {
+          timeframe,
+          supportLevel: supportLevel ?? 0,
+          resistanceLevel: resistanceLevel ?? 0,
+          currentPrice,
+          distanceToSupport,
+          distanceToResistance,
+          supportTouches,
+          resistanceTouches,
+          nearLevel,
+        };
+
+        const levelPrice = nearLevel === 'support' ? supportLevel : resistanceLevel;
+        const distance = nearLevel === 'support' ? supportDistance : resistanceDistance;
+        const touches = nearLevel === 'support' ? supportTouches : resistanceTouches;
+
+        // Determine proximity description
+        const isNear = distance <= config.distanceThreshold;
+        const proximityText = isNear ? 'near' : 'approaching';
+        const priceDirection = nearLevel === 'support'
+          ? (currentPrice > supportLevel! ? 'above' : 'at')
+          : (currentPrice < resistanceLevel! ? 'below' : 'at');
+
+        const description = `Price crossing ${nearLevel} at ${levelPrice?.toFixed(2)} on ${timeframe} (${priceDirection}, ${distance.toFixed(2)}% away, ${touches} touches)`;
+
+        return {
+          symbol,
+          supportResistanceLevels: [supportResistanceValue],
+          matchedAt: Date.now(),
+          signalType,
+          description,
+          scanType: 'supportResistance',
+          closePrices,
+        };
       } catch (error) {
         continue;
       }

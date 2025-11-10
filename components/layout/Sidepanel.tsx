@@ -385,6 +385,9 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                     vol: boolean;
                     channel: string | null;
                     sr: 'support' | 'resistance' | null;
+                    srDistance: number | null;
+                    srTouches: number | null;
+                    srPrice: number | null;
                     signalType: 'bullish' | 'bearish';
                   }>();
 
@@ -427,6 +430,9 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                           vol: false,
                           channel: null,
                           sr: null,
+                          srDistance: null,
+                          srTouches: null,
+                          srPrice: null,
                           signalType: result.signalType
                         });
                       }
@@ -458,6 +464,18 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                         const srLevel = result.supportResistanceLevels.find(sr => sr.timeframe === tf);
                         if (srLevel) {
                           tfData.sr = srLevel.nearLevel;
+                          const distance = srLevel.nearLevel === 'support'
+                            ? Math.abs(srLevel.distanceToSupport)
+                            : Math.abs(srLevel.distanceToResistance);
+                          const touches = srLevel.nearLevel === 'support'
+                            ? srLevel.supportTouches
+                            : srLevel.resistanceTouches;
+                          const price = srLevel.nearLevel === 'support'
+                            ? srLevel.supportLevel
+                            : srLevel.resistanceLevel;
+                          tfData.srDistance = distance;
+                          tfData.srTouches = touches;
+                          tfData.srPrice = price;
                         }
                       }
                     });
@@ -526,8 +544,8 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                                       <span className={`${badgeBg} text-bg-primary px-1.5 py-0.5 rounded font-bold`}>{signals.channel}CH</span>
                                     )}
                                     {signals.sr && (
-                                      <span className={`${badgeBg} text-bg-primary px-1.5 py-0.5 rounded font-bold`} title={signals.sr === 'support' ? 'Near support level' : 'Near resistance level'}>
-                                        {signals.sr === 'support' ? 'S' : 'R'}
+                                      <span className={`${signals.sr === 'support' ? 'bg-bullish' : 'bg-bearish'} text-bg-primary px-1.5 py-0.5 rounded font-bold`} title={`${signals.sr === 'support' ? 'Support' : 'Resistance'} level at $${signals.srPrice?.toFixed(2)}: ${signals.srDistance?.toFixed(2)}% away, ${signals.srTouches} touches`}>
+                                        {signals.sr === 'support' ? 'S' : 'R'} ${signals.srPrice?.toFixed(2)} {signals.srDistance?.toFixed(1)}% ({signals.srTouches})
                                       </span>
                                     )}
                                   </div>
