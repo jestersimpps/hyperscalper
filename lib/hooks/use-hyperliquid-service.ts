@@ -2,12 +2,12 @@ import { useMemo } from 'react';
 import { useCredentials } from '@/lib/context/credentials-context';
 import { HyperliquidService } from '@/lib/services/hyperliquid.service';
 
-export function useHyperliquidService(walletAddress?: string): HyperliquidService {
+export function useHyperliquidService(walletAddress?: string): HyperliquidService | null {
   const { credentials } = useCredentials();
 
   const service = useMemo(() => {
     if (!credentials && !walletAddress) {
-      throw new Error('Credentials not configured. Please configure your Hyperliquid credentials in settings.');
+      return null;
     }
 
     if (!credentials && walletAddress) {

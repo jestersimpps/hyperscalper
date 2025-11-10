@@ -20,6 +20,10 @@ export default function QuickCloseButtons() {
   const totalProfit = profitablePositions.reduce((sum, pos) => sum + pos.pnl, 0);
 
   const closePosition = async (symbol: string) => {
+    if (!service) {
+      alert('Service not available. Please configure your credentials.');
+      return;
+    }
     try {
       await service.closePosition({ coin: symbol });
     } catch (error) {

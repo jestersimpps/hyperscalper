@@ -34,22 +34,25 @@ export function ServiceProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     console.log('[ServiceProvider] Service changed, updating all stores');
-    if (service) {
-      setPositionService(service);
-      setMetaService(service);
-      setOrderService(service);
-      setCandleService(service);
-      setTradingService(service);
-      setTopSymbolsService(service);
-      setUserFillsService(service);
-      setScannerService(service);
-      setVolatilityService(service);
-      setGlobalPollingService(service);
-      setSymbolCandlesService(service);
-
-      fetchMetadata();
-      fetchAndStoreAllOpenPositions();
+    if (!service) {
+      console.log('[ServiceProvider] No service available (credentials or wallet address not set)');
+      return;
     }
+
+    setPositionService(service);
+    setMetaService(service);
+    setOrderService(service);
+    setCandleService(service);
+    setTradingService(service);
+    setTopSymbolsService(service);
+    setUserFillsService(service);
+    setScannerService(service);
+    setVolatilityService(service);
+    setGlobalPollingService(service);
+    setSymbolCandlesService(service);
+
+    fetchMetadata();
+    fetchAndStoreAllOpenPositions();
   }, [service]);
 
   return <>{children}</>;
