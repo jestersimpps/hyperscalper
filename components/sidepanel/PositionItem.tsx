@@ -6,6 +6,7 @@ import { usePositionStore } from '@/stores/usePositionStore';
 import { PositionPriceIndicator } from '@/components/PositionPriceIndicator';
 import MiniPriceChart from '@/components/scanner/MiniPriceChart';
 import type { Position } from '@/models/Position';
+import { getInvertedColorClass, getInvertedSide } from '@/lib/inverted-utils';
 
 interface PositionItemProps {
   symbol: string;
@@ -22,6 +23,7 @@ interface PositionItemProps {
   unpinSymbol: (symbol: string) => void;
   SymbolPrice: React.ComponentType<{ symbol: string; pnlAnimationClass?: string; closePrices?: number[]; show24hChange?: boolean }>;
   SymbolVolume: React.ComponentType<{ symbol: string; volumeInMillions: string }>;
+  invertedMode: boolean;
 }
 
 const PositionItem = memo(({
@@ -38,7 +40,8 @@ const PositionItem = memo(({
   closePrices,
   unpinSymbol,
   SymbolPrice,
-  SymbolVolume
+  SymbolVolume,
+  invertedMode
 }: PositionItemProps) => {
   const router = useRouter();
   const positions = usePositionStore((state) => state.positions);
@@ -66,7 +69,7 @@ const PositionItem = memo(({
           >
             {closePrices && closePrices.length > 0 && (
               <div className="absolute inset-y-0 left-0 right-[40%] opacity-50 pointer-events-none">
-                <MiniPriceChart closePrices={closePrices} />
+                <MiniPriceChart closePrices={closePrices} invertedMode={invertedMode} />
               </div>
             )}
             <div className="flex justify-between items-stretch gap-2 relative z-10">
@@ -75,17 +78,20 @@ const PositionItem = memo(({
                   <span
                     className={`font-bold flex-shrink-0 text-xs ${
                       positions[symbol] && positions[symbol].size > 0
-                        ? `animate-pulse ${positions[symbol].side === 'long' ? 'text-bullish' : 'text-bearish'}`
+                        ? `animate-pulse ${getInvertedColorClass(
+                            positions[symbol].side === 'long' ? 'text-bullish' : 'text-bearish',
+                            invertedMode
+                          )}`
                         : 'text-primary'
                     }`}
                     title={positions[symbol] && positions[symbol].size > 0
-                      ? `${positions[symbol].side === 'long' ? 'Long' : 'Short'} position volume: $${(Math.abs(positions[symbol].size * positions[symbol].currentPrice)).toFixed(2)}`
+                      ? `${getInvertedSide(positions[symbol].side === 'long' ? 'long' : 'short', invertedMode)} position volume: $${(Math.abs(positions[symbol].size * positions[symbol].currentPrice)).toFixed(2)}`
                       : `${symbol}/USD trading pair`
                     }
                   >
                     {positions[symbol] && positions[symbol].size > 0 && (
                       <>
-                        {positions[symbol].side.toUpperCase()}{' '}
+                        {getInvertedSide(positions[symbol].side.toUpperCase() as 'LONG' | 'SHORT', invertedMode)}{' '}
                       </>
                     )}
                     {symbol}/USD
@@ -103,7 +109,7 @@ const PositionItem = memo(({
             </div>
           </button>
           <div className="px-2 relative z-10">
-            <PositionPriceIndicator symbol={symbol} />
+            <PositionPriceIndicator symbol={symbol} invertedMode={invertedMode} />
           </div>
         </div>
         <div className="flex flex-col">

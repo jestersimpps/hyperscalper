@@ -19,3 +19,22 @@ export function downsampleCandles(candles: TransformedCandle[], targetPoints: nu
 
   return result;
 }
+
+export function invertCandles<T extends { time: number; open: number; high: number; low: number; close: number }>(
+  candles: T[],
+  invertedMode: boolean
+): T[] {
+  if (!invertedMode || candles.length === 0) {
+    return candles;
+  }
+
+  const referencePrice = candles[0].close;
+
+  return candles.map(candle => ({
+    ...candle,
+    open: 2 * referencePrice - candle.open,
+    high: 2 * referencePrice - candle.low,
+    low: 2 * referencePrice - candle.high,
+    close: 2 * referencePrice - candle.close,
+  }));
+}

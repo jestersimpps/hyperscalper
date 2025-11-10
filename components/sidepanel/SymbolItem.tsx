@@ -17,6 +17,7 @@ interface SymbolItemProps {
   unpinSymbol: (symbol: string) => void;
   SymbolPrice: React.ComponentType<{ symbol: string; pnlAnimationClass?: string; closePrices?: number[]; show24hChange?: boolean }>;
   SymbolVolume: React.ComponentType<{ symbol: string; volumeInMillions: string }>;
+  invertedMode: boolean;
 }
 
 const SymbolItem = memo(({
@@ -30,7 +31,8 @@ const SymbolItem = memo(({
   closePrices,
   unpinSymbol,
   SymbolPrice,
-  SymbolVolume
+  SymbolVolume,
+  invertedMode
 }: SymbolItemProps) => {
   const router = useRouter();
   const isSelected = selectedSymbol === symbol;
@@ -57,7 +59,7 @@ const SymbolItem = memo(({
           >
             {closePrices && closePrices.length > 0 && (
               <div className="absolute inset-y-0 left-0 right-[40%] opacity-50 pointer-events-none">
-                <MiniPriceChart closePrices={closePrices} />
+                <MiniPriceChart closePrices={closePrices} invertedMode={invertedMode} />
               </div>
             )}
             <div className="flex justify-between items-stretch gap-2 relative z-10">
@@ -82,7 +84,7 @@ const SymbolItem = memo(({
             </div>
           </button>
           <div className="px-2 relative z-10">
-            <PositionPriceIndicator symbol={symbol} />
+            <PositionPriceIndicator symbol={symbol} invertedMode={invertedMode} />
           </div>
         </div>
         <div className="flex flex-col">

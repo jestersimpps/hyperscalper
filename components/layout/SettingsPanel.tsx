@@ -1458,6 +1458,25 @@ export default function SettingsPanel() {
                       />
                     </label>
                   </div>
+                  <div className="p-3 bg-bg-primary border border-frame rounded">
+                    <label className="flex items-center justify-between cursor-pointer">
+                      <div>
+                        <span className="text-primary-muted text-xs font-mono block">INVERTED MODE</span>
+                        <span className="text-primary-muted text-[10px] block mt-1">
+                          Invert charts and reverse trading actions for down-market trading
+                        </span>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={Boolean(settings.chart?.invertedMode ?? false)}
+                        onChange={(e) => {
+                          const { updateSettings } = useSettingsStore.getState();
+                          updateSettings({ chart: { ...settings.chart, invertedMode: e.target.checked } });
+                        }}
+                        className="w-4 h-4 accent-primary cursor-pointer"
+                      />
+                    </label>
+                  </div>
                 </div>
               </div>
 

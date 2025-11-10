@@ -3,12 +3,14 @@ import { usePositionStore } from '@/stores/usePositionStore';
 import { useOrderStore } from '@/stores/useOrderStore';
 import { useSymbolMetaStore } from '@/stores/useSymbolMetaStore';
 import { useTradingStore } from '@/stores/useTradingStore';
+import { getInvertedColorClass } from '@/lib/inverted-utils';
 
 interface PositionPriceIndicatorProps {
   symbol: string;
+  invertedMode: boolean;
 }
 
-export const PositionPriceIndicator = memo(({ symbol }: PositionPriceIndicatorProps) => {
+export const PositionPriceIndicator = memo(({ symbol, invertedMode }: PositionPriceIndicatorProps) => {
   const position = usePositionStore((state) => state.positions[symbol]);
   const orders = useOrderStore((state) => state.orders[symbol]) || [];
   const closePosition = useTradingStore((state) => state.closePosition);
@@ -72,10 +74,19 @@ export const PositionPriceIndicator = memo(({ symbol }: PositionPriceIndicatorPr
   const tpPercent = tpPrice ? getPositionPercent(tpPrice) : null;
   const currentPercent = getPositionPercent(currentPrice);
 
+  const gradientClass = invertedMode
+    ? 'bg-gradient-to-r from-bullish/10 via-transparent to-bearish/10'
+    : 'bg-gradient-to-r from-bearish/10 via-transparent to-bullish/10';
+  const slColorClass = getInvertedColorClass('bg-bearish', invertedMode);
+  const tpColorClass = getInvertedColorClass('bg-bullish', invertedMode);
+  const closeButtonClass = invertedMode
+    ? 'bg-bullish/10 hover:bg-bullish/20 active:bg-bullish/30 text-bullish border-bullish'
+    : 'bg-bearish/10 hover:bg-bearish/20 active:bg-bearish/30 text-bearish border-bearish';
+
   return (
     <div className="w-full mt-1 pb-4 flex items-center gap-2">
       <div className="relative h-4 flex-1">
-        <div className="absolute inset-0 rounded-sm bg-gradient-to-r from-bearish/10 via-transparent to-bullish/10" />
+        <div className={`absolute inset-0 rounded-sm ${gradientClass}`} />
 
         <div className="absolute inset-x-0 top-1/2 h-[1px] bg-primary-muted/30" />
 
@@ -85,7 +96,7 @@ export const PositionPriceIndicator = memo(({ symbol }: PositionPriceIndicatorPr
             style={{ left: `${slPercent}%` }}
             title={`Stop Loss: $${formatPriceValue(slPrice!)}`}
           >
-            <div className="w-[2px] h-full bg-bearish" />
+            <div className={`w-[2px] h-full ${slColorClass}`} />
             <div className="absolute -bottom-3 left-0 text-[8px] text-primary-muted font-mono whitespace-nowrap pl-1">
               {formatPriceValue(slPrice!)}
             </div>
@@ -109,7 +120,7 @@ export const PositionPriceIndicator = memo(({ symbol }: PositionPriceIndicatorPr
             style={{ left: `${tpPercent}%` }}
             title={`Take Profit: $${formatPriceValue(tpPrice!)}`}
           >
-            <div className="w-[2px] h-full bg-bullish" />
+            <div className={`w-[2px] h-full ${tpColorClass}`} />
             <div className="absolute -bottom-3 right-0 text-[8px] text-primary-muted font-mono whitespace-nowrap pr-1">
               {formatPriceValue(tpPrice!)}
             </div>
@@ -134,7 +145,7 @@ export const PositionPriceIndicator = memo(({ symbol }: PositionPriceIndicatorPr
             console.error('Error closing position:', error);
           }
         }}
-        className="px-2 py-0.5 text-[9px] bg-bearish/10 hover:bg-bearish/20 active:bg-bearish/30 text-bearish border border-bearish rounded cursor-pointer transition-colors font-bold flex-shrink-0"
+        className={`px-2 py-0.5 text-[9px] ${closeButtonClass} border rounded cursor-pointer transition-colors font-bold flex-shrink-0`}
         title="Emergency close position (100%)"
       >
         CLOSE

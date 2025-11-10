@@ -11,6 +11,7 @@ import {
   ChartOptions
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
+import { getInvertedSignalType } from '@/lib/inverted-utils';
 
 ChartJS.register(
   CategoryScale,
@@ -23,9 +24,10 @@ ChartJS.register(
 interface MiniPriceChartProps {
   closePrices: number[];
   signalType?: 'bullish' | 'bearish';
+  invertedMode?: boolean;
 }
 
-function MiniPriceChart({ closePrices, signalType }: MiniPriceChartProps) {
+function MiniPriceChart({ closePrices, signalType, invertedMode = false }: MiniPriceChartProps) {
   const data = useMemo(() => {
     if (closePrices.length === 0) {
       return {
@@ -35,22 +37,33 @@ function MiniPriceChart({ closePrices, signalType }: MiniPriceChartProps) {
     }
 
     const labels = closePrices.map(() => '');
-    const startPrice = closePrices[0];
-    const endPrice = closePrices[closePrices.length - 1];
+
+    // Invert price data if in inverted mode
+    let displayPrices = closePrices;
+    if (invertedMode) {
+      const referencePrice = closePrices[0];
+      displayPrices = closePrices.map(price => 2 * referencePrice - price);
+    }
+
+    const startPrice = displayPrices[0];
+    const endPrice = displayPrices[displayPrices.length - 1];
     const isPriceUp = endPrice > startPrice;
-    const lineColor = signalType
-      ? (signalType === 'bullish' ? 'rgba(34, 197, 94, 1)' : 'rgba(239, 68, 68, 1)')
+
+    const displaySignalType = signalType ? getInvertedSignalType(signalType, invertedMode) : undefined;
+
+    const lineColor = displaySignalType
+      ? (displaySignalType === 'bullish' ? 'rgba(34, 197, 94, 1)' : 'rgba(239, 68, 68, 1)')
       : (isPriceUp ? 'rgba(34, 197, 94, 1)' : 'rgba(239, 68, 68, 1)');
 
-    const fillColor = signalType
-      ? (signalType === 'bullish' ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)')
+    const fillColor = displaySignalType
+      ? (displaySignalType === 'bullish' ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)')
       : (isPriceUp ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)');
 
     return {
       labels,
       datasets: [
         {
-          data: closePrices,
+          data: displayPrices,
           borderColor: lineColor,
           backgroundColor: fillColor,
           fill: true,
@@ -61,7 +74,7 @@ function MiniPriceChart({ closePrices, signalType }: MiniPriceChartProps) {
         }
       ]
     };
-  }, [closePrices, signalType]);
+  }, [closePrices, signalType, invertedMode]);
 
   const options: ChartOptions<'line'> = useMemo(() => ({
     responsive: true,

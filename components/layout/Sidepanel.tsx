@@ -23,6 +23,12 @@ import MiniPriceChart from '@/components/scanner/MiniPriceChart';
 import PositionItem from '@/components/sidepanel/PositionItem';
 import SymbolItem from '@/components/sidepanel/SymbolItem';
 import { formatPnlSchmeckles } from '@/lib/format-utils';
+import {
+  getInvertedColorClass,
+  getInvertedAnimationClass,
+  getInvertedArrow,
+  shouldInvertCondition
+} from '@/lib/inverted-utils';
 import type { TimeInterval } from '@/types';
 
 interface SidepanelProps {
@@ -41,6 +47,7 @@ const SymbolPrice = memo(({ symbol, pnlAnimationClass, closePrices, show24hChang
   const price = useSidebarPricesStore((state) => state.prices[symbol]);
   const position = usePositionStore((state) => state.positions[symbol]);
   const schmecklesMode = useSettingsStore((state) => state.settings.chart.schmecklesMode);
+  const invertedMode = useSettingsStore((state) => state.settings.chart.invertedMode);
 
   const { priceDirection } = usePriceVolumeAnimation(symbol, closePrices, undefined);
 
@@ -75,17 +82,19 @@ const SymbolPrice = memo(({ symbol, pnlAnimationClass, closePrices, show24hChang
     priceTrend = last5[last5.length - 1] > last5[0] ? 'up' : 'down';
   }
 
-  const priceColorClass = priceTrend === 'up'
+  const basePriceColorClass = priceTrend === 'up'
     ? 'text-bullish'
     : priceTrend === 'down'
     ? 'text-bearish'
     : 'text-primary-muted';
+  const priceColorClass = getInvertedColorClass(basePriceColorClass, invertedMode);
 
-  const priceBlinkClass = priceDirection === 'up'
+  const basePriceBlinkClass = priceDirection === 'up'
     ? 'animate-blink-green'
     : priceDirection === 'down'
     ? 'animate-blink-red'
     : '';
+  const priceBlinkClass = getInvertedAnimationClass(basePriceBlinkClass, invertedMode);
 
   return (
     <div className="flex flex-col text-xs font-mono text-right flex-shrink-0 w-24 tabular-nums">
@@ -110,14 +119,16 @@ const SymbolVolume = memo(({ symbol, volumeInMillions }: SymbolVolumeProps) => {
   const topSymbols = useTopSymbolsStore((state) => state.symbols);
   const topSymbolData = topSymbols.find(s => s.name === symbol);
   const volume = topSymbolData?.volume;
+  const invertedMode = useSettingsStore((state) => state.settings.chart.invertedMode);
 
   const { volumeDirection } = usePriceVolumeAnimation(symbol, undefined, volume);
 
-  const volumeBlinkClass = volumeDirection === 'up'
+  const baseVolumeBlinkClass = volumeDirection === 'up'
     ? 'animate-blink-green'
     : volumeDirection === 'down'
     ? 'animate-blink-red'
     : '';
+  const volumeBlinkClass = getInvertedAnimationClass(baseVolumeBlinkClass, invertedMode);
 
   return (
     <span
@@ -179,6 +190,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
 
   const { results, status, runScan, startAutoScanWithDelay, stopAutoScan } = useScannerStore();
   const { settings, pinSymbol, unpinSymbol } = useSettingsStore();
+  const invertedMode = settings.chart.invertedMode;
   const topSymbols = useTopSymbolsStore((state) => state.symbols);
   const isLoadingTopSymbols = useTopSymbolsStore((state) => state.isLoading);
   const startAutoRefresh = useTopSymbolsStore((state) => state.startAutoRefresh);
@@ -508,6 +520,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                               <MiniPriceChart
                                 closePrices={symbolResults[0].closePrices}
                                 signalType={symbolResults[0].signalType}
+                                invertedMode={invertedMode}
                               />
                             </div>
                           )}
@@ -517,9 +530,12 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
 
                           <div className="px-2 pb-2 space-y-1 relative z-10">
                             {sortedTimeframes.map(([timeframe, signals]) => {
-                              const arrow = signals.signalType === 'bullish' ? '▲' : '▼';
-                              const arrowColor = signals.signalType === 'bullish' ? 'text-bullish' : 'text-bearish';
-                              const badgeBg = signals.signalType === 'bullish' ? 'bg-bullish' : 'bg-bearish';
+                              const baseArrow = signals.signalType === 'bullish' ? '▲' : '▼';
+                              const arrow = getInvertedArrow(baseArrow as '▲' | '▼', invertedMode);
+                              const baseArrowColor = signals.signalType === 'bullish' ? 'text-bullish' : 'text-bearish';
+                              const arrowColor = getInvertedColorClass(baseArrowColor, invertedMode);
+                              const baseBadgeBg = signals.signalType === 'bullish' ? 'bg-bullish' : 'bg-bearish';
+                              const badgeBg = getInvertedColorClass(baseBadgeBg, invertedMode);
 
                               return (
                                 <div key={timeframe} className="flex items-center gap-1 text-[10px]">
@@ -544,11 +560,19 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                                     {signals.channel && (
                                       <span className={`${badgeBg} text-bg-primary px-1.5 py-0.5 rounded font-bold`}>{signals.channel}CH</span>
                                     )}
-                                    {signals.sr && (
-                                      <span className={`${signals.sr === 'support' ? 'bg-bullish' : 'bg-bearish'} text-bg-primary px-1.5 py-0.5 rounded font-bold`} title={`${signals.sr === 'support' ? 'Support' : 'Resistance'} level at $${signals.srPrice?.toFixed(2)}: ${signals.srDistance?.toFixed(2)}% away, ${signals.srTouches} touches`}>
-                                        {signals.sr === 'support' ? 'S' : 'R'} ${signals.srPrice?.toFixed(2)} {signals.srDistance?.toFixed(1)}% ({signals.srTouches})
-                                      </span>
-                                    )}
+                                    {signals.sr && (() => {
+                                      const baseSrBg = signals.sr === 'support' ? 'bg-bullish' : 'bg-bearish';
+                                      const srBg = getInvertedColorClass(baseSrBg, invertedMode);
+                                      const displaySrType = invertedMode
+                                        ? (signals.sr === 'support' ? 'resistance' : 'support')
+                                        : signals.sr;
+                                      const displayLabel = displaySrType === 'support' ? 'S' : 'R';
+                                      return (
+                                        <span className={`${srBg} text-bg-primary px-1.5 py-0.5 rounded font-bold`} title={`${displaySrType === 'support' ? 'Support' : 'Resistance'} level at $${signals.srPrice?.toFixed(2)}: ${signals.srDistance?.toFixed(2)}% away, ${signals.srTouches} touches`}>
+                                          {displayLabel} ${signals.srPrice?.toFixed(2)} {signals.srDistance?.toFixed(1)}% ({signals.srTouches})
+                                        </span>
+                                      );
+                                    })()}
                                   </div>
                                 </div>
                               );
@@ -559,7 +583,8 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                                 <span className="text-primary-muted font-mono">DIV:</span>
                                 <div className="flex gap-1 flex-wrap">
                                   {divergenceSignals.map((div, idx) => {
-                                    const badgeBg = div.signalType === 'bullish' ? 'bg-bullish' : 'bg-bearish';
+                                    const baseBadgeBg = div.signalType === 'bullish' ? 'bg-bullish' : 'bg-bearish';
+                                    const badgeBg = getInvertedColorClass(baseBadgeBg, invertedMode);
                                     return (
                                       <span key={idx} className={`${badgeBg} text-bg-primary px-1.5 py-0.5 rounded font-bold`}>
                                         {div.isHidden ? 'H-' : ''}{div.variant}
@@ -648,6 +673,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                       unpinSymbol={unpinSymbol}
                       SymbolPrice={SymbolPrice}
                       SymbolVolume={SymbolVolume}
+                      invertedMode={invertedMode}
                     />
                   );
                 })
@@ -770,6 +796,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                       unpinSymbol={unpinSymbol}
                       SymbolPrice={SymbolPrice}
                       SymbolVolume={SymbolVolume}
+                      invertedMode={invertedMode}
                     />
                   );
                 })

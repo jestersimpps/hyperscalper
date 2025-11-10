@@ -35,6 +35,7 @@ export default function AppShell({ selectedSymbol, children }: AppShellProps) {
   const decimals = useMemo(() => getDecimals(coin), [getDecimals, coin]);
   const orderSettings = useSettingsStore((state) => state.settings.orders);
   const scannerEnabled = useSettingsStore((state) => state.settings.scanner.enabled);
+  const invertedMode = useSettingsStore((state) => state.settings.chart.invertedMode);
   const togglePanel = useSettingsStore((state) => state.togglePanel);
 
   const candleKey = `${coin}-1m`;
@@ -52,7 +53,8 @@ export default function AppShell({ selectedSymbol, children }: AppShellProps) {
   const cancelAllOrders = useTradingStore((state) => state.cancelAllOrders);
 
   const handleBuyCloud = useCallback(async () => {
-    playNotificationSound('bullish', 'cloud');
+    const actualSide = invertedMode ? 'bearish' : 'bullish';
+    playNotificationSound(actualSide, 'cloud');
     try {
       if (candles.length < 5) {
         return;
@@ -62,7 +64,8 @@ export default function AppShell({ selectedSymbol, children }: AppShellProps) {
       const latestCandle = candles[candles.length - 1];
       const currentPrice = latestCandle.close;
 
-      await buyCloud({
+      const tradeFn = invertedMode ? sellCloud : buyCloud;
+      await tradeFn({
         symbol: coin,
         currentPrice,
         priceInterval,
@@ -71,10 +74,11 @@ export default function AppShell({ selectedSymbol, children }: AppShellProps) {
     } catch (error) {
       // Error executing buy cloud
     }
-  }, [coin, candles, orderSettings.cloudPercentage, buyCloud]);
+  }, [coin, candles, orderSettings.cloudPercentage, buyCloud, sellCloud, invertedMode]);
 
   const handleSellCloud = useCallback(async () => {
-    playNotificationSound('bearish', 'cloud');
+    const actualSide = invertedMode ? 'bullish' : 'bearish';
+    playNotificationSound(actualSide, 'cloud');
     try {
       if (candles.length < 5) {
         return;
@@ -84,7 +88,8 @@ export default function AppShell({ selectedSymbol, children }: AppShellProps) {
       const latestCandle = candles[candles.length - 1];
       const currentPrice = latestCandle.close;
 
-      await sellCloud({
+      const tradeFn = invertedMode ? buyCloud : sellCloud;
+      await tradeFn({
         symbol: coin,
         currentPrice,
         priceInterval,
@@ -93,10 +98,11 @@ export default function AppShell({ selectedSymbol, children }: AppShellProps) {
     } catch (error) {
       // Error executing sell cloud
     }
-  }, [coin, candles, orderSettings.cloudPercentage, sellCloud]);
+  }, [coin, candles, orderSettings.cloudPercentage, sellCloud, buyCloud, invertedMode]);
 
   const handleSmLong = useCallback(async () => {
-    playNotificationSound('bullish', 'standard');
+    const actualSide = invertedMode ? 'bearish' : 'bullish';
+    playNotificationSound(actualSide, 'standard');
     try {
       if (candles.length < 5) {
         return;
@@ -106,7 +112,8 @@ export default function AppShell({ selectedSymbol, children }: AppShellProps) {
       const latestCandle = candles[candles.length - 1];
       const currentPrice = latestCandle.close;
 
-      await smLong({
+      const tradeFn = invertedMode ? smShort : smLong;
+      await tradeFn({
         symbol: coin,
         currentPrice,
         priceInterval,
@@ -115,10 +122,11 @@ export default function AppShell({ selectedSymbol, children }: AppShellProps) {
     } catch (error) {
       // Error executing sm long
     }
-  }, [coin, candles, orderSettings.smallPercentage, smLong]);
+  }, [coin, candles, orderSettings.smallPercentage, smLong, smShort, invertedMode]);
 
   const handleSmShort = useCallback(async () => {
-    playNotificationSound('bearish', 'standard');
+    const actualSide = invertedMode ? 'bullish' : 'bearish';
+    playNotificationSound(actualSide, 'standard');
     try {
       if (candles.length < 5) {
         return;
@@ -128,7 +136,8 @@ export default function AppShell({ selectedSymbol, children }: AppShellProps) {
       const latestCandle = candles[candles.length - 1];
       const currentPrice = latestCandle.close;
 
-      await smShort({
+      const tradeFn = invertedMode ? smLong : smShort;
+      await tradeFn({
         symbol: coin,
         currentPrice,
         priceInterval,
@@ -137,10 +146,11 @@ export default function AppShell({ selectedSymbol, children }: AppShellProps) {
     } catch (error) {
       // Error executing sm short
     }
-  }, [coin, candles, orderSettings.smallPercentage, smShort]);
+  }, [coin, candles, orderSettings.smallPercentage, smShort, smLong, invertedMode]);
 
   const handleBigLong = useCallback(async () => {
-    playNotificationSound('bullish', 'big');
+    const actualSide = invertedMode ? 'bearish' : 'bullish';
+    playNotificationSound(actualSide, 'big');
     try {
       if (candles.length < 5) {
         return;
@@ -150,7 +160,8 @@ export default function AppShell({ selectedSymbol, children }: AppShellProps) {
       const latestCandle = candles[candles.length - 1];
       const currentPrice = latestCandle.close;
 
-      await bigLong({
+      const tradeFn = invertedMode ? bigShort : bigLong;
+      await tradeFn({
         symbol: coin,
         currentPrice,
         priceInterval,
@@ -159,10 +170,11 @@ export default function AppShell({ selectedSymbol, children }: AppShellProps) {
     } catch (error) {
       // Error executing big long
     }
-  }, [coin, candles, orderSettings.bigPercentage, bigLong]);
+  }, [coin, candles, orderSettings.bigPercentage, bigLong, bigShort, invertedMode]);
 
   const handleBigShort = useCallback(async () => {
-    playNotificationSound('bearish', 'big');
+    const actualSide = invertedMode ? 'bullish' : 'bearish';
+    playNotificationSound(actualSide, 'big');
     try {
       if (candles.length < 5) {
         return;
@@ -172,7 +184,8 @@ export default function AppShell({ selectedSymbol, children }: AppShellProps) {
       const latestCandle = candles[candles.length - 1];
       const currentPrice = latestCandle.close;
 
-      await bigShort({
+      const tradeFn = invertedMode ? bigLong : bigShort;
+      await tradeFn({
         symbol: coin,
         currentPrice,
         priceInterval,
@@ -181,7 +194,7 @@ export default function AppShell({ selectedSymbol, children }: AppShellProps) {
     } catch (error) {
       // Error executing big short
     }
-  }, [coin, candles, orderSettings.bigPercentage, bigShort]);
+  }, [coin, candles, orderSettings.bigPercentage, bigShort, bigLong, invertedMode]);
 
   const handleClose25 = useCallback(async () => {
     try {
