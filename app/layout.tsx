@@ -5,7 +5,7 @@ import ThemeApplier from "@/components/providers/ThemeApplier";
 import SettingsPanel from "@/components/layout/SettingsPanel";
 import { CredentialsProvider } from "@/lib/context/credentials-context";
 import { RequireCredentials } from "@/components/auth/RequireCredentials";
-import { ServiceProvider } from "@/components/providers/ServiceProvider";
+import { ConditionalServiceProvider } from "@/components/providers/ConditionalServiceProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -37,9 +37,9 @@ export default function RootLayout({
           <ThemeApplier />
           <SettingsPanel />
           <RequireCredentials>
-            <ServiceProvider>
+            <ConditionalServiceProvider>
               {children}
-            </ServiceProvider>
+            </ConditionalServiceProvider>
           </RequireCredentials>
         </CredentialsProvider>
       </body>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import ScalpingChart from '@/components/ScalpingChart';
 import { useSymbolMetaStore } from '@/stores/useSymbolMetaStore';
 import { useCandleStore } from '@/stores/useCandleStore';
@@ -8,25 +9,36 @@ import { usePositionStore } from '@/stores/usePositionStore';
 import { useOrderStore } from '@/stores/useOrderStore';
 import { getCandleTimeWindow } from '@/lib/time-utils';
 import { DEFAULT_CANDLE_COUNT } from '@/lib/constants';
+import { SymbolDropdown } from '@/components/chart-popup/SymbolDropdown';
+import { useLocalStorageSync } from '@/hooks/useLocalStorageSync';
 import type { TimeInterval, CandleData } from '@/types';
 
 interface ChartPopupViewProps {
   coin: string;
+  address: string;
 }
 
 const EMPTY_CANDLES: CandleData[] = [];
 
-export default function ChartPopupView({ coin }: ChartPopupViewProps) {
+export default function ChartPopupView({ coin, address }: ChartPopupViewProps) {
+  const router = useRouter();
   const [currentPrice, setCurrentPrice] = useState(0);
   const [selectedTimeframe, setSelectedTimeframe] = useState<'1m' | '5m' | '15m' | '1h'>('1m');
   const [showStochastic, setShowStochastic] = useState(true);
   const getDecimals = useSymbolMetaStore((state) => state.getDecimals);
   const decimals = useMemo(() => getDecimals(coin), [getDecimals, coin]);
 
+  useLocalStorageSync();
+
+  const handleSymbolChange = (newSymbol: string) => {
+    router.replace(`/${address}/chart-popup/${newSymbol}`);
+  };
+
   const candleService = useCandleStore((state) => state.service);
   const fetchCandles = useCandleStore((state) => state.fetchCandles);
   const subscribeToCandles = useCandleStore((state) => state.subscribeToCandles);
   const unsubscribeFromCandles = useCandleStore((state) => state.unsubscribeFromCandles);
+  const clearCandles = useCandleStore((state) => state.clearCandles);
 
   const position = usePositionStore((state) => state.positions[coin]);
   const orders = useOrderStore((state) => state.orders[coin]) || [];
@@ -81,9 +93,12 @@ export default function ChartPopupView({ coin }: ChartPopupViewProps) {
         {/* Header with Timeframe Selector */}
         <div className="terminal-border p-2 flex-none">
           <div className="flex justify-between items-center">
-            <span className="text-primary text-lg font-bold tracking-wider">
-              {coin}/USD {currentPrice > 0 && `- $${currentPrice.toFixed(decimals.price)}`}
-            </span>
+            <SymbolDropdown
+              currentSymbol={coin}
+              onSymbolChange={handleSymbolChange}
+              currentPrice={currentPrice}
+              decimals={decimals.price}
+            />
             <div className="flex gap-1">
               {(['1m', '5m', '15m', '1h'] as const).map((tf) => (
                 <button

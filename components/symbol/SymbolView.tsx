@@ -49,6 +49,7 @@ function SymbolView({ coin }: SymbolViewProps) {
   const fetchCandles = useCandleStore((state) => state.fetchCandles);
   const subscribeToCandles = useCandleStore((state) => state.subscribeToCandles);
   const unsubscribeFromCandles = useCandleStore((state) => state.unsubscribeFromCandles);
+  const clearCandles = useCandleStore((state) => state.clearCandles);
   const candleService = useCandleStore((state) => state.service);
 
   const getDecimals = useSymbolMetaStore((state) => state.getDecimals);
@@ -405,20 +406,27 @@ function SymbolView({ coin }: SymbolViewProps) {
 
   const handleRefreshCharts = useCallback(async () => {
     try {
-      console.log(`[SymbolView] Refreshing 1m chart data for ${coin}`);
+      console.log(`[SymbolView] Refreshing chart data for ${coin}`);
 
-      unsubscribeFromCandles(coin, '1m');
+      const intervals: TimeInterval[] = ['1m', '5m', '15m', '1h'];
 
-      const { startTime, endTime } = getCandleTimeWindow('1m', DEFAULT_CANDLE_COUNT);
-      await fetchCandles(coin, '1m', startTime, endTime);
+      intervals.forEach((interval) => {
+        unsubscribeFromCandles(coin, interval);
+      });
 
-      subscribeToCandles(coin, '1m');
+      clearCandles(coin);
+
+      for (const interval of intervals) {
+        const { startTime, endTime } = getCandleTimeWindow(interval, DEFAULT_CANDLE_COUNT);
+        await fetchCandles(coin, interval, startTime, endTime);
+        subscribeToCandles(coin, interval);
+      }
 
       console.log(`[SymbolView] Chart refresh complete for ${coin}`);
     } catch (error) {
       console.error('[SymbolView] Error refreshing charts:', error);
     }
-  }, [coin, unsubscribeFromCandles, fetchCandles, subscribeToCandles]);
+  }, [coin, unsubscribeFromCandles, fetchCandles, subscribeToCandles, clearCandles]);
 
   const handleAutoZoom = useCallback(() => {
     try {

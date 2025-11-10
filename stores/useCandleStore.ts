@@ -8,7 +8,6 @@ import { HyperliquidService } from '@/lib/services/hyperliquid.service';
 import { downsampleCandles } from '@/lib/candle-utils';
 import type { TransformedCandle } from '@/lib/services/types';
 import { INTERVAL_TO_MS } from '@/lib/time-utils';
-import { useGlobalPollingStore } from '@/stores/useGlobalPollingStore';
 
 interface CandleStore {
   candles: Record<string, CandleData[]>;
@@ -17,16 +16,15 @@ interface CandleStore {
   subscriptions: Record<string, { subscriptionId: string; cleanup: () => void; refCount: number }>;
   wsService: ExchangeWebSocketService | null;
   service: HyperliquidService | null;
-  lastFetchTimes: Record<string, number>;
 
   setService: (service: HyperliquidService) => void;
   fetchCandles: (coin: string, interval: TimeInterval, startTime: number, endTime: number) => Promise<void>;
   subscribeToCandles: (coin: string, interval: TimeInterval) => void;
   unsubscribeFromCandles: (coin: string, interval: TimeInterval) => void;
+  clearCandles: (coin: string, interval?: TimeInterval) => void;
   cleanup: () => void;
   getCandlesSync: (coin: string, interval: TimeInterval) => TransformedCandle[] | null;
   getClosePrices: (coin: string, interval: TimeInterval, count: number) => number[] | null;
-  isCacheFresh: (coin: string, interval: TimeInterval, maxAgeMs?: number) => boolean;
 }
 
 const getCandleKey = (coin: string, interval: string): string => `${coin}-${interval}`;
@@ -38,7 +36,6 @@ export const useCandleStore = create<CandleStore>((set, get) => ({
   subscriptions: {},
   wsService: null,
   service: null,
-  lastFetchTimes: {},
 
   setService: (service: HyperliquidService) => {
     set({ service });
@@ -46,7 +43,7 @@ export const useCandleStore = create<CandleStore>((set, get) => ({
 
   fetchCandles: async (coin, interval, startTime, endTime) => {
     const key = getCandleKey(coin, interval);
-    const { loading, candles, service, isCacheFresh } = get();
+    const { loading, candles, service } = get();
 
     if (!service) {
       return;
@@ -56,22 +53,11 @@ export const useCandleStore = create<CandleStore>((set, get) => ({
       return;
     }
 
-    if (interval === '1m') {
-      const isGlobalPolling = useGlobalPollingStore.getState().isPolling;
-
-      if (isGlobalPolling && candles[key] && candles[key].length > 0) {
-        return;
-      }
-    }
-
-    if (candles[key] && candles[key].length > 0 && isCacheFresh(coin, interval)) {
-      set((state) => ({
-        lastFetchTimes: { ...state.lastFetchTimes, [key]: Date.now() }
-      }));
+    const existingCandles = candles[key];
+    if (existingCandles && existingCandles.length >= 10) {
       return;
     }
 
-    // Always fetch last 1200 candles, no merging needed
     const intervalMs = INTERVAL_TO_MS[interval];
     const actualEndTime = Date.now();
     const actualStartTime = actualEndTime - (1200 * intervalMs);
@@ -94,7 +80,6 @@ export const useCandleStore = create<CandleStore>((set, get) => ({
       set((state) => ({
         candles: { ...state.candles, [key]: formattedData },
         loading: { ...state.loading, [key]: false },
-        lastFetchTimes: { ...state.lastFetchTimes, [key]: Date.now() },
       }));
     } catch (error) {
       set((state) => ({
@@ -213,6 +198,34 @@ export const useCandleStore = create<CandleStore>((set, get) => ({
     set({ subscriptions: newSubscriptions });
   },
 
+  clearCandles: (coin, interval?) => {
+    const { candles, loading, errors } = get();
+    const newCandles = { ...candles };
+    const newLoading = { ...loading };
+    const newErrors = { ...errors };
+
+    if (interval) {
+      const key = getCandleKey(coin, interval);
+      delete newCandles[key];
+      delete newLoading[key];
+      delete newErrors[key];
+    } else {
+      const intervals: TimeInterval[] = ['1m', '5m', '15m', '1h'];
+      intervals.forEach(int => {
+        const key = getCandleKey(coin, int);
+        delete newCandles[key];
+        delete newLoading[key];
+        delete newErrors[key];
+      });
+    }
+
+    set({
+      candles: newCandles,
+      loading: newLoading,
+      errors: newErrors,
+    });
+  },
+
   cleanup: () => {
     const { subscriptions, wsService } = get();
 
@@ -252,31 +265,5 @@ export const useCandleStore = create<CandleStore>((set, get) => ({
 
     const closePrices = downsampleCandles(cachedCandles as TransformedCandle[], count);
     return closePrices;
-  },
-
-  isCacheFresh: (coin, interval, maxAgeMs?: number) => {
-    const key = getCandleKey(coin, interval);
-    const { candles, lastFetchTimes } = get();
-
-    const cachedCandles = candles[key];
-    const lastFetchTime = lastFetchTimes[key];
-
-    if (!cachedCandles || cachedCandles.length === 0) {
-      return false;
-    }
-
-    if (!lastFetchTime) {
-      return false;
-    }
-
-    let cacheAgeMs = maxAgeMs;
-    if (!cacheAgeMs) {
-      const { useSettingsStore } = require('./useSettingsStore');
-      const cacheDurationMinutes = useSettingsStore.getState().settings.scanner.candleCacheDuration;
-      cacheAgeMs = cacheDurationMinutes * 60 * 1000;
-    }
-
-    const age = Date.now() - lastFetchTime;
-    return age < cacheAgeMs;
   },
 }));

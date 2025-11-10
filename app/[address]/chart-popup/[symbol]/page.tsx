@@ -10,5 +10,5 @@ interface ChartPopupPageProps {
 export default async function ChartPopupPage({ params }: ChartPopupPageProps) {
   const { address, symbol } = await params;
 
-  return <ChartPopupView coin={symbol} />;
+  return <ChartPopupView coin={symbol} address={address} />;
 }
