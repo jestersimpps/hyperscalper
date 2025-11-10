@@ -6,9 +6,11 @@ import { useSettingsStore } from '@/stores/useSettingsStore';
 
 interface TerminalHeaderProps {
   coin: string;
+  onRefreshCharts?: () => void;
+  onAutoZoom?: () => void;
 }
 
-export default function TerminalHeader({ coin }: TerminalHeaderProps) {
+export default function TerminalHeader({ coin, onRefreshCharts, onAutoZoom }: TerminalHeaderProps) {
   const [currentTime, setCurrentTime] = useState('');
 
   const streams = useWebSocketStatusStore((state) => state.streams);
@@ -82,9 +84,26 @@ export default function TerminalHeader({ coin }: TerminalHeaderProps) {
           <div className="flex items-center gap-3 px-2 py-1 terminal-border">
             {renderStreamIndicator('candles', 'CANDLES')}
             {renderStreamIndicator('trades', 'TRADES')}
-            {renderStreamIndicator('orderbook', 'BOOK')}
             {renderStreamIndicator('prices', 'PRICES')}
           </div>
+          {onRefreshCharts && (
+            <button
+              onClick={onRefreshCharts}
+              className="px-2 py-1 text-xs bg-primary/10 hover:bg-primary/20 active:bg-primary/30 active:scale-95 text-primary border border-primary rounded cursor-pointer transition-all"
+              title="Refresh 1m chart data and resubscribe to websocket"
+            >
+              ↻ REFRESH
+            </button>
+          )}
+          {onAutoZoom && (
+            <button
+              onClick={onAutoZoom}
+              className="px-2 py-1 text-xs bg-primary/10 hover:bg-primary/20 active:bg-primary/30 active:scale-95 text-primary border border-primary rounded cursor-pointer transition-all"
+              title="Auto zoom chart to fit all data"
+            >
+              ⊡ FIT
+            </button>
+          )}
           <button
             onClick={toggleMultiChartView}
             className={`px-3 py-1.5 text-[10px] font-mono uppercase tracking-wider transition-all rounded-sm ${

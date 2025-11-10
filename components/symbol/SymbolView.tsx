@@ -26,6 +26,7 @@ interface SymbolViewProps {
 function SymbolView({ coin }: SymbolViewProps) {
   const [currentPrice, setCurrentPrice] = useState(0);
   const [newTradeKeys, setNewTradeKeys] = useState<Set<string>>(new Set());
+  const chartRef = useRef<any>(null);
 
   const trades = useTradesStore((state) => state.trades[coin]) || [];
   const subscribeToTrades = useTradesStore((state) => state.subscribeToTrades);
@@ -402,6 +403,34 @@ function SymbolView({ coin }: SymbolViewProps) {
     }
   }, [coin, moveStopLoss]);
 
+  const handleRefreshCharts = useCallback(async () => {
+    try {
+      console.log(`[SymbolView] Refreshing 1m chart data for ${coin}`);
+
+      unsubscribeFromCandles(coin, '1m');
+
+      const { startTime, endTime } = getCandleTimeWindow('1m', DEFAULT_CANDLE_COUNT);
+      await fetchCandles(coin, '1m', startTime, endTime);
+
+      subscribeToCandles(coin, '1m');
+
+      console.log(`[SymbolView] Chart refresh complete for ${coin}`);
+    } catch (error) {
+      console.error('[SymbolView] Error refreshing charts:', error);
+    }
+  }, [coin, unsubscribeFromCandles, fetchCandles, subscribeToCandles]);
+
+  const handleAutoZoom = useCallback(() => {
+    try {
+      if (chartRef.current && chartRef.current.timeScale) {
+        chartRef.current.timeScale().fitContent();
+        console.log('[SymbolView] Auto zoom applied');
+      }
+    } catch (error) {
+      console.error('[SymbolView] Error applying auto zoom:', error);
+    }
+  }, []);
+
   const keyBindings: KeyBinding[] = [
     { key: 'q', action: handleBuyCloud, description: 'Buy Cloud' },
     { key: 'w', action: handleSellCloud, description: 'Sell Cloud' },
@@ -427,7 +456,11 @@ function SymbolView({ coin }: SymbolViewProps) {
     <div className="h-full flex flex-col bg-bg-primary">
       <div className="flex flex-col h-full w-full p-2 gap-2">
         {/* Header */}
-        <TerminalHeader coin={coin} />
+        <TerminalHeader
+          coin={coin}
+          onRefreshCharts={handleRefreshCharts}
+          onAutoZoom={handleAutoZoom}
+        />
 
         {/* Chart View - Single or Multi-Timeframe */}
         {isMultiChartView ? (
@@ -442,6 +475,7 @@ function SymbolView({ coin }: SymbolViewProps) {
                 coin={coin}
                 interval="1m"
                 onPriceUpdate={setCurrentPrice}
+                onChartReady={(chart) => { chartRef.current = chart; }}
                 position={position}
                 orders={orders}
               />
