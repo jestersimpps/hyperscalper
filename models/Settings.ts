@@ -84,6 +84,7 @@ export interface DivergenceScannerConfig {
   scanHidden: boolean;
   pivotStrength: number;
   timeframes: ('1m' | '5m')[];
+  minStrength: number;
 }
 
 export interface MacdReversalScannerConfig {
@@ -263,6 +264,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
       scanHidden: false,
       pivotStrength: 3,
       timeframes: ['1m', '5m'],
+      minStrength: 30,
     },
     macdReversalScanner: {
       enabled: false,

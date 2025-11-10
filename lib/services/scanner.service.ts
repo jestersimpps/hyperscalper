@@ -31,6 +31,7 @@ import {
   detectChannels,
   detectPivots,
   detectStochasticPivots,
+  detectRSIPivots,
   detectDivergence,
   calculateTrendlines
 } from '@/lib/indicators';
@@ -572,10 +573,12 @@ export class ScannerService {
         }
 
         const pricePivots = detectPivots(candles as any, config.pivotStrength);
-        const stochData = calculateStochastic(candles as any, 14, 3, 3);
-        const stochPivots = detectStochasticPivots(stochData, candles as any, config.pivotStrength);
 
-        const divergences = detectDivergence(pricePivots, stochPivots, candles as any);
+        const closePricesForRsi = candles.map(c => c.close);
+        const rsiData = calculateRSI(closePricesForRsi, 14);
+        const rsiPivots = detectRSIPivots(rsiData, candles as any, config.pivotStrength);
+
+        const divergences = detectDivergence(pricePivots, rsiPivots, candles as any);
 
         if (divergences.length > 0) {
           const recentDivergence = divergences[divergences.length - 1];
@@ -586,8 +589,24 @@ export class ScannerService {
             (config.scanHidden && (recentDivergence.type === 'hidden-bullish' || recentDivergence.type === 'hidden-bearish'));
 
           if (shouldReport) {
-            const signalType: 'bullish' | 'bearish' =
-              recentDivergence.type === 'bullish' || recentDivergence.type === 'hidden-bullish' ? 'bullish' : 'bearish';
+            const minStrength = (config as any).minStrength ?? 30;
+            const strength = recentDivergence.strength ?? 0;
+
+            if (strength < minStrength) {
+              continue;
+            }
+
+            const isBullish = recentDivergence.type === 'bullish' || recentDivergence.type === 'hidden-bullish';
+            const endRsi = recentDivergence.endRsiValue;
+
+            if (isBullish && recentDivergence.type === 'bullish' && endRsi >= 40) {
+              continue;
+            }
+            if (!isBullish && recentDivergence.type === 'bearish' && endRsi <= 60) {
+              continue;
+            }
+
+            const signalType: 'bullish' | 'bearish' = isBullish ? 'bullish' : 'bearish';
 
             const divergenceValue: DivergenceValue = {
               type: recentDivergence.type,
@@ -595,13 +614,13 @@ export class ScannerService {
               endTime: recentDivergence.endTime,
               startPriceValue: recentDivergence.startPriceValue,
               endPriceValue: recentDivergence.endPriceValue,
-              startStochValue: recentDivergence.startStochValue,
-              endStochValue: recentDivergence.endStochValue,
-              variant: 'medium',
+              startRsiValue: recentDivergence.startRsiValue,
+              endRsiValue: recentDivergence.endRsiValue,
+              strength: recentDivergence.strength,
             };
 
             const typeStr = recentDivergence.type.replace('-', ' ');
-            const description = `${typeStr} divergence detected on ${timeframe}`;
+            const description = `${typeStr} divergence (strength: ${strength}) detected on ${timeframe}`;
 
             return {
               symbol,

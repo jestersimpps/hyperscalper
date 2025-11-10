@@ -173,6 +173,7 @@ const mergeSettings = (storedSettings: any): AppSettings => {
           scanHidden: storedSettings.scanner?.divergenceScanner?.scanHidden ?? DEFAULT_SETTINGS.scanner.divergenceScanner.scanHidden,
           pivotStrength: storedSettings.scanner?.divergenceScanner?.pivotStrength ?? DEFAULT_SETTINGS.scanner.divergenceScanner.pivotStrength,
           timeframes: storedSettings.scanner?.divergenceScanner?.timeframes ?? DEFAULT_SETTINGS.scanner.divergenceScanner.timeframes,
+          minStrength: storedSettings.scanner?.divergenceScanner?.minStrength ?? DEFAULT_SETTINGS.scanner.divergenceScanner.minStrength,
         },
         macdReversalScanner: {
           enabled: storedSettings.scanner?.macdReversalScanner?.enabled ?? DEFAULT_SETTINGS.scanner.macdReversalScanner.enabled,

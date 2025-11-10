@@ -27,14 +27,22 @@ export interface StochasticPivot {
   time: number;
 }
 
+export interface RSIPivot {
+  index: number;
+  value: number;
+  type: 'high' | 'low';
+  time: number;
+}
+
 export interface DivergencePoint {
   type: 'bullish' | 'bearish' | 'hidden-bullish' | 'hidden-bearish';
   startTime: number;
   endTime: number;
   startPriceValue: number;
   endPriceValue: number;
-  startStochValue: number;
-  endStochValue: number;
+  startRsiValue: number;
+  endRsiValue: number;
+  strength?: number;
 }
 
 export interface ReversalMarker {
@@ -662,47 +670,153 @@ export function detectStochasticPivots(
   return pivots;
 }
 
+export function detectRSIPivots(
+  rsiData: number[],
+  candles: FullCandleData[],
+  pivotStrength: number = 3
+): RSIPivot[] {
+  const pivots: RSIPivot[] = [];
+
+  if (rsiData.length < pivotStrength * 2 + 1 || candles.length !== rsiData.length) {
+    return pivots;
+  }
+
+  for (let i = pivotStrength; i < rsiData.length - pivotStrength; i++) {
+    const currentRsi = rsiData[i];
+
+    let isPivotHigh = true;
+    for (let j = 1; j <= pivotStrength; j++) {
+      if (rsiData[i - j] >= currentRsi || rsiData[i + j] >= currentRsi) {
+        isPivotHigh = false;
+        break;
+      }
+    }
+
+    if (isPivotHigh) {
+      pivots.push({
+        index: i,
+        value: currentRsi,
+        type: 'high',
+        time: candles[i].time,
+      });
+    }
+
+    let isPivotLow = true;
+    for (let j = 1; j <= pivotStrength; j++) {
+      if (rsiData[i - j] <= currentRsi || rsiData[i + j] <= currentRsi) {
+        isPivotLow = false;
+        break;
+      }
+    }
+
+    if (isPivotLow) {
+      pivots.push({
+        index: i,
+        value: currentRsi,
+        type: 'low',
+        time: candles[i].time,
+      });
+    }
+  }
+
+  return pivots;
+}
+
+export function calculateDivergenceStrength(
+  startPrice: number,
+  endPrice: number,
+  startRsi: number,
+  endRsi: number,
+  startIndex: number,
+  endIndex: number,
+  divergenceType: 'bullish' | 'bearish' | 'hidden-bullish' | 'hidden-bearish'
+): number {
+  const priceDiff = Math.abs(endPrice - startPrice);
+  const pricePercent = (priceDiff / startPrice) * 100;
+
+  const rsiDiff = Math.abs(endRsi - startRsi);
+
+  const duration = endIndex - startIndex;
+  const durationWeight = Math.min(duration / 10, 2);
+
+  let zoneBonus = 0;
+  if (divergenceType === 'bullish' && endRsi < 30) {
+    zoneBonus = 20;
+  } else if (divergenceType === 'bullish' && endRsi < 40) {
+    zoneBonus = 10;
+  } else if (divergenceType === 'bearish' && endRsi > 70) {
+    zoneBonus = 20;
+  } else if (divergenceType === 'bearish' && endRsi > 60) {
+    zoneBonus = 10;
+  }
+
+  const baseStrength = (pricePercent * rsiDiff * durationWeight);
+  const strength = Math.min(baseStrength + zoneBonus, 100);
+
+  return Math.round(strength);
+}
+
 export function detectDivergence(
   pricePivots: Pivot[],
-  stochPivots: StochasticPivot[],
+  rsiPivots: RSIPivot[],
   candles: FullCandleData[]
 ): DivergencePoint[] {
   const divergences: DivergencePoint[] = [];
 
   const highs = pricePivots.filter(p => p.type === 'high').sort((a, b) => a.index - b.index);
   const lows = pricePivots.filter(p => p.type === 'low').sort((a, b) => a.index - b.index);
-  const stochHighs = stochPivots.filter(p => p.type === 'high').sort((a, b) => a.index - b.index);
-  const stochLows = stochPivots.filter(p => p.type === 'low').sort((a, b) => a.index - b.index);
+  const rsiHighs = rsiPivots.filter(p => p.type === 'high').sort((a, b) => a.index - b.index);
+  const rsiLows = rsiPivots.filter(p => p.type === 'low').sort((a, b) => a.index - b.index);
 
   for (let i = 1; i < highs.length; i++) {
     const prevHigh = highs[i - 1];
     const currHigh = highs[i];
 
-    const prevStochHigh = stochHighs.find(sh => Math.abs(sh.index - prevHigh.index) <= 2);
-    const currStochHigh = stochHighs.find(sh => Math.abs(sh.index - currHigh.index) <= 2);
+    const prevRsiHigh = rsiHighs.find(sh => Math.abs(sh.index - prevHigh.index) <= 2);
+    const currRsiHigh = rsiHighs.find(sh => Math.abs(sh.index - currHigh.index) <= 2);
 
-    if (prevStochHigh && currStochHigh) {
-      if (currHigh.price > prevHigh.price && currStochHigh.value < prevStochHigh.value) {
+    if (prevRsiHigh && currRsiHigh) {
+      if (currHigh.price > prevHigh.price && currRsiHigh.value < prevRsiHigh.value) {
+        const strength = calculateDivergenceStrength(
+          prevHigh.price,
+          currHigh.price,
+          prevRsiHigh.value,
+          currRsiHigh.value,
+          prevHigh.index,
+          currHigh.index,
+          'bearish'
+        );
         divergences.push({
           type: 'bearish',
           startTime: prevHigh.time,
           endTime: currHigh.time,
           startPriceValue: prevHigh.price,
           endPriceValue: currHigh.price,
-          startStochValue: prevStochHigh.value,
-          endStochValue: currStochHigh.value,
+          startRsiValue: prevRsiHigh.value,
+          endRsiValue: currRsiHigh.value,
+          strength,
         });
       }
 
-      if (currHigh.price < prevHigh.price && currStochHigh.value > prevStochHigh.value) {
+      if (currHigh.price < prevHigh.price && currRsiHigh.value > prevRsiHigh.value) {
+        const strength = calculateDivergenceStrength(
+          prevHigh.price,
+          currHigh.price,
+          prevRsiHigh.value,
+          currRsiHigh.value,
+          prevHigh.index,
+          currHigh.index,
+          'hidden-bearish'
+        );
         divergences.push({
           type: 'hidden-bearish',
           startTime: prevHigh.time,
           endTime: currHigh.time,
           startPriceValue: prevHigh.price,
           endPriceValue: currHigh.price,
-          startStochValue: prevStochHigh.value,
-          endStochValue: currStochHigh.value,
+          startRsiValue: prevRsiHigh.value,
+          endRsiValue: currRsiHigh.value,
+          strength,
         });
       }
     }
@@ -712,31 +826,51 @@ export function detectDivergence(
     const prevLow = lows[i - 1];
     const currLow = lows[i];
 
-    const prevStochLow = stochLows.find(sl => Math.abs(sl.index - prevLow.index) <= 2);
-    const currStochLow = stochLows.find(sl => Math.abs(sl.index - currLow.index) <= 2);
+    const prevRsiLow = rsiLows.find(sl => Math.abs(sl.index - prevLow.index) <= 2);
+    const currRsiLow = rsiLows.find(sl => Math.abs(sl.index - currLow.index) <= 2);
 
-    if (prevStochLow && currStochLow) {
-      if (currLow.price < prevLow.price && currStochLow.value > prevStochLow.value) {
+    if (prevRsiLow && currRsiLow) {
+      if (currLow.price < prevLow.price && currRsiLow.value > prevRsiLow.value) {
+        const strength = calculateDivergenceStrength(
+          prevLow.price,
+          currLow.price,
+          prevRsiLow.value,
+          currRsiLow.value,
+          prevLow.index,
+          currLow.index,
+          'bullish'
+        );
         divergences.push({
           type: 'bullish',
           startTime: prevLow.time,
           endTime: currLow.time,
           startPriceValue: prevLow.price,
           endPriceValue: currLow.price,
-          startStochValue: prevStochLow.value,
-          endStochValue: currStochLow.value,
+          startRsiValue: prevRsiLow.value,
+          endRsiValue: currRsiLow.value,
+          strength,
         });
       }
 
-      if (currLow.price > prevLow.price && currStochLow.value < prevStochLow.value) {
+      if (currLow.price > prevLow.price && currRsiLow.value < prevRsiLow.value) {
+        const strength = calculateDivergenceStrength(
+          prevLow.price,
+          currLow.price,
+          prevRsiLow.value,
+          currRsiLow.value,
+          prevLow.index,
+          currLow.index,
+          'hidden-bullish'
+        );
         divergences.push({
           type: 'hidden-bullish',
           startTime: prevLow.time,
           endTime: currLow.time,
           startPriceValue: prevLow.price,
           endPriceValue: currLow.price,
-          startStochValue: prevStochLow.value,
-          endStochValue: currStochLow.value,
+          startRsiValue: prevRsiLow.value,
+          endRsiValue: currRsiLow.value,
+          strength,
         });
       }
     }
