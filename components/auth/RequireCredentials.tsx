@@ -1,7 +1,7 @@
 'use client';
 
 import { ReactNode, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useCredentials } from '@/lib/context/credentials-context';
 import { useAddressFromUrl } from '@/lib/hooks/use-address-from-url';
 import { CredentialsSettings } from '@/components/settings/CredentialsSettings';
@@ -14,9 +14,11 @@ export function RequireCredentials({ children }: RequireCredentialsProps) {
   const { hasCredentials, isLoaded, credentials } = useCredentials();
   const addressFromUrl = useAddressFromUrl();
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     if (!isLoaded) return;
+    if (pathname === '/') return;
 
     if (!hasCredentials && !addressFromUrl) {
       return;
@@ -25,7 +27,7 @@ export function RequireCredentials({ children }: RequireCredentialsProps) {
     if (hasCredentials && !addressFromUrl && credentials?.walletAddress) {
       router.replace(`/${credentials.walletAddress}/trades`);
     }
-  }, [isLoaded, hasCredentials, addressFromUrl, credentials?.walletAddress, router]);
+  }, [isLoaded, hasCredentials, addressFromUrl, credentials?.walletAddress, router, pathname]);
 
   if (!isLoaded) {
     return (
@@ -36,6 +38,10 @@ export function RequireCredentials({ children }: RequireCredentialsProps) {
         </div>
       </div>
     );
+  }
+
+  if (pathname === '/') {
+    return <>{children}</>;
   }
 
   if (addressFromUrl) {
