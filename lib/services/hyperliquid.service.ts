@@ -34,6 +34,8 @@ import type {
   TransformedCandle,
   MetaAndAssetCtxs
 } from './types';
+import { apiQueue } from './api-queue.service';
+import { QueuePriority, EndpointWeight } from '@/lib/models/api-queue.model';
 
 export class HyperliquidService implements IHyperliquidService {
   public publicClient: PublicClient;
@@ -72,6 +74,23 @@ export class HyperliquidService implements IHyperliquidService {
     }
   }
 
+  private async queuedPublicCall<T>(
+    executor: () => Promise<T>,
+    weight: EndpointWeight,
+    priority: QueuePriority,
+    dedupeKey?: string
+  ): Promise<T> {
+    return apiQueue.enqueue(executor, priority, weight, dedupeKey);
+  }
+
+  private async queuedWalletCall<T>(
+    executor: () => Promise<T>,
+    batchLength: number = 1
+  ): Promise<T> {
+    const weight = 1 + Math.floor(batchLength / 40);
+    return apiQueue.enqueue(executor, QueuePriority.HIGH, weight);
+  }
+
   private initWebSocket() {
     if (!this.wsTransport) {
       const wsUrl = this.isTestnet
@@ -90,7 +109,14 @@ export class HyperliquidService implements IHyperliquidService {
     if (params.startTime !== undefined) req.startTime = params.startTime;
     if (params.endTime !== undefined) req.endTime = params.endTime;
 
-    const result = await this.publicClient.candleSnapshot(req);
+    const dedupeKey = `candles:${params.coin}:${params.interval}:${params.startTime}:${params.endTime}`;
+
+    const result = await this.queuedPublicCall(
+      () => this.publicClient.candleSnapshot(req),
+      EndpointWeight.REGULAR_INFO,
+      QueuePriority.LOW,
+      dedupeKey
+    );
 
     const transformed: TransformedCandle[] = result.map((candle: Candle) => ({
       time: candle.t,
@@ -132,47 +158,64 @@ export class HyperliquidService implements IHyperliquidService {
 
   async placeMarketBuy(coin: string, size: string): Promise<OrderResponse> {
     this.ensureWalletClient();
-    return await this.walletClient!.order({
-      orders: [{
-        a: await this.getCoinIndex(coin),
-        b: true,
-        p: await this.getMarketPrice(coin, true),
-        s: size,
-        r: false,
-        t: { limit: { tif: 'Ioc' } }
-      }],
-      grouping: 'na'
-    });
+    const coinIndex = await this.getCoinIndex(coin);
+    const price = await this.getMarketPrice(coin, true);
+
+    return await this.queuedWalletCall(
+      () => this.walletClient!.order({
+        orders: [{
+          a: coinIndex,
+          b: true,
+          p: price,
+          s: size,
+          r: false,
+          t: { limit: { tif: 'Ioc' } }
+        }],
+        grouping: 'na'
+      }),
+      1
+    );
   }
 
   async placeMarketSell(coin: string, size: string): Promise<OrderResponse> {
     this.ensureWalletClient();
-    return await this.walletClient!.order({
-      orders: [{
-        a: await this.getCoinIndex(coin),
-        b: false,
-        p: await this.getMarketPrice(coin, false),
-        s: size,
-        r: false,
-        t: { limit: { tif: 'Ioc' } }
-      }],
-      grouping: 'na'
-    });
+    const coinIndex = await this.getCoinIndex(coin);
+    const price = await this.getMarketPrice(coin, false);
+
+    return await this.queuedWalletCall(
+      () => this.walletClient!.order({
+        orders: [{
+          a: coinIndex,
+          b: false,
+          p: price,
+          s: size,
+          r: false,
+          t: { limit: { tif: 'Ioc' } }
+        }],
+        grouping: 'na'
+      }),
+      1
+    );
   }
 
   async placeLimitOrder(params: OrderParams): Promise<OrderResponse> {
     this.ensureWalletClient();
-    return await this.walletClient!.order({
-      orders: [{
-        a: await this.getCoinIndex(params.coin),
-        b: params.isBuy,
-        p: params.price,
-        s: params.size,
-        r: params.reduceOnly || false,
-        t: { limit: { tif: 'Gtc' } }
-      }],
-      grouping: 'na'
-    });
+    const coinIndex = await this.getCoinIndex(params.coin);
+
+    return await this.queuedWalletCall(
+      () => this.walletClient!.order({
+        orders: [{
+          a: coinIndex,
+          b: params.isBuy,
+          p: params.price,
+          s: params.size,
+          r: params.reduceOnly || false,
+          t: { limit: { tif: 'Gtc' } }
+        }],
+        grouping: 'na'
+      }),
+      1
+    );
   }
 
   async placeBatchLimitOrders(orders: OrderParams[]): Promise<OrderResponse> {
@@ -193,56 +236,69 @@ export class HyperliquidService implements IHyperliquidService {
       t: { limit: { tif: 'Gtc' as const } }
     }));
 
-    return await this.walletClient!.order({
-      orders: formattedOrders,
-      grouping: 'na'
-    });
+    return await this.queuedWalletCall(
+      () => this.walletClient!.order({
+        orders: formattedOrders,
+        grouping: 'na'
+      }),
+      orders.length
+    );
   }
 
   async placeStopLoss(params: StopLossParams): Promise<OrderResponse> {
     this.ensureWalletClient();
     const triggerPrice = await this.formatPrice(parseFloat(params.triggerPrice), params.coin);
     const size = await this.formatSize(parseFloat(params.size), params.coin);
-    return await this.walletClient!.order({
-      orders: [{
-        a: await this.getCoinIndex(params.coin),
-        b: params.isBuy,
-        p: triggerPrice,
-        s: size,
-        r: true,
-        t: {
-          trigger: {
-            triggerPx: triggerPrice,
-            isMarket: true,
-            tpsl: 'sl'
+    const coinIndex = await this.getCoinIndex(params.coin);
+
+    return await this.queuedWalletCall(
+      () => this.walletClient!.order({
+        orders: [{
+          a: coinIndex,
+          b: params.isBuy,
+          p: triggerPrice,
+          s: size,
+          r: true,
+          t: {
+            trigger: {
+              triggerPx: triggerPrice,
+              isMarket: true,
+              tpsl: 'sl'
+            }
           }
-        }
-      }],
-      grouping: 'na'
-    });
+        }],
+        grouping: 'na'
+      }),
+      1
+    );
   }
 
   async placeTakeProfit(params: TakeProfitParams): Promise<OrderResponse> {
     this.ensureWalletClient();
     const triggerPrice = await this.formatPrice(parseFloat(params.triggerPrice), params.coin);
     const size = await this.formatSize(parseFloat(params.size), params.coin);
-    return await this.walletClient!.order({
-      orders: [{
-        a: await this.getCoinIndex(params.coin),
-        b: params.isBuy,
-        p: triggerPrice,
-        s: size,
-        r: true,
-        t: {
-          trigger: {
-            triggerPx: triggerPrice,
-            isMarket: true,
-            tpsl: 'tp'
+    const coinIndex = await this.getCoinIndex(params.coin);
+
+    return await this.queuedWalletCall(
+      () => this.walletClient!.order({
+        orders: [{
+          a: coinIndex,
+          b: params.isBuy,
+          p: triggerPrice,
+          s: size,
+          r: true,
+          t: {
+            trigger: {
+              triggerPx: triggerPrice,
+              isMarket: true,
+              tpsl: 'tp'
+            }
           }
-        }
-      }],
-      grouping: 'na'
-    });
+        }],
+        grouping: 'na'
+      }),
+      1
+    );
   }
 
   async placeTriggerMarketOrder(params: TriggerMarketOrderParams): Promise<OrderResponse> {
@@ -256,28 +312,37 @@ export class HyperliquidService implements IHyperliquidService {
     const triggerPrice = await this.formatPrice(triggerPriceNum, params.coin);
     const executionPrice = await this.formatPrice(executionPriceNum, params.coin);
     const size = await this.formatSize(parseFloat(params.size), params.coin);
+    const coinIndex = await this.getCoinIndex(params.coin);
 
-    return await this.walletClient!.order({
-      orders: [{
-        a: await this.getCoinIndex(params.coin),
-        b: params.isBuy,
-        p: executionPrice,
-        s: size,
-        r: false,
-        t: {
-          trigger: {
-            triggerPx: triggerPrice,
-            isMarket: true,
-            tpsl: 'sl'
+    return await this.queuedWalletCall(
+      () => this.walletClient!.order({
+        orders: [{
+          a: coinIndex,
+          b: params.isBuy,
+          p: executionPrice,
+          s: size,
+          r: false,
+          t: {
+            trigger: {
+              triggerPx: triggerPrice,
+              isMarket: true,
+              tpsl: 'tp'
+            }
           }
-        }
-      }],
-      grouping: 'na'
-    });
+        }],
+        grouping: 'na'
+      }),
+      1
+    );
   }
 
   async getCoinIndex(coin: string): Promise<number> {
-    const meta = await this.publicClient.meta();
+    const meta = await this.queuedPublicCall(
+      () => this.publicClient.meta(),
+      EndpointWeight.HEAVY_INFO,
+      QueuePriority.MEDIUM,
+      'meta'
+    );
     const index = meta.universe.findIndex(u => u.name === coin);
     if (index === -1) {
       throw new Error(`Coin ${coin} not found`);
@@ -286,7 +351,12 @@ export class HyperliquidService implements IHyperliquidService {
   }
 
   private async getSizeDecimals(coin: string): Promise<number> {
-    const meta = await this.publicClient.meta();
+    const meta = await this.queuedPublicCall(
+      () => this.publicClient.meta(),
+      EndpointWeight.HEAVY_INFO,
+      QueuePriority.MEDIUM,
+      'meta'
+    );
     const asset = meta.universe.find(u => u.name === coin);
     if (!asset) {
       throw new Error(`Coin ${coin} not found`);
@@ -295,7 +365,12 @@ export class HyperliquidService implements IHyperliquidService {
   }
 
   private async getTickSize(coin: string): Promise<number> {
-    const book = await this.publicClient.l2Book({ coin });
+    const book = await this.queuedPublicCall(
+      () => this.publicClient.l2Book({ coin }),
+      EndpointWeight.HEAVY_INFO,
+      QueuePriority.MEDIUM,
+      `l2book:${coin}`
+    );
     const bids = book.levels[0];
 
     if (!bids || bids.length < 2) {
@@ -363,7 +438,12 @@ export class HyperliquidService implements IHyperliquidService {
   }
 
   private async getMarketPrice(coin: string, isBuy: boolean): Promise<string> {
-    const book = await this.publicClient.l2Book({ coin });
+    const book = await this.queuedPublicCall(
+      () => this.publicClient.l2Book({ coin }),
+      EndpointWeight.HEAVY_INFO,
+      QueuePriority.HIGH,
+      `l2book:${coin}`
+    );
     const levels = isBuy ? book.levels[1] : book.levels[0];
     if (!levels || levels.length === 0) {
       throw new Error(`No market price available for ${coin}`);
@@ -378,7 +458,12 @@ export class HyperliquidService implements IHyperliquidService {
     if (!address) {
       throw new Error('No wallet address available');
     }
-    return await this.publicClient.clearinghouseState({ user: address });
+    return await this.queuedPublicCall(
+      () => this.publicClient.clearinghouseState({ user: address }),
+      EndpointWeight.HEAVY_INFO,
+      QueuePriority.MEDIUM,
+      `clearinghouse:${address}`
+    );
   }
 
   async getOpenPositions(user?: string): Promise<AssetPosition[]> {
@@ -386,7 +471,12 @@ export class HyperliquidService implements IHyperliquidService {
     if (!address) {
       throw new Error('No wallet address available');
     }
-    const state = await this.publicClient.clearinghouseState({ user: address });
+    const state = await this.queuedPublicCall(
+      () => this.publicClient.clearinghouseState({ user: address }),
+      EndpointWeight.HEAVY_INFO,
+      QueuePriority.MEDIUM,
+      `clearinghouse:${address}`
+    );
     const openPositions = state.assetPositions.filter(pos => parseFloat(pos.position.szi) !== 0);
     return openPositions;
   }
@@ -396,7 +486,12 @@ export class HyperliquidService implements IHyperliquidService {
     if (!address) {
       throw new Error('No wallet address available');
     }
-    const state = await this.publicClient.clearinghouseState({ user: address });
+    const state = await this.queuedPublicCall(
+      () => this.publicClient.clearinghouseState({ user: address }),
+      EndpointWeight.HEAVY_INFO,
+      QueuePriority.MEDIUM,
+      `clearinghouse:${address}`
+    );
     return {
       withdrawable: state.withdrawable,
       marginUsed: (state as any).marginUsed || '0',
@@ -409,8 +504,12 @@ export class HyperliquidService implements IHyperliquidService {
     if (!address) {
       throw new Error('No wallet address available');
     }
-    const orders = await this.publicClient.frontendOpenOrders({ user: address });
-    return orders;
+    return await this.queuedPublicCall(
+      () => this.publicClient.frontendOpenOrders({ user: address }),
+      EndpointWeight.REGULAR_INFO,
+      QueuePriority.MEDIUM,
+      `openorders:${address}`
+    );
   }
 
   async getUserFillsByTime(startTime: number, endTime?: number, user?: string): Promise<UserFill[]> {
@@ -420,11 +519,16 @@ export class HyperliquidService implements IHyperliquidService {
     }
 
     try {
-      const fills = await this.publicClient.userFillsByTime({
-        user: address,
-        startTime,
-        endTime: endTime || undefined
-      });
+      const fills = await this.queuedPublicCall(
+        () => this.publicClient.userFillsByTime({
+          user: address,
+          startTime,
+          endTime: endTime || undefined
+        }),
+        EndpointWeight.REGULAR_INFO,
+        QueuePriority.LOW,
+        `fills:${address}:${startTime}:${endTime}`
+      );
 
       return fills.map((fill: Fill): UserFill => ({
         coin: fill.coin,
@@ -449,12 +553,15 @@ export class HyperliquidService implements IHyperliquidService {
   async cancelOrder(coin: string, orderId: number): Promise<CancelResponse> {
     this.ensureWalletClient();
     const coinIndex = await this.getCoinIndex(coin);
-    return await this.walletClient!.cancel({
-      cancels: [{
-        a: coinIndex,
-        o: orderId
-      }]
-    });
+    return await this.queuedWalletCall(
+      () => this.walletClient!.cancel({
+        cancels: [{
+          a: coinIndex,
+          o: orderId
+        }]
+      }),
+      1
+    );
   }
 
   async cancelAllOrders(coin: string): Promise<CancelResponse> {
@@ -472,7 +579,10 @@ export class HyperliquidService implements IHyperliquidService {
       o: order.oid
     }));
 
-    return await this.walletClient!.cancel({ cancels });
+    return await this.queuedWalletCall(
+      () => this.walletClient!.cancel({ cancels }),
+      cancels.length
+    );
   }
 
   async cancelEntryOrders(coin: string): Promise<CancelResponse> {
@@ -505,7 +615,10 @@ export class HyperliquidService implements IHyperliquidService {
       o: order.oid
     }));
 
-    return await this.walletClient!.cancel({ cancels });
+    return await this.queuedWalletCall(
+      () => this.walletClient!.cancel({ cancels }),
+      cancels.length
+    );
   }
 
   async cancelExitOrders(coin: string): Promise<CancelResponse> {
@@ -538,53 +651,68 @@ export class HyperliquidService implements IHyperliquidService {
       o: order.oid
     }));
 
-    return await this.walletClient!.cancel({ cancels });
+    return await this.queuedWalletCall(
+      () => this.walletClient!.cancel({ cancels }),
+      cancels.length
+    );
   }
 
   async openLong(params: LongParams): Promise<OrderResponse> {
     this.ensureWalletClient();
     const price = params.price || await this.getMarketPrice(params.coin, true);
     const size = await this.formatSize(parseFloat(params.size), params.coin);
+    const coinIndex = await this.getCoinIndex(params.coin);
 
-    return await this.walletClient!.order({
-      orders: [{
-        a: await this.getCoinIndex(params.coin),
-        b: true,
-        p: price,
-        s: size,
-        r: false,
-        t: params.price ? { limit: { tif: 'Gtc' } } : { limit: { tif: 'Ioc' } }
-      }],
-      grouping: 'na'
-    });
+    return await this.queuedWalletCall(
+      () => this.walletClient!.order({
+        orders: [{
+          a: coinIndex,
+          b: true,
+          p: price,
+          s: size,
+          r: false,
+          t: params.price ? { limit: { tif: 'Gtc' } } : { limit: { tif: 'Ioc' } }
+        }],
+        grouping: 'na'
+      }),
+      1
+    );
   }
 
   async openShort(params: ShortParams): Promise<OrderResponse> {
     this.ensureWalletClient();
     const price = params.price || await this.getMarketPrice(params.coin, false);
     const size = await this.formatSize(parseFloat(params.size), params.coin);
+    const coinIndex = await this.getCoinIndex(params.coin);
 
-    return await this.walletClient!.order({
-      orders: [{
-        a: await this.getCoinIndex(params.coin),
-        b: false,
-        p: price,
-        s: size,
-        r: false,
-        t: params.price ? { limit: { tif: 'Gtc' } } : { limit: { tif: 'Ioc' } }
-      }],
-      grouping: 'na'
-    });
+    return await this.queuedWalletCall(
+      () => this.walletClient!.order({
+        orders: [{
+          a: coinIndex,
+          b: false,
+          p: price,
+          s: size,
+          r: false,
+          t: params.price ? { limit: { tif: 'Gtc' } } : { limit: { tif: 'Ioc' } }
+        }],
+        grouping: 'na'
+      }),
+      1
+    );
   }
 
   async setLeverage(coin: string, leverage: number, isCross: boolean = true): Promise<SuccessResponse | null> {
     this.ensureWalletClient();
+    const coinIndex = await this.getCoinIndex(coin);
     try {
-      return await (this.walletClient as any).updateLeverage({
-        asset: await this.getCoinIndex(coin),
-        isCross,
-        leverage
-      });
+      return await this.queuedWalletCall(
+        () => (this.walletClient as any).updateLeverage({
+          asset: coinIndex,
+          isCross,
+          leverage
+        }),
+        1
+      );
     } catch (error) {
       return null;
     }
@@ -602,7 +730,12 @@ export class HyperliquidService implements IHyperliquidService {
     const size = params.size || Math.abs(parseFloat(position.position.szi)).toString();
     const isLong = parseFloat(position.position.szi) > 0;
 
-    const book = await this.publicClient.l2Book({ coin: params.coin });
+    const book = await this.queuedPublicCall(
+      () => this.publicClient.l2Book({ coin: params.coin }),
+      EndpointWeight.HEAVY_INFO,
+      QueuePriority.HIGH,
+      `l2book:${params.coin}`
+    );
     const bids = book.levels[0];
     const asks = book.levels[1];
 
@@ -619,26 +752,40 @@ export class HyperliquidService implements IHyperliquidService {
       : await this.formatPrice(topAsk * (1 + slippage), params.coin);
 
     const formattedSize = await this.formatSize(parseFloat(size), params.coin);
+    const coinIndex = await this.getCoinIndex(params.coin);
 
-    return await this.walletClient!.order({
-      orders: [{
-        a: await this.getCoinIndex(params.coin),
-        b: !isLong,
-        p: price,
-        s: formattedSize,
-        r: true,
-        t: { limit: { tif: 'Ioc' } }
-      }],
-      grouping: 'na'
-    });
+    return await this.queuedWalletCall(
+      () => this.walletClient!.order({
+        orders: [{
+          a: coinIndex,
+          b: !isLong,
+          p: price,
+          s: formattedSize,
+          r: true,
+          t: { limit: { tif: 'Ioc' } }
+        }],
+        grouping: 'na'
+      }),
+      1
+    );
   }
 
   async getMeta(): Promise<PerpsMeta> {
-    return await this.publicClient.meta();
+    return await this.queuedPublicCall(
+      () => this.publicClient.meta(),
+      EndpointWeight.HEAVY_INFO,
+      QueuePriority.LOW,
+      'meta'
+    );
   }
 
   async getAllMids(): Promise<AllMids> {
-    return await this.publicClient.allMids();
+    return await this.queuedPublicCall(
+      () => this.publicClient.allMids(),
+      EndpointWeight.HEAVY_INFO,
+      QueuePriority.LOW,
+      'allmids'
+    );
   }
 
   async getMetaAndAssetCtxs(): Promise<MetaAndAssetCtxs> {
@@ -646,18 +793,25 @@ export class HyperliquidService implements IHyperliquidService {
       ? 'https://api.hyperliquid-testnet.xyz/info'
       : 'https://api.hyperliquid.xyz/info';
 
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'metaAndAssetCtxs' })
-    });
+    return await this.queuedPublicCall(
+      async () => {
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'metaAndAssetCtxs' })
+        });
 
-    if (!response.ok) {
-      throw new Error(`Failed to fetch metaAndAssetCtxs: ${response.statusText}`);
-    }
+        if (!response.ok) {
+          throw new Error(`Failed to fetch metaAndAssetCtxs: ${response.statusText}`);
+        }
 
-    const [meta, assetCtxs] = await response.json();
-    return { meta, assetCtxs };
+        const [meta, assetCtxs] = await response.json();
+        return { meta, assetCtxs };
+      },
+      EndpointWeight.REGULAR_INFO,
+      QueuePriority.LOW,
+      'metaAndAssetCtxs'
+    );
   }
 
   private ensureWalletClient(): void {

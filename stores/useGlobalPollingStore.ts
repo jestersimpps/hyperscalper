@@ -131,6 +131,9 @@ export const useGlobalPollingStore = create<GlobalPollingStore>((set, get) => ({
 
       console.log(`[GlobalPolling] fetchCandleData: fetching for ${topSymbols.length} symbols`);
 
+      const staggerDelay = 200;
+      let index = 0;
+
       for (const symbol of topSymbols) {
         const symbolName = symbol.name;
 
@@ -153,7 +156,15 @@ export const useGlobalPollingStore = create<GlobalPollingStore>((set, get) => ({
           startTime = endTime - (1200 * 60 * 1000);
         }
 
-        await candleStore.fetchCandles(symbolName, '1m', startTime, endTime);
+        if (index > 0) {
+          await new Promise(resolve => setTimeout(resolve, staggerDelay));
+        }
+
+        candleStore.fetchCandles(symbolName, '1m', startTime, endTime).catch(err => {
+          console.error(`[GlobalPolling] Error fetching candles for ${symbolName}:`, err);
+        });
+
+        index++;
       }
 
       console.log('[GlobalPolling] fetchCandleData: completed, updating lastCandlePollTime');
