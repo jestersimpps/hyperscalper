@@ -6,6 +6,8 @@ import { mapHyperliquidOrders } from '@/lib/utils/order-mapper';
 
 interface OrderStore {
   orders: Record<string, Order[]>;
+  optimisticOrders: Record<string, Order[]>;
+  pendingCancellations: Set<string>;
   loading: Record<string, boolean>;
   errors: Record<string, string | null>;
   pollingIntervals: Record<string, NodeJS.Timeout>;
@@ -18,12 +20,21 @@ interface OrderStore {
   startPolling: (coin: string, interval: number) => void;
   stopPolling: (coin: string) => void;
   updateOrdersFromGlobalPoll: (allOrders: any[]) => void;
+  addOptimisticOrder: (coin: string, order: Partial<Order>) => void;
+  addOptimisticOrders: (coin: string, orders: Partial<Order>[]) => void;
+  confirmOptimisticOrder: (coin: string, tempId: string, realOid: string) => void;
+  rollbackOptimisticOrder: (coin: string, tempId: string) => void;
+  markPendingCancellation: (coin: string, oid: string) => void;
+  confirmCancellation: (coin: string, oid: string) => void;
+  getAllOrders: (coin: string) => Order[];
 }
 
 export const useOrderStore = create<OrderStore>()(
   persist(
     (set, get) => ({
       orders: {},
+      optimisticOrders: {},
+      pendingCancellations: new Set<string>(),
       loading: {},
       errors: {},
       pollingIntervals: {},
@@ -76,6 +87,7 @@ export const useOrderStore = create<OrderStore>()(
       },
 
       updateOrdersFromGlobalPoll: (allOrders: any[]) => {
+        const { optimisticOrders } = get();
         const ordersByCoin: Record<string, Order[]> = {};
 
         allOrders.forEach((order: any) => {
@@ -91,7 +103,169 @@ export const useOrderStore = create<OrderStore>()(
           mappedOrders[coin] = mapHyperliquidOrders(ordersByCoin[coin]);
         });
 
-        set({ orders: mappedOrders });
+        const newOptimisticOrders = { ...optimisticOrders };
+        Object.keys(mappedOrders).forEach(coin => {
+          const realOrders = mappedOrders[coin];
+          const optimistic = optimisticOrders[coin] || [];
+
+          const confirmedOptimistic = optimistic.filter(opt => {
+            return !realOrders.some(real =>
+              Math.abs(real.price - opt.price) < 0.01 &&
+              Math.abs(real.size - opt.size) < 0.01 &&
+              real.side === opt.side
+            );
+          });
+
+          const recentOptimistic = confirmedOptimistic.filter(opt =>
+            Date.now() - opt.timestamp < 10000
+          );
+
+          if (recentOptimistic.length > 0) {
+            newOptimisticOrders[coin] = recentOptimistic;
+          } else {
+            delete newOptimisticOrders[coin];
+          }
+        });
+
+        set({ orders: mappedOrders, optimisticOrders: newOptimisticOrders });
+      },
+
+      addOptimisticOrder: (coin: string, order: Partial<Order>) => {
+        const { optimisticOrders } = get();
+        const coinOrders = optimisticOrders[coin] || [];
+
+        const newOrder: Order = {
+          oid: order.oid || '',
+          coin: order.coin || coin,
+          side: order.side || 'buy',
+          price: order.price || 0,
+          size: order.size || 0,
+          orderType: order.orderType || 'limit',
+          timestamp: order.timestamp || Date.now(),
+          isOptimistic: true,
+          tempId: order.tempId,
+        };
+
+        set({
+          optimisticOrders: {
+            ...optimisticOrders,
+            [coin]: [...coinOrders, newOrder],
+          },
+        });
+      },
+
+      addOptimisticOrders: (coin: string, orders: Partial<Order>[]) => {
+        const { optimisticOrders } = get();
+        const coinOrders = optimisticOrders[coin] || [];
+
+        const newOrders: Order[] = orders.map(order => ({
+          oid: order.oid || '',
+          coin: order.coin || coin,
+          side: order.side || 'buy',
+          price: order.price || 0,
+          size: order.size || 0,
+          orderType: order.orderType || 'limit',
+          timestamp: order.timestamp || Date.now(),
+          isOptimistic: true,
+          tempId: order.tempId,
+        }));
+
+        set({
+          optimisticOrders: {
+            ...optimisticOrders,
+            [coin]: [...coinOrders, ...newOrders],
+          },
+        });
+      },
+
+      confirmOptimisticOrder: (coin: string, tempId: string, realOid: string) => {
+        const { orders, optimisticOrders } = get();
+        const coinOptimistic = optimisticOrders[coin] || [];
+        const coinOrders = orders[coin] || [];
+
+        const optimisticOrder = coinOptimistic.find(o => o.tempId === tempId);
+        if (!optimisticOrder) return;
+
+        const confirmedOrder: Order = {
+          ...optimisticOrder,
+          oid: realOid,
+          isOptimistic: false,
+          tempId: undefined,
+        };
+
+        const remainingOptimistic = coinOptimistic.filter(o => o.tempId !== tempId);
+        const newOptimisticOrders = { ...optimisticOrders };
+
+        if (remainingOptimistic.length > 0) {
+          newOptimisticOrders[coin] = remainingOptimistic;
+        } else {
+          delete newOptimisticOrders[coin];
+        }
+
+        set({
+          orders: {
+            ...orders,
+            [coin]: [...coinOrders, confirmedOrder],
+          },
+          optimisticOrders: newOptimisticOrders,
+        });
+      },
+
+      rollbackOptimisticOrder: (coin: string, tempId: string) => {
+        const { optimisticOrders } = get();
+        const coinOptimistic = optimisticOrders[coin] || [];
+
+        const remainingOptimistic = coinOptimistic.filter(o => o.tempId !== tempId);
+        const newOptimisticOrders = { ...optimisticOrders };
+
+        if (remainingOptimistic.length > 0) {
+          newOptimisticOrders[coin] = remainingOptimistic;
+        } else {
+          delete newOptimisticOrders[coin];
+        }
+
+        set({ optimisticOrders: newOptimisticOrders });
+      },
+
+      markPendingCancellation: (coin: string, oid: string) => {
+        const { orders, pendingCancellations } = get();
+        const coinOrders = orders[coin] || [];
+
+        const updatedOrders = coinOrders.map(order =>
+          order.oid === oid
+            ? { ...order, isPendingCancellation: true }
+            : order
+        );
+
+        const newPendingCancellations = new Set(pendingCancellations);
+        newPendingCancellations.add(oid);
+
+        set({
+          orders: { ...orders, [coin]: updatedOrders },
+          pendingCancellations: newPendingCancellations,
+        });
+      },
+
+      confirmCancellation: (coin: string, oid: string) => {
+        const { orders, pendingCancellations } = get();
+        const coinOrders = orders[coin] || [];
+
+        const updatedOrders = coinOrders.filter(order => order.oid !== oid);
+        const newPendingCancellations = new Set(pendingCancellations);
+        newPendingCancellations.delete(oid);
+
+        set({
+          orders: { ...orders, [coin]: updatedOrders },
+          pendingCancellations: newPendingCancellations,
+        });
+      },
+
+      getAllOrders: (coin: string): Order[] => {
+        const { orders, optimisticOrders } = get();
+        const coinOrders = orders[coin] || [];
+        const coinOptimistic = optimisticOrders[coin] || [];
+
+        return [...coinOrders, ...coinOptimistic];
       },
     }),
     {

@@ -1342,9 +1342,26 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
     if (orders && orders.length > 0) {
       const colors = getThemeColors();
 
+      const fadeColor = (hexColor: string, opacity: number): string => {
+        const r = parseInt(hexColor.slice(1, 3), 16);
+        const g = parseInt(hexColor.slice(3, 5), 16);
+        const b = parseInt(hexColor.slice(5, 7), 16);
+        return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+      };
+
       orders.forEach((order) => {
         const isBuy = order.side === 'buy';
-        const color = isBuy ? colors.statusBullish : colors.statusBearish;
+        const baseColor = isBuy ? colors.statusBullish : colors.statusBearish;
+        const isOptimistic = order.isOptimistic || false;
+        const isPending = order.isPendingCancellation || false;
+
+        const color = isPending
+          ? '#808080'
+          : isOptimistic
+            ? fadeColor(baseColor, 0.5)
+            : baseColor;
+
+        const lineStyle = isOptimistic ? 2 : 1;
 
         let displayPrice = order.price;
         let displaySide = order.side;
@@ -1354,13 +1371,19 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
           displaySide = isBuy ? 'sell' : 'buy';
         }
 
+        const title = isOptimistic
+          ? `PENDING ${displaySide.toUpperCase()} ${order.orderType.toUpperCase()}`
+          : isPending
+            ? `CANCELLING ${displaySide.toUpperCase()} ${order.orderType.toUpperCase()}`
+            : `${displaySide.toUpperCase()} ${order.orderType.toUpperCase()}`;
+
         const orderLine = candleSeriesRef.current.createPriceLine({
           price: displayPrice,
           color,
           lineWidth: 2,
-          lineStyle: 1,
+          lineStyle,
           axisLabelVisible: true,
-          title: `${displaySide.toUpperCase()} ${order.orderType.toUpperCase()}`,
+          title,
         });
 
         orderLinesRef.current.push(orderLine);

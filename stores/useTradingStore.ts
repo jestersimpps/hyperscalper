@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import { HyperliquidService } from '@/lib/services/hyperliquid.service';
+import { useOrderStore } from './useOrderStore';
+import toast from 'react-hot-toast';
 
 const ORDER_COUNT = 5;
 const TAKE_PROFIT_PERCENT = 2;
@@ -70,64 +72,135 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
     if (!service) throw new Error('Service not initialized');
 
     const { symbol, currentPrice, priceInterval, percentage } = params;
+    const orderStore = useOrderStore.getState();
 
     set((state) => ({
       isExecuting: { ...state.isExecuting, [`buyCloud_${symbol}`]: true },
       errors: { ...state.errors, [`buyCloud_${symbol}`]: null },
     }));
 
+    const batchTempId = `batch_${Date.now()}`;
+    const optimisticOrders: any[] = [];
+
     try {
+      const [accountBalance, metadata] = await Promise.all([
+        service.getAccountBalanceCached(),
+        service.getMetadataCache(symbol)
+      ]);
+
       const priceLevels: number[] = [];
       for (let i = 1; i <= ORDER_COUNT; i++) {
         const level = currentPrice - (2 * priceInterval * i / ORDER_COUNT);
         priceLevels.push(level);
       }
 
-      const accountBalance = await service.getAccountBalance();
       const accountValue = parseFloat(accountBalance.accountValue);
       const cloudSize = (accountValue * percentage) / 100;
 
-      const orderParams = [];
-      for (const level of priceLevels) {
-        const formattedPrice = await service.formatPrice(level, symbol);
-        const coinSize = cloudSize / level;
-        const formattedSize = await service.formatSize(coinSize, symbol);
+      const batchOrders = [];
+      let totalCoinSize = 0;
 
-        orderParams.push({
+      for (const level of priceLevels) {
+        const formattedPrice = service.formatPriceCached(level, metadata);
+        const coinSize = cloudSize / level;
+        const formattedSize = service.formatSizeCached(coinSize, metadata);
+
+        totalCoinSize += coinSize;
+
+        const tempId = `${batchTempId}_limit_${optimisticOrders.length}`;
+        optimisticOrders.push({
+          oid: tempId,
           coin: symbol,
-          isBuy: true,
-          price: formattedPrice,
-          size: formattedSize,
-          reduceOnly: false,
+          side: 'buy',
+          price: parseFloat(formattedPrice),
+          size: parseFloat(formattedSize),
+          orderType: 'limit',
+          timestamp: Date.now(),
+          isOptimistic: true,
+          tempId,
+        });
+
+        batchOrders.push({
+          a: metadata.coinIndex,
+          b: true,
+          p: formattedPrice,
+          s: formattedSize,
+          r: false,
+          t: { limit: { tif: 'Gtc' as const } }
         });
       }
 
-      await service.placeBatchLimitOrders(orderParams);
-
-      const totalCoinSize = orderParams.reduce((sum, order) => sum + parseFloat(order.size), 0);
-      const formattedTotalSize = await service.formatSize(totalCoinSize, symbol);
-
+      const formattedTotalSize = service.formatSizeCached(totalCoinSize, metadata);
       const stopLossPrice = currentPrice - (8 * priceInterval);
-      const formattedStopLoss = await service.formatPrice(stopLossPrice, symbol);
+      const formattedStopLoss = service.formatPriceCached(stopLossPrice, metadata);
+      const slTempId = `${batchTempId}_sl`;
+      optimisticOrders.push({
+        oid: slTempId,
+        coin: symbol,
+        side: 'sell',
+        price: parseFloat(formattedStopLoss),
+        size: totalCoinSize,
+        orderType: 'stop',
+        timestamp: Date.now(),
+        isOptimistic: true,
+        tempId: slTempId,
+      });
+
+      batchOrders.push({
+        a: metadata.coinIndex,
+        b: false,
+        p: formattedStopLoss,
+        s: formattedTotalSize,
+        r: true,
+        t: { trigger: { triggerPx: formattedStopLoss, isMarket: true, tpsl: 'sl' as const } }
+      });
 
       const takeProfitPrice = currentPrice * (1 + TAKE_PROFIT_PERCENT / 100);
-      const formattedTakeProfit = await service.formatPrice(takeProfitPrice, symbol);
-
-      await service.placeStopLoss({
+      const formattedTakeProfit = service.formatPriceCached(takeProfitPrice, metadata);
+      const tpTempId = `${batchTempId}_tp`;
+      optimisticOrders.push({
+        oid: tpTempId,
         coin: symbol,
-        triggerPrice: formattedStopLoss,
-        size: formattedTotalSize,
-        isBuy: false,
+        side: 'sell',
+        price: parseFloat(formattedTakeProfit),
+        size: totalCoinSize,
+        orderType: 'tp',
+        timestamp: Date.now(),
+        isOptimistic: true,
+        tempId: tpTempId,
       });
 
-      await service.placeTakeProfit({
-        coin: symbol,
-        triggerPrice: formattedTakeProfit,
-        size: formattedTotalSize,
-        isBuy: false,
+      batchOrders.push({
+        a: metadata.coinIndex,
+        b: false,
+        p: formattedTakeProfit,
+        s: formattedTotalSize,
+        r: true,
+        t: { trigger: { triggerPx: formattedTakeProfit, isMarket: true, tpsl: 'tp' as const } }
       });
+
+      orderStore.addOptimisticOrders(symbol, optimisticOrders);
+
+      const response = await service.placeBatchMixedOrders(batchOrders);
+
+      if (response?.status === 'ok' && response.response?.data?.statuses) {
+        response.response.data.statuses.forEach((status: any, index: number) => {
+          if (status?.resting?.oid) {
+            const tempId = optimisticOrders[index].tempId;
+            orderStore.confirmOptimisticOrder(symbol, tempId, status.resting.oid);
+          }
+        });
+      }
+
+      service.invalidateAccountCache();
+
+      toast.success('Buy cloud placed');
     } catch (error) {
+      optimisticOrders.forEach(order => {
+        orderStore.rollbackOptimisticOrder(symbol, order.tempId);
+      });
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`Buy cloud failed: ${errorMessage}`);
       set((state) => ({
         errors: { ...state.errors, [`buyCloud_${symbol}`]: errorMessage },
       }));
@@ -144,64 +217,135 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
     if (!service) throw new Error('Service not initialized');
 
     const { symbol, currentPrice, priceInterval, percentage } = params;
+    const orderStore = useOrderStore.getState();
 
     set((state) => ({
       isExecuting: { ...state.isExecuting, [`sellCloud_${symbol}`]: true },
       errors: { ...state.errors, [`sellCloud_${symbol}`]: null },
     }));
 
+    const batchTempId = `batch_${Date.now()}`;
+    const optimisticOrders: any[] = [];
+
     try {
+      const [accountBalance, metadata] = await Promise.all([
+        service.getAccountBalanceCached(),
+        service.getMetadataCache(symbol)
+      ]);
+
       const priceLevels: number[] = [];
       for (let i = 1; i <= ORDER_COUNT; i++) {
         const level = currentPrice + (2 * priceInterval * i / ORDER_COUNT);
         priceLevels.push(level);
       }
 
-      const accountBalance = await service.getAccountBalance();
       const accountValue = parseFloat(accountBalance.accountValue);
       const cloudSize = (accountValue * percentage) / 100;
 
-      const orderParams = [];
-      for (const level of priceLevels) {
-        const formattedPrice = await service.formatPrice(level, symbol);
-        const coinSize = cloudSize / level;
-        const formattedSize = await service.formatSize(coinSize, symbol);
+      const batchOrders = [];
+      let totalCoinSize = 0;
 
-        orderParams.push({
+      for (const level of priceLevels) {
+        const formattedPrice = service.formatPriceCached(level, metadata);
+        const coinSize = cloudSize / level;
+        const formattedSize = service.formatSizeCached(coinSize, metadata);
+
+        totalCoinSize += coinSize;
+
+        const tempId = `${batchTempId}_limit_${optimisticOrders.length}`;
+        optimisticOrders.push({
+          oid: tempId,
           coin: symbol,
-          isBuy: false,
-          price: formattedPrice,
-          size: formattedSize,
-          reduceOnly: false,
+          side: 'sell',
+          price: parseFloat(formattedPrice),
+          size: parseFloat(formattedSize),
+          orderType: 'limit',
+          timestamp: Date.now(),
+          isOptimistic: true,
+          tempId,
+        });
+
+        batchOrders.push({
+          a: metadata.coinIndex,
+          b: false,
+          p: formattedPrice,
+          s: formattedSize,
+          r: false,
+          t: { limit: { tif: 'Gtc' as const } }
         });
       }
 
-      await service.placeBatchLimitOrders(orderParams);
-
-      const totalCoinSize = orderParams.reduce((sum, order) => sum + parseFloat(order.size), 0);
-      const formattedTotalSize = await service.formatSize(totalCoinSize, symbol);
-
+      const formattedTotalSize = service.formatSizeCached(totalCoinSize, metadata);
       const stopLossPrice = currentPrice + (8 * priceInterval);
-      const formattedStopLoss = await service.formatPrice(stopLossPrice, symbol);
+      const formattedStopLoss = service.formatPriceCached(stopLossPrice, metadata);
+      const slTempId = `${batchTempId}_sl`;
+      optimisticOrders.push({
+        oid: slTempId,
+        coin: symbol,
+        side: 'buy',
+        price: parseFloat(formattedStopLoss),
+        size: totalCoinSize,
+        orderType: 'stop',
+        timestamp: Date.now(),
+        isOptimistic: true,
+        tempId: slTempId,
+      });
+
+      batchOrders.push({
+        a: metadata.coinIndex,
+        b: true,
+        p: formattedStopLoss,
+        s: formattedTotalSize,
+        r: true,
+        t: { trigger: { triggerPx: formattedStopLoss, isMarket: true, tpsl: 'sl' as const } }
+      });
 
       const takeProfitPrice = currentPrice * (1 - TAKE_PROFIT_PERCENT / 100);
-      const formattedTakeProfit = await service.formatPrice(takeProfitPrice, symbol);
-
-      await service.placeStopLoss({
+      const formattedTakeProfit = service.formatPriceCached(takeProfitPrice, metadata);
+      const tpTempId = `${batchTempId}_tp`;
+      optimisticOrders.push({
+        oid: tpTempId,
         coin: symbol,
-        triggerPrice: formattedStopLoss,
-        size: formattedTotalSize,
-        isBuy: true,
+        side: 'buy',
+        price: parseFloat(formattedTakeProfit),
+        size: totalCoinSize,
+        orderType: 'tp',
+        timestamp: Date.now(),
+        isOptimistic: true,
+        tempId: tpTempId,
       });
 
-      await service.placeTakeProfit({
-        coin: symbol,
-        triggerPrice: formattedTakeProfit,
-        size: formattedTotalSize,
-        isBuy: true,
+      batchOrders.push({
+        a: metadata.coinIndex,
+        b: true,
+        p: formattedTakeProfit,
+        s: formattedTotalSize,
+        r: true,
+        t: { trigger: { triggerPx: formattedTakeProfit, isMarket: true, tpsl: 'tp' as const } }
       });
+
+      orderStore.addOptimisticOrders(symbol, optimisticOrders);
+
+      const response = await service.placeBatchMixedOrders(batchOrders);
+
+      if (response?.status === 'ok' && response.response?.data?.statuses) {
+        response.response.data.statuses.forEach((status: any, index: number) => {
+          if (status?.resting?.oid) {
+            const tempId = optimisticOrders[index].tempId;
+            orderStore.confirmOptimisticOrder(symbol, tempId, status.resting.oid);
+          }
+        });
+      }
+
+      service.invalidateAccountCache();
+
+      toast.success('Sell cloud placed');
     } catch (error) {
+      optimisticOrders.forEach(order => {
+        orderStore.rollbackOptimisticOrder(symbol, order.tempId);
+      });
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`Sell cloud failed: ${errorMessage}`);
       set((state) => ({
         errors: { ...state.errors, [`sellCloud_${symbol}`]: errorMessage },
       }));
@@ -218,6 +362,9 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
     if (!service) throw new Error('Service not initialized');
 
     const { symbol, currentPrice, priceInterval, percentage } = params;
+    const orderStore = useOrderStore.getState();
+    const batchTempId = `batch_${Date.now()}`;
+    const optimisticOrders: any[] = [];
 
     set((state) => ({
       isExecuting: { ...state.isExecuting, [`smLong_${symbol}`]: true },
@@ -225,36 +372,87 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
     }));
 
     try {
-      const accountBalance = await service.getAccountBalance();
+      const [accountBalance, metadata] = await Promise.all([
+        service.getAccountBalanceCached(),
+        service.getMetadataCache(symbol)
+      ]);
+
       const accountValue = parseFloat(accountBalance.accountValue);
       const positionSize = (accountValue * percentage) / 100;
 
       const coinSize = positionSize / currentPrice;
-      const formattedSize = await service.formatSize(coinSize, symbol);
-
-      await service.placeMarketBuy(symbol, formattedSize);
+      const formattedSize = service.formatSizeCached(coinSize, metadata);
 
       const stopLossPrice = currentPrice - (8 * priceInterval);
-      const formattedStopLoss = await service.formatPrice(stopLossPrice, symbol);
+      const formattedStopLoss = service.formatPriceCached(stopLossPrice, metadata);
+      const slTempId = `${batchTempId}_sl`;
+      optimisticOrders.push({
+        oid: slTempId,
+        coin: symbol,
+        side: 'sell',
+        price: parseFloat(formattedStopLoss),
+        size: parseFloat(formattedSize),
+        orderType: 'stop',
+        timestamp: Date.now(),
+        isOptimistic: true,
+        tempId: slTempId,
+      });
 
       const takeProfitPrice = currentPrice * (1 + TAKE_PROFIT_PERCENT / 100);
-      const formattedTakeProfit = await service.formatPrice(takeProfitPrice, symbol);
-
-      await service.placeStopLoss({
+      const formattedTakeProfit = service.formatPriceCached(takeProfitPrice, metadata);
+      const tpTempId = `${batchTempId}_tp`;
+      optimisticOrders.push({
+        oid: tpTempId,
         coin: symbol,
-        triggerPrice: formattedStopLoss,
-        size: formattedSize,
-        isBuy: false,
+        side: 'sell',
+        price: parseFloat(formattedTakeProfit),
+        size: parseFloat(formattedSize),
+        orderType: 'tp',
+        timestamp: Date.now(),
+        isOptimistic: true,
+        tempId: tpTempId,
       });
 
-      await service.placeTakeProfit({
-        coin: symbol,
-        triggerPrice: formattedTakeProfit,
-        size: formattedSize,
-        isBuy: false,
-      });
+      orderStore.addOptimisticOrders(symbol, optimisticOrders);
+
+      const [, slResponse, tpResponse] = await Promise.all([
+        service.placeMarketBuy(symbol, formattedSize),
+        service.placeStopLoss({
+          coin: symbol,
+          triggerPrice: formattedStopLoss,
+          size: formattedSize,
+          isBuy: false,
+        }),
+        service.placeTakeProfit({
+          coin: symbol,
+          triggerPrice: formattedTakeProfit,
+          size: formattedSize,
+          isBuy: false,
+        })
+      ]);
+
+      if (slResponse?.status === 'ok' && slResponse.response?.data?.statuses?.[0]) {
+        const status = slResponse.response.data.statuses[0];
+        if ('resting' in status && status.resting?.oid) {
+          orderStore.confirmOptimisticOrder(symbol, slTempId, String(status.resting.oid));
+        }
+      }
+
+      if (tpResponse?.status === 'ok' && tpResponse.response?.data?.statuses?.[0]) {
+        const status = tpResponse.response.data.statuses[0];
+        if ('resting' in status && status.resting?.oid) {
+          orderStore.confirmOptimisticOrder(symbol, tpTempId, String(status.resting.oid));
+        }
+      }
+
+      service.invalidateAccountCache();
+      toast.success('Market long placed');
     } catch (error) {
+      optimisticOrders.forEach(order => {
+        orderStore.rollbackOptimisticOrder(symbol, order.tempId);
+      });
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`Market long failed: ${errorMessage}`);
       set((state) => ({
         errors: { ...state.errors, [`smLong_${symbol}`]: errorMessage },
       }));
@@ -271,6 +469,9 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
     if (!service) throw new Error('Service not initialized');
 
     const { symbol, currentPrice, priceInterval, percentage } = params;
+    const orderStore = useOrderStore.getState();
+    const batchTempId = `batch_${Date.now()}`;
+    const optimisticOrders: any[] = [];
 
     set((state) => ({
       isExecuting: { ...state.isExecuting, [`smShort_${symbol}`]: true },
@@ -285,29 +486,75 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
       const coinSize = positionSize / currentPrice;
       const formattedSize = await service.formatSize(coinSize, symbol);
 
-      await service.placeMarketSell(symbol, formattedSize);
-
       const stopLossPrice = currentPrice + (8 * priceInterval);
       const formattedStopLoss = await service.formatPrice(stopLossPrice, symbol);
+      const slTempId = `${batchTempId}_sl`;
+      optimisticOrders.push({
+        oid: slTempId,
+        coin: symbol,
+        side: 'buy',
+        price: parseFloat(formattedStopLoss),
+        size: parseFloat(formattedSize),
+        orderType: 'stop',
+        timestamp: Date.now(),
+        isOptimistic: true,
+        tempId: slTempId,
+      });
 
       const takeProfitPrice = currentPrice * (1 - TAKE_PROFIT_PERCENT / 100);
       const formattedTakeProfit = await service.formatPrice(takeProfitPrice, symbol);
+      const tpTempId = `${batchTempId}_tp`;
+      optimisticOrders.push({
+        oid: tpTempId,
+        coin: symbol,
+        side: 'buy',
+        price: parseFloat(formattedTakeProfit),
+        size: parseFloat(formattedSize),
+        orderType: 'tp',
+        timestamp: Date.now(),
+        isOptimistic: true,
+        tempId: tpTempId,
+      });
 
-      await service.placeStopLoss({
+      orderStore.addOptimisticOrders(symbol, optimisticOrders);
+
+      await service.placeMarketSell(symbol, formattedSize);
+
+      const slResponse = await service.placeStopLoss({
         coin: symbol,
         triggerPrice: formattedStopLoss,
         size: formattedSize,
         isBuy: true,
       });
 
-      await service.placeTakeProfit({
+      if (slResponse?.status === 'ok' && slResponse.response?.data?.statuses?.[0]) {
+        const status = slResponse.response.data.statuses[0];
+        if ('resting' in status && status.resting?.oid) {
+          orderStore.confirmOptimisticOrder(symbol, slTempId, String(status.resting.oid));
+        }
+      }
+
+      const tpResponse = await service.placeTakeProfit({
         coin: symbol,
         triggerPrice: formattedTakeProfit,
         size: formattedSize,
         isBuy: true,
       });
+
+      if (tpResponse?.status === 'ok' && tpResponse.response?.data?.statuses?.[0]) {
+        const status = tpResponse.response.data.statuses[0];
+        if ('resting' in status && status.resting?.oid) {
+          orderStore.confirmOptimisticOrder(symbol, tpTempId, String(status.resting.oid));
+        }
+      }
+
+      toast.success('Market short placed');
     } catch (error) {
+      optimisticOrders.forEach(order => {
+        orderStore.rollbackOptimisticOrder(symbol, order.tempId);
+      });
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`Market short failed: ${errorMessage}`);
       set((state) => ({
         errors: { ...state.errors, [`smShort_${symbol}`]: errorMessage },
       }));
@@ -324,6 +571,9 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
     if (!service) throw new Error('Service not initialized');
 
     const { symbol, currentPrice, priceInterval, percentage } = params;
+    const orderStore = useOrderStore.getState();
+    const batchTempId = `batch_${Date.now()}`;
+    const optimisticOrders: any[] = [];
 
     set((state) => ({
       isExecuting: { ...state.isExecuting, [`bigLong_${symbol}`]: true },
@@ -338,29 +588,75 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
       const coinSize = positionSize / currentPrice;
       const formattedSize = await service.formatSize(coinSize, symbol);
 
-      await service.placeMarketBuy(symbol, formattedSize);
-
       const stopLossPrice = currentPrice - (8 * priceInterval);
       const formattedStopLoss = await service.formatPrice(stopLossPrice, symbol);
+      const slTempId = `${batchTempId}_sl`;
+      optimisticOrders.push({
+        oid: slTempId,
+        coin: symbol,
+        side: 'sell',
+        price: parseFloat(formattedStopLoss),
+        size: parseFloat(formattedSize),
+        orderType: 'stop',
+        timestamp: Date.now(),
+        isOptimistic: true,
+        tempId: slTempId,
+      });
 
       const takeProfitPrice = currentPrice * (1 + TAKE_PROFIT_PERCENT / 100);
       const formattedTakeProfit = await service.formatPrice(takeProfitPrice, symbol);
+      const tpTempId = `${batchTempId}_tp`;
+      optimisticOrders.push({
+        oid: tpTempId,
+        coin: symbol,
+        side: 'sell',
+        price: parseFloat(formattedTakeProfit),
+        size: parseFloat(formattedSize),
+        orderType: 'tp',
+        timestamp: Date.now(),
+        isOptimistic: true,
+        tempId: tpTempId,
+      });
 
-      await service.placeStopLoss({
+      orderStore.addOptimisticOrders(symbol, optimisticOrders);
+
+      await service.placeMarketBuy(symbol, formattedSize);
+
+      const slResponse = await service.placeStopLoss({
         coin: symbol,
         triggerPrice: formattedStopLoss,
         size: formattedSize,
         isBuy: false,
       });
 
-      await service.placeTakeProfit({
+      if (slResponse?.status === 'ok' && slResponse.response?.data?.statuses?.[0]) {
+        const status = slResponse.response.data.statuses[0];
+        if ('resting' in status && status.resting?.oid) {
+          orderStore.confirmOptimisticOrder(symbol, slTempId, String(status.resting.oid));
+        }
+      }
+
+      const tpResponse = await service.placeTakeProfit({
         coin: symbol,
         triggerPrice: formattedTakeProfit,
         size: formattedSize,
         isBuy: false,
       });
+
+      if (tpResponse?.status === 'ok' && tpResponse.response?.data?.statuses?.[0]) {
+        const status = tpResponse.response.data.statuses[0];
+        if ('resting' in status && status.resting?.oid) {
+          orderStore.confirmOptimisticOrder(symbol, tpTempId, String(status.resting.oid));
+        }
+      }
+
+      toast.success('Big long placed');
     } catch (error) {
+      optimisticOrders.forEach(order => {
+        orderStore.rollbackOptimisticOrder(symbol, order.tempId);
+      });
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`Big long failed: ${errorMessage}`);
       set((state) => ({
         errors: { ...state.errors, [`bigLong_${symbol}`]: errorMessage },
       }));
@@ -377,6 +673,9 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
     if (!service) throw new Error('Service not initialized');
 
     const { symbol, currentPrice, priceInterval, percentage } = params;
+    const orderStore = useOrderStore.getState();
+    const batchTempId = `batch_${Date.now()}`;
+    const optimisticOrders: any[] = [];
 
     set((state) => ({
       isExecuting: { ...state.isExecuting, [`bigShort_${symbol}`]: true },
@@ -391,29 +690,75 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
       const coinSize = positionSize / currentPrice;
       const formattedSize = await service.formatSize(coinSize, symbol);
 
-      await service.placeMarketSell(symbol, formattedSize);
-
       const stopLossPrice = currentPrice + (8 * priceInterval);
       const formattedStopLoss = await service.formatPrice(stopLossPrice, symbol);
+      const slTempId = `${batchTempId}_sl`;
+      optimisticOrders.push({
+        oid: slTempId,
+        coin: symbol,
+        side: 'buy',
+        price: parseFloat(formattedStopLoss),
+        size: parseFloat(formattedSize),
+        orderType: 'stop',
+        timestamp: Date.now(),
+        isOptimistic: true,
+        tempId: slTempId,
+      });
 
       const takeProfitPrice = currentPrice * (1 - TAKE_PROFIT_PERCENT / 100);
       const formattedTakeProfit = await service.formatPrice(takeProfitPrice, symbol);
+      const tpTempId = `${batchTempId}_tp`;
+      optimisticOrders.push({
+        oid: tpTempId,
+        coin: symbol,
+        side: 'buy',
+        price: parseFloat(formattedTakeProfit),
+        size: parseFloat(formattedSize),
+        orderType: 'tp',
+        timestamp: Date.now(),
+        isOptimistic: true,
+        tempId: tpTempId,
+      });
 
-      await service.placeStopLoss({
+      orderStore.addOptimisticOrders(symbol, optimisticOrders);
+
+      await service.placeMarketSell(symbol, formattedSize);
+
+      const slResponse = await service.placeStopLoss({
         coin: symbol,
         triggerPrice: formattedStopLoss,
         size: formattedSize,
         isBuy: true,
       });
 
-      await service.placeTakeProfit({
+      if (slResponse?.status === 'ok' && slResponse.response?.data?.statuses?.[0]) {
+        const status = slResponse.response.data.statuses[0];
+        if ('resting' in status && status.resting?.oid) {
+          orderStore.confirmOptimisticOrder(symbol, slTempId, String(status.resting.oid));
+        }
+      }
+
+      const tpResponse = await service.placeTakeProfit({
         coin: symbol,
         triggerPrice: formattedTakeProfit,
         size: formattedSize,
         isBuy: true,
       });
+
+      if (tpResponse?.status === 'ok' && tpResponse.response?.data?.statuses?.[0]) {
+        const status = tpResponse.response.data.statuses[0];
+        if ('resting' in status && status.resting?.oid) {
+          orderStore.confirmOptimisticOrder(symbol, tpTempId, String(status.resting.oid));
+        }
+      }
+
+      toast.success('Big short placed');
     } catch (error) {
+      optimisticOrders.forEach(order => {
+        orderStore.rollbackOptimisticOrder(symbol, order.tempId);
+      });
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`Big short failed: ${errorMessage}`);
       set((state) => ({
         errors: { ...state.errors, [`bigShort_${symbol}`]: errorMessage },
       }));
@@ -449,6 +794,9 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
         : (price < currentPrice ? 'SHORT below current (breakdown entry)' : 'SHORT above current (rally entry)')
     });
 
+    const tempId = `temp_${Date.now()}_${Math.random()}`;
+    const orderStore = useOrderStore.getState();
+
     set((state) => ({
       isExecuting: { ...state.isExecuting, [`limitOrder_${symbol}`]: true },
       errors: { ...state.errors, [`limitOrder_${symbol}`]: null },
@@ -471,8 +819,21 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
         formattedPrice
       });
 
+      orderStore.addOptimisticOrder(symbol, {
+        oid: tempId,
+        coin: symbol,
+        side: isBuy ? 'buy' : 'sell',
+        price: parseFloat(formattedPrice),
+        size: parseFloat(formattedSize),
+        orderType: useTriggerOrder ? 'trigger' : 'limit',
+        timestamp: Date.now(),
+        isOptimistic: true,
+        tempId: tempId,
+      });
+
+      let response;
       if (useTriggerOrder) {
-        await service.placeTriggerMarketOrder({
+        response = await service.placeTriggerMarketOrder({
           coin: symbol,
           triggerPrice: formattedPrice,
           size: formattedSize,
@@ -480,7 +841,7 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
         });
         console.log('[placeLimitOrderAtPrice] ✅ Trigger market order placed successfully');
       } else {
-        await service.placeLimitOrder({
+        response = await service.placeLimitOrder({
           coin: symbol,
           isBuy,
           price: formattedPrice,
@@ -489,9 +850,25 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
         });
         console.log('[placeLimitOrderAtPrice] ✅ Limit order placed successfully');
       }
+
+      if (response && response.status === 'ok' && response.response?.data?.statuses?.[0]) {
+        const status = response.response.data.statuses[0];
+        if ('resting' in status && status.resting?.oid) {
+          const realOid = status.resting.oid;
+          orderStore.confirmOptimisticOrder(symbol, tempId, String(realOid));
+          toast.success('Order placed');
+        } else {
+          toast.error('Order placement failed (no OID returned)');
+        }
+      } else {
+        orderStore.rollbackOptimisticOrder(symbol, tempId);
+        toast.error('Order placement failed');
+      }
     } catch (error) {
+      orderStore.rollbackOptimisticOrder(symbol, tempId);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.error('[placeLimitOrderAtPrice] ❌ Error:', error);
+      toast.error(`Order failed: ${errorMessage}`);
       set((state) => ({
         errors: { ...state.errors, [`limitOrder_${symbol}`]: errorMessage },
       }));
@@ -547,11 +924,14 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
     if (!service) throw new Error('Service not initialized');
 
     const { coin, percentage } = params;
+    const orderStore = useOrderStore.getState();
 
     set((state) => ({
       isExecuting: { ...state.isExecuting, [`moveStopLoss_${coin}`]: true },
       errors: { ...state.errors, [`moveStopLoss_${coin}`]: null },
     }));
+
+    const tempId = `temp_${Date.now()}_sl`;
 
     try {
       const positions = await service.getOpenPositions();
@@ -583,23 +963,55 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
         return ot.includes('stop market') || order.reduceOnly;
       });
 
-      if (stopLossOrders.length > 0) {
-        for (const slOrder of stopLossOrders) {
-          await service.cancelOrder(coin, slOrder.oid);
-        }
-      }
+      stopLossOrders.forEach((order: any) => {
+        orderStore.markPendingCancellation(coin, order.oid);
+      });
 
       const formattedStopLoss = await service.formatPrice(newStopLossPrice, coin);
       const formattedSize = await service.formatSize(size, coin);
 
-      await service.placeStopLoss({
+      orderStore.addOptimisticOrder(coin, {
+        oid: tempId,
+        coin,
+        side: side === 'long' ? 'sell' : 'buy',
+        price: parseFloat(formattedStopLoss),
+        size: size,
+        orderType: 'stop',
+        timestamp: Date.now(),
+        isOptimistic: true,
+        tempId,
+      });
+
+      if (stopLossOrders.length > 0) {
+        for (const slOrder of stopLossOrders) {
+          await service.cancelOrder(coin, slOrder.oid);
+          orderStore.confirmCancellation(coin, String(slOrder.oid));
+        }
+      }
+
+      const slResponse = await service.placeStopLoss({
         coin,
         triggerPrice: formattedStopLoss,
         size: formattedSize,
         isBuy: side === 'short',
       });
+
+      if (slResponse?.status === 'ok' && slResponse.response?.data?.statuses?.[0]) {
+        const status = slResponse.response.data.statuses[0];
+        if ('resting' in status && status.resting?.oid) {
+          orderStore.confirmOptimisticOrder(coin, tempId, String(status.resting.oid));
+          toast.success('Stop loss moved');
+        } else {
+          toast.error('Move stop loss failed (no OID returned)');
+        }
+      } else {
+        orderStore.rollbackOptimisticOrder(coin, tempId);
+        toast.error('Move stop loss failed');
+      }
     } catch (error) {
+      orderStore.rollbackOptimisticOrder(coin, tempId);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`Move stop loss failed: ${errorMessage}`);
       set((state) => ({
         errors: { ...state.errors, [`moveStopLoss_${coin}`]: errorMessage },
       }));
@@ -615,15 +1027,34 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
     const { service } = get();
     if (!service) throw new Error('Service not initialized');
 
+    const orderStore = useOrderStore.getState();
+    const allOrders = orderStore.getAllOrders(symbol);
+    const entryOrders = allOrders.filter(order => order.orderType === 'limit' || order.orderType === 'trigger');
+
     set((state) => ({
       isExecuting: { ...state.isExecuting, [`cancelEntry_${symbol}`]: true },
       errors: { ...state.errors, [`cancelEntry_${symbol}`]: null },
     }));
 
+    entryOrders.forEach(order => {
+      if (!order.isOptimistic) {
+        orderStore.markPendingCancellation(symbol, order.oid);
+      } else if (order.tempId) {
+        orderStore.rollbackOptimisticOrder(symbol, order.tempId);
+      }
+    });
+
     try {
       await service.cancelEntryOrders(symbol);
+      entryOrders.forEach(order => {
+        if (!order.isOptimistic) {
+          orderStore.confirmCancellation(symbol, order.oid);
+        }
+      });
+      toast.success('Entry orders cancelled');
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`Cancel failed: ${errorMessage}`);
       set((state) => ({
         errors: { ...state.errors, [`cancelEntry_${symbol}`]: errorMessage },
       }));
@@ -639,15 +1070,34 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
     const { service } = get();
     if (!service) throw new Error('Service not initialized');
 
+    const orderStore = useOrderStore.getState();
+    const allOrders = orderStore.getAllOrders(symbol);
+    const exitOrders = allOrders.filter(order => order.orderType === 'stop' || order.orderType === 'tp');
+
     set((state) => ({
       isExecuting: { ...state.isExecuting, [`cancelExit_${symbol}`]: true },
       errors: { ...state.errors, [`cancelExit_${symbol}`]: null },
     }));
 
+    exitOrders.forEach(order => {
+      if (!order.isOptimistic) {
+        orderStore.markPendingCancellation(symbol, order.oid);
+      } else if (order.tempId) {
+        orderStore.rollbackOptimisticOrder(symbol, order.tempId);
+      }
+    });
+
     try {
       await service.cancelExitOrders(symbol);
+      exitOrders.forEach(order => {
+        if (!order.isOptimistic) {
+          orderStore.confirmCancellation(symbol, order.oid);
+        }
+      });
+      toast.success('Exit orders cancelled');
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`Cancel failed: ${errorMessage}`);
       set((state) => ({
         errors: { ...state.errors, [`cancelExit_${symbol}`]: errorMessage },
       }));
@@ -663,15 +1113,33 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
     const { service } = get();
     if (!service) throw new Error('Service not initialized');
 
+    const orderStore = useOrderStore.getState();
+    const allOrders = orderStore.getAllOrders(symbol);
+
     set((state) => ({
       isExecuting: { ...state.isExecuting, [`cancelAll_${symbol}`]: true },
       errors: { ...state.errors, [`cancelAll_${symbol}`]: null },
     }));
 
+    allOrders.forEach(order => {
+      if (!order.isOptimistic) {
+        orderStore.markPendingCancellation(symbol, order.oid);
+      } else if (order.tempId) {
+        orderStore.rollbackOptimisticOrder(symbol, order.tempId);
+      }
+    });
+
     try {
       await service.cancelAllOrders(symbol);
+      allOrders.forEach(order => {
+        if (!order.isOptimistic) {
+          orderStore.confirmCancellation(symbol, order.oid);
+        }
+      });
+      toast.success('All orders cancelled');
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`Cancel failed: ${errorMessage}`);
       set((state) => ({
         errors: { ...state.errors, [`cancelAll_${symbol}`]: errorMessage },
       }));

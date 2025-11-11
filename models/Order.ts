@@ -9,4 +9,7 @@ export interface Order {
   size: number;
   orderType: OrderType;
   timestamp: number;
+  isOptimistic?: boolean;
+  tempId?: string;
+  isPendingCancellation?: boolean;
 }

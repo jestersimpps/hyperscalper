@@ -43,7 +43,9 @@ function SymbolView({ coin }: SymbolViewProps) {
 
   const position = usePositionStore((state) => state.positions[coin]);
 
-  const orders = useOrderStore((state) => state.orders[coin]) || [];
+  const confirmedOrders = useOrderStore((state) => state.orders[coin]) || [];
+  const optimisticOrders = useOrderStore((state) => state.optimisticOrders[coin]) || [];
+  const orders = useMemo(() => [...confirmedOrders, ...optimisticOrders], [confirmedOrders, optimisticOrders]);
   const subscribeToOrders = useOrderStore((state) => state.subscribeToOrders);
   const unsubscribeFromOrders = useOrderStore((state) => state.unsubscribeFromOrders);
 
