@@ -33,6 +33,7 @@ interface LimitOrderAtPriceParams {
   price: number;
   isBuy: boolean;
   percentage: number;
+  currentPrice: number;
 }
 
 interface TradingStore {
@@ -431,8 +432,22 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
       throw new Error('Service not initialized');
     }
 
-    const { symbol, price, isBuy, percentage } = params;
-    console.log('[placeLimitOrderAtPrice] Starting:', { symbol, price, isBuy, percentage });
+    const { symbol, price, isBuy, percentage, currentPrice } = params;
+
+    const useTriggerOrder = (isBuy && price > currentPrice) || (!isBuy && price < currentPrice);
+    const orderType = useTriggerOrder ? 'TRIGGER MARKET' : 'LIMIT';
+
+    console.log('[placeLimitOrderAtPrice] Starting:', {
+      symbol,
+      price,
+      currentPrice,
+      isBuy,
+      percentage,
+      orderType,
+      reason: isBuy
+        ? (price > currentPrice ? 'LONG above current (breakout entry)' : 'LONG below current (pullback entry)')
+        : (price < currentPrice ? 'SHORT below current (breakdown entry)' : 'SHORT above current (rally entry)')
+    });
 
     set((state) => ({
       isExecuting: { ...state.isExecuting, [`limitOrder_${symbol}`]: true },
@@ -456,15 +471,24 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
         formattedPrice
       });
 
-      await service.placeLimitOrder({
-        coin: symbol,
-        isBuy,
-        price: formattedPrice,
-        size: formattedSize,
-        reduceOnly: false,
-      });
-
-      console.log('[placeLimitOrderAtPrice] ✅ Order placed successfully');
+      if (useTriggerOrder) {
+        await service.placeTriggerMarketOrder({
+          coin: symbol,
+          triggerPrice: formattedPrice,
+          size: formattedSize,
+          isBuy,
+        });
+        console.log('[placeLimitOrderAtPrice] ✅ Trigger market order placed successfully');
+      } else {
+        await service.placeLimitOrder({
+          coin: symbol,
+          isBuy,
+          price: formattedPrice,
+          size: formattedSize,
+          reduceOnly: false,
+        });
+        console.log('[placeLimitOrderAtPrice] ✅ Limit order placed successfully');
+      }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.error('[placeLimitOrderAtPrice] ❌ Error:', error);

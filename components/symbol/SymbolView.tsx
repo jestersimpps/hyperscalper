@@ -531,13 +531,14 @@ function SymbolView({ coin }: SymbolViewProps) {
                         percentage = orderSettings.smallPercentage;
                       }
 
-                      console.log('Placing order:', { coin, price: data.price, isBuy, percentage, orderType: isCloud ? 'cloud' : isBig ? 'big' : 'small' });
+                      console.log('Placing order:', { coin, price: data.price, currentPrice, isBuy, percentage, orderType: isCloud ? 'cloud' : isBig ? 'big' : 'small' });
 
                       await placeLimitOrderAtPrice({
                         symbol: coin,
                         price: data.price,
                         isBuy,
                         percentage,
+                        currentPrice,
                       });
 
                       console.log('Order placed successfully!');

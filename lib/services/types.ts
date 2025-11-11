@@ -55,6 +55,13 @@ export interface TakeProfitParams {
   isBuy: boolean;
 }
 
+export interface TriggerMarketOrderParams {
+  coin: string;
+  triggerPrice: string;
+  size: string;
+  isBuy: boolean;
+}
+
 export interface LongParams {
   coin: string;
   size: string;
@@ -105,6 +112,7 @@ export interface IHyperliquidService {
   placeBatchLimitOrders(orders: OrderParams[]): Promise<OrderResponse>;
   placeStopLoss(params: StopLossParams): Promise<OrderResponse>;
   placeTakeProfit(params: TakeProfitParams): Promise<OrderResponse>;
+  placeTriggerMarketOrder(params: TriggerMarketOrderParams): Promise<OrderResponse>;
 
   getAccountState(user?: string): Promise<PerpsClearinghouseState>;
   getOpenPositions(user?: string): Promise<AssetPosition[]>;

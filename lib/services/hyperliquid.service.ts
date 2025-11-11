@@ -26,6 +26,7 @@ import type {
   OrderParams,
   StopLossParams,
   TakeProfitParams,
+  TriggerMarketOrderParams,
   LongParams,
   ShortParams,
   ClosePositionParams,
@@ -232,6 +233,37 @@ export class HyperliquidService implements IHyperliquidService {
         p: triggerPrice,
         s: size,
         r: true,
+        t: {
+          trigger: {
+            triggerPx: triggerPrice,
+            isMarket: true,
+            tpsl: 'tp'
+          }
+        }
+      }],
+      grouping: 'na'
+    });
+  }
+
+  async placeTriggerMarketOrder(params: TriggerMarketOrderParams): Promise<OrderResponse> {
+    this.ensureWalletClient();
+    const triggerPriceNum = parseFloat(params.triggerPrice);
+    const slippagePercent = 0.10;
+    const executionPriceNum = params.isBuy
+      ? triggerPriceNum * (1 + slippagePercent)
+      : triggerPriceNum * (1 - slippagePercent);
+
+    const triggerPrice = await this.formatPrice(triggerPriceNum, params.coin);
+    const executionPrice = await this.formatPrice(executionPriceNum, params.coin);
+    const size = await this.formatSize(parseFloat(params.size), params.coin);
+
+    return await this.walletClient!.order({
+      orders: [{
+        a: await this.getCoinIndex(params.coin),
+        b: params.isBuy,
+        p: executionPrice,
+        s: size,
+        r: false,
         t: {
           trigger: {
             triggerPx: triggerPrice,
