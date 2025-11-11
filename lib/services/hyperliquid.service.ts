@@ -247,20 +247,27 @@ export class HyperliquidService implements IHyperliquidService {
 
   async placeTriggerMarketOrder(params: TriggerMarketOrderParams): Promise<OrderResponse> {
     this.ensureWalletClient();
-    const triggerPrice = await this.formatPrice(parseFloat(params.triggerPrice), params.coin);
+    const triggerPriceNum = parseFloat(params.triggerPrice);
+    const slippagePercent = 0.08;
+    const executionPriceNum = params.isBuy
+      ? triggerPriceNum * (1 + slippagePercent)
+      : triggerPriceNum * (1 - slippagePercent);
+
+    const triggerPrice = await this.formatPrice(triggerPriceNum, params.coin);
+    const executionPrice = await this.formatPrice(executionPriceNum, params.coin);
     const size = await this.formatSize(parseFloat(params.size), params.coin);
 
     return await this.walletClient!.order({
       orders: [{
         a: await this.getCoinIndex(params.coin),
         b: params.isBuy,
-        p: triggerPrice,
+        p: executionPrice,
         s: size,
         r: false,
         t: {
           trigger: {
             triggerPx: triggerPrice,
-            isMarket: false,
+            isMarket: true,
             tpsl: 'sl'
           }
         }
