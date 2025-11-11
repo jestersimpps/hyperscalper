@@ -534,10 +534,12 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
               }
             };
 
-            canvases.forEach((canvas) => {
-              canvas.addEventListener('click', containerClickHandler);
-              canvasElements.push(canvas);
-            });
+            if (containerClickHandler) {
+              canvases.forEach((canvas) => {
+                canvas.addEventListener('click', containerClickHandler!);
+                canvasElements.push(canvas);
+              });
+            }
           }
         }
 
@@ -560,7 +562,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
       }
       if (containerClickHandler) {
         canvasElements.forEach((canvas) => {
-          canvas.removeEventListener('click', containerClickHandler);
+          canvas.removeEventListener('click', containerClickHandler!);
         });
       }
       if (chartRef.current) {
