@@ -1,0 +1,17 @@
+import { create } from 'zustand';
+
+export type CrosshairType = 'cloud-long' | 'cloud-short' | 'sm-long' | 'sm-short' | 'big-long' | 'big-short' | null;
+
+interface CrosshairStore {
+  active: boolean;
+  type: CrosshairType;
+  setMode: (type: CrosshairType) => void;
+  reset: () => void;
+}
+
+export const useCrosshairStore = create<CrosshairStore>((set) => ({
+  active: false,
+  type: null,
+  setMode: (type) => set({ active: type !== null, type }),
+  reset: () => set({ active: false, type: null }),
+}));

@@ -28,6 +28,13 @@ interface MoveStopLossParams {
   percentage: 0 | 25 | 50 | 75;
 }
 
+interface LimitOrderAtPriceParams {
+  symbol: string;
+  price: number;
+  isBuy: boolean;
+  percentage: number;
+}
+
 interface TradingStore {
   service: HyperliquidService | null;
   isExecuting: Record<string, boolean>;
@@ -40,6 +47,7 @@ interface TradingStore {
   smShort: (params: MarketOrderParams) => Promise<void>;
   bigLong: (params: MarketOrderParams) => Promise<void>;
   bigShort: (params: MarketOrderParams) => Promise<void>;
+  placeLimitOrderAtPrice: (params: LimitOrderAtPriceParams) => Promise<void>;
   closePosition: (params: ClosePositionParams) => Promise<void>;
   moveStopLoss: (params: MoveStopLossParams) => Promise<void>;
   cancelEntryOrders: (symbol: string) => Promise<void>;
@@ -412,6 +420,61 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
     } finally {
       set((state) => ({
         isExecuting: { ...state.isExecuting, [`bigShort_${symbol}`]: false },
+      }));
+    }
+  },
+
+  placeLimitOrderAtPrice: async (params: LimitOrderAtPriceParams) => {
+    const { service } = get();
+    if (!service) {
+      console.error('Service not initialized');
+      throw new Error('Service not initialized');
+    }
+
+    const { symbol, price, isBuy, percentage } = params;
+    console.log('[placeLimitOrderAtPrice] Starting:', { symbol, price, isBuy, percentage });
+
+    set((state) => ({
+      isExecuting: { ...state.isExecuting, [`limitOrder_${symbol}`]: true },
+      errors: { ...state.errors, [`limitOrder_${symbol}`]: null },
+    }));
+
+    try {
+      const accountBalance = await service.getAccountBalance();
+      const accountValue = parseFloat(accountBalance.accountValue);
+      const positionSize = (accountValue * percentage) / 100;
+
+      const coinSize = positionSize / price;
+      const formattedSize = await service.formatSize(coinSize, symbol);
+      const formattedPrice = await service.formatPrice(price, symbol);
+
+      console.log('[placeLimitOrderAtPrice] Calculated values:', {
+        accountValue,
+        positionSize,
+        coinSize,
+        formattedSize,
+        formattedPrice
+      });
+
+      await service.placeLimitOrder({
+        coin: symbol,
+        isBuy,
+        price: formattedPrice,
+        size: formattedSize,
+        reduceOnly: false,
+      });
+
+      console.log('[placeLimitOrderAtPrice] ✅ Order placed successfully');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('[placeLimitOrderAtPrice] ❌ Error:', error);
+      set((state) => ({
+        errors: { ...state.errors, [`limitOrder_${symbol}`]: errorMessage },
+      }));
+      throw error;
+    } finally {
+      set((state) => ({
+        isExecuting: { ...state.isExecuting, [`limitOrder_${symbol}`]: false },
       }));
     }
   },

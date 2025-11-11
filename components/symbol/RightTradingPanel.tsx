@@ -1,8 +1,10 @@
 'use client';
 
 import { memo } from 'react';
+import CrosshairIcon from '@/components/icons/CrosshairIcon';
 import QuickCloseButtons from '@/components/layout/QuickCloseButtons';
 import { useSettingsStore } from '@/stores/useSettingsStore';
+import { useCrosshairStore } from '@/stores/useCrosshairStore';
 import { formatPnlSchmeckles } from '@/lib/format-utils';
 import type { Position } from '@/models/Position';
 import type { Order } from '@/models/Order';
@@ -56,9 +58,18 @@ function RightTradingPanel({
 }: RightTradingPanelProps) {
   const hasExitOrders = orders.some(order => order.orderType === 'stop' || order.orderType === 'tp');
   const schmecklesMode = useSettingsStore((state) => state.settings.chart.schmecklesMode);
+  const crosshairActive = useCrosshairStore((state) => state.active);
+  const crosshairType = useCrosshairStore((state) => state.type);
+  const setMode = useCrosshairStore((state) => state.setMode);
+
+  const handleCrosshairClick = (type: 'cloud-long' | 'cloud-short' | 'sm-long' | 'sm-short' | 'big-long' | 'big-short') => {
+    const newMode = crosshairType === type ? null : type;
+    console.log('Crosshair button clicked:', type, '→', newMode ? 'ACTIVE' : 'INACTIVE');
+    setMode(newMode);
+  };
 
   return (
-    <aside className="w-[250px] border-l-2 border-border-frame overflow-y-auto">
+    <aside className="w-[200px] border-l-2 border-border-frame overflow-y-auto">
       <div className="p-2 flex flex-col gap-2">
         <div className="terminal-border p-1.5 flex flex-col">
           <div className="text-[12px] text-primary-muted mb-1.5 uppercase tracking-wider">█ POSITION</div>
@@ -105,50 +116,128 @@ function RightTradingPanel({
             <div className="text-[10px] text-primary-muted mb-2 uppercase tracking-wider">█ ENTRY ORDERS</div>
             <div className="flex flex-col gap-1.5 text-[10px] font-mono">
               <div className="text-[9px] text-primary-muted/60 uppercase tracking-wider mb-0.5">Cloud</div>
-              <button
-                className="w-full px-2 py-1.5 bg-bullish/20 border border-bullish/40 text-bullish hover:bg-bullish/30 hover:border-bullish/60 active:bg-bullish/50 active:scale-95 active:shadow-inner transition-all rounded-sm hover:shadow-[0_0_8px_rgba(38,166,154,0.3)] cursor-pointer"
-                onClick={onBuyCloud}
-              >
-                <span className="text-bullish/60 text-xs font-bold mr-1">Q</span>
-                █ BUY CLOUD
-              </button>
-              <button
-                className="w-full px-2 py-1.5 bg-bearish/20 border border-bearish/40 text-bearish hover:bg-bearish/30 hover:border-bearish/60 active:bg-bearish/50 active:scale-95 active:shadow-inner transition-all rounded-sm hover:shadow-[0_0_8px_rgba(239,83,80,0.3)] cursor-pointer"
-                onClick={onSellCloud}
-              >
-                <span className="text-bearish/60 text-xs font-bold mr-1">W</span>
-                █ SELL CLOUD
-              </button>
+              <div className="flex gap-1">
+                <button
+                  className={`px-2 py-1.5 border rounded-sm transition-all ${
+                    crosshairActive && crosshairType === 'cloud-long'
+                      ? 'bg-bullish/40 border-bullish/80 shadow-[0_0_12px_rgba(38,166,154,0.6)] animate-pulse'
+                      : 'bg-bullish/20 border-bullish/40 hover:bg-bullish/30 hover:border-bullish/60'
+                  }`}
+                  onClick={() => handleCrosshairClick('cloud-long')}
+                  title="Place limit order at clicked price"
+                >
+                  <CrosshairIcon className="w-4 h-4 text-bullish" />
+                </button>
+                <button
+                  className="flex-1 px-2 py-1.5 bg-bullish/20 border border-bullish/40 text-bullish hover:bg-bullish/30 hover:border-bullish/60 active:bg-bullish/50 active:scale-95 active:shadow-inner transition-all rounded-sm hover:shadow-[0_0_8px_rgba(38,166,154,0.3)] cursor-pointer"
+                  onClick={onBuyCloud}
+                >
+                  <span className="text-bullish/60 text-xs font-bold mr-1">Q</span>
+                  █ BUY CLOUD
+                </button>
+              </div>
+              <div className="flex gap-1">
+                <button
+                  className={`px-2 py-1.5 border rounded-sm transition-all ${
+                    crosshairActive && crosshairType === 'cloud-short'
+                      ? 'bg-bearish/40 border-bearish/80 shadow-[0_0_12px_rgba(239,83,80,0.6)] animate-pulse'
+                      : 'bg-bearish/20 border-bearish/40 hover:bg-bearish/30 hover:border-bearish/60'
+                  }`}
+                  onClick={() => handleCrosshairClick('cloud-short')}
+                  title="Place limit order at clicked price"
+                >
+                  <CrosshairIcon className="w-4 h-4 text-bearish" />
+                </button>
+                <button
+                  className="flex-1 px-2 py-1.5 bg-bearish/20 border border-bearish/40 text-bearish hover:bg-bearish/30 hover:border-bearish/60 active:bg-bearish/50 active:scale-95 active:shadow-inner transition-all rounded-sm hover:shadow-[0_0_8px_rgba(239,83,80,0.3)] cursor-pointer"
+                  onClick={onSellCloud}
+                >
+                  <span className="text-bearish/60 text-xs font-bold mr-1">W</span>
+                  █ SELL CLOUD
+                </button>
+              </div>
               <div className="text-[9px] text-primary-muted/60 uppercase tracking-wider mt-2 mb-0.5">Small</div>
-              <button
-                className="w-full px-2 py-1.5 bg-bullish/20 border border-bullish/40 text-bullish hover:bg-bullish/30 hover:border-bullish/60 active:bg-bullish/50 active:scale-95 active:shadow-inner transition-all rounded-sm hover:shadow-[0_0_8px_rgba(38,166,154,0.3)] cursor-pointer"
-                onClick={onSmLong}
-              >
-                <span className="text-bullish/60 text-xs font-bold mr-1">A</span>
-                █ SM LONG
-              </button>
-              <button
-                className="w-full px-2 py-1.5 bg-bearish/20 border border-bearish/40 text-bearish hover:bg-bearish/30 hover:border-bearish/60 active:bg-bearish/50 active:scale-95 active:shadow-inner transition-all rounded-sm hover:shadow-[0_0_8px_rgba(239,83,80,0.3)] cursor-pointer"
-                onClick={onSmShort}
-              >
-                <span className="text-bearish/60 text-xs font-bold mr-1">S</span>
-                █ SM SHORT
-              </button>
+              <div className="flex gap-1">
+                <button
+                  className={`px-2 py-1.5 border rounded-sm transition-all ${
+                    crosshairActive && crosshairType === 'sm-long'
+                      ? 'bg-bullish/40 border-bullish/80 shadow-[0_0_12px_rgba(38,166,154,0.6)] animate-pulse'
+                      : 'bg-bullish/20 border-bullish/40 hover:bg-bullish/30 hover:border-bullish/60'
+                  }`}
+                  onClick={() => handleCrosshairClick('sm-long')}
+                  title="Place limit order at clicked price"
+                >
+                  <CrosshairIcon className="w-4 h-4 text-bullish" />
+                </button>
+                <button
+                  className="flex-1 px-2 py-1.5 bg-bullish/20 border border-bullish/40 text-bullish hover:bg-bullish/30 hover:border-bullish/60 active:bg-bullish/50 active:scale-95 active:shadow-inner transition-all rounded-sm hover:shadow-[0_0_8px_rgba(38,166,154,0.3)] cursor-pointer"
+                  onClick={onSmLong}
+                >
+                  <span className="text-bullish/60 text-xs font-bold mr-1">A</span>
+                  █ SM LONG
+                </button>
+              </div>
+              <div className="flex gap-1">
+                <button
+                  className={`px-2 py-1.5 border rounded-sm transition-all ${
+                    crosshairActive && crosshairType === 'sm-short'
+                      ? 'bg-bearish/40 border-bearish/80 shadow-[0_0_12px_rgba(239,83,80,0.6)] animate-pulse'
+                      : 'bg-bearish/20 border-bearish/40 hover:bg-bearish/30 hover:border-bearish/60'
+                  }`}
+                  onClick={() => handleCrosshairClick('sm-short')}
+                  title="Place limit order at clicked price"
+                >
+                  <CrosshairIcon className="w-4 h-4 text-bearish" />
+                </button>
+                <button
+                  className="flex-1 px-2 py-1.5 bg-bearish/20 border border-bearish/40 text-bearish hover:bg-bearish/30 hover:border-bearish/60 active:bg-bearish/50 active:scale-95 active:shadow-inner transition-all rounded-sm hover:shadow-[0_0_8px_rgba(239,83,80,0.3)] cursor-pointer"
+                  onClick={onSmShort}
+                >
+                  <span className="text-bearish/60 text-xs font-bold mr-1">S</span>
+                  █ SM SHORT
+                </button>
+              </div>
               <div className="text-[9px] text-primary-muted/60 uppercase tracking-wider mt-2 mb-0.5">Big</div>
-              <button
-                className="w-full px-2 py-1.5 bg-bullish/30 border-2 border-bullish/60 text-bullish font-bold hover:bg-bullish/40 hover:border-bullish/80 active:bg-bullish/60 active:scale-95 active:shadow-inner transition-all rounded-sm hover:shadow-[0_0_10px_rgba(38,166,154,0.5)] cursor-pointer"
-                onClick={onBigLong}
-              >
-                <span className="text-bullish/60 text-xs font-bold mr-1">⇧A</span>
-                ██ BIG LONG
-              </button>
-              <button
-                className="w-full px-2 py-1.5 bg-bearish/30 border-2 border-bearish/60 text-bearish font-bold hover:bg-bearish/40 hover:border-bearish/80 active:bg-bearish/60 active:scale-95 active:shadow-inner transition-all rounded-sm hover:shadow-[0_0_10px_rgba(239,83,80,0.5)] cursor-pointer"
-                onClick={onBigShort}
-              >
-                <span className="text-bearish/60 text-xs font-bold mr-1">⇧S</span>
-                ██ BIG SHORT
-              </button>
+              <div className="flex gap-1">
+                <button
+                  className={`px-2 py-1.5 border-2 rounded-sm transition-all ${
+                    crosshairActive && crosshairType === 'big-long'
+                      ? 'bg-bullish/50 border-bullish/90 shadow-[0_0_14px_rgba(38,166,154,0.7)] animate-pulse'
+                      : 'bg-bullish/30 border-bullish/60 hover:bg-bullish/40 hover:border-bullish/80'
+                  }`}
+                  onClick={() => handleCrosshairClick('big-long')}
+                  title="Place limit order at clicked price"
+                >
+                  <CrosshairIcon className="w-4 h-4 text-bullish" />
+                </button>
+                <button
+                  className="flex-1 px-2 py-1.5 bg-bullish/30 border-2 border-bullish/60 text-bullish font-bold hover:bg-bullish/40 hover:border-bullish/80 active:bg-bullish/60 active:scale-95 active:shadow-inner transition-all rounded-sm hover:shadow-[0_0_10px_rgba(38,166,154,0.5)] cursor-pointer"
+                  onClick={onBigLong}
+                >
+                  <span className="text-bullish/60 text-xs font-bold mr-1">⇧A</span>
+                  ██ BIG LONG
+                </button>
+              </div>
+              <div className="flex gap-1">
+                <button
+                  className={`px-2 py-1.5 border-2 rounded-sm transition-all ${
+                    crosshairActive && crosshairType === 'big-short'
+                      ? 'bg-bearish/50 border-bearish/90 shadow-[0_0_14px_rgba(239,83,80,0.7)] animate-pulse'
+                      : 'bg-bearish/30 border-bearish/60 hover:bg-bearish/40 hover:border-bearish/80'
+                  }`}
+                  onClick={() => handleCrosshairClick('big-short')}
+                  title="Place limit order at clicked price"
+                >
+                  <CrosshairIcon className="w-4 h-4 text-bearish" />
+                </button>
+                <button
+                  className="flex-1 px-2 py-1.5 bg-bearish/30 border-2 border-bearish/60 text-bearish font-bold hover:bg-bearish/40 hover:border-bearish/80 active:bg-bearish/60 active:scale-95 active:shadow-inner transition-all rounded-sm hover:shadow-[0_0_10px_rgba(239,83,80,0.5)] cursor-pointer"
+                  onClick={onBigShort}
+                >
+                  <span className="text-bearish/60 text-xs font-bold mr-1">⇧S</span>
+                  ██ BIG SHORT
+                </button>
+              </div>
             </div>
           </div>
 

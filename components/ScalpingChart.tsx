@@ -38,6 +38,7 @@ interface ScalpingChartProps {
   interval: TimeInterval;
   onPriceUpdate?: (price: number) => void;
   onChartReady?: (chart: any) => void;
+  onChartClick?: (data: { time: number; price: number }) => void;
   candleData?: CandleData[];
   isExternalData?: boolean;
   macdCandleData?: Record<TimeInterval, CandleData[]>;
@@ -216,7 +217,7 @@ function createDivergenceMarkers(divergences: DivergencePoint[]): any[] {
 }
 
 
-export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartReady, candleData, isExternalData = false, macdCandleData, position, orders, syncZoom = false, simplifiedView = false, hideStochastic = false }: ScalpingChartProps) {
+export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartReady, onChartClick, candleData, isExternalData = false, macdCandleData, position, orders, syncZoom = false, simplifiedView = false, hideStochastic = false }: ScalpingChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<any>(null);
   const candleSeriesRef = useRef<any>(null);
@@ -267,8 +268,10 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
   useEffect(() => {
     let mounted = true;
     let resizeHandler: (() => void) | null = null;
+    let containerClickHandler: ((event: MouseEvent) => void) | null = null;
+    let canvasElements: HTMLCanvasElement[] = [];
 
-    const initChart = async () => {
+      const initChart = async () => {
       if (!chartContainerRef.current || !mounted) return;
 
       try {
@@ -499,6 +502,40 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
 
         window.addEventListener('resize', resizeHandler);
 
+        if (onChartClick && chartContainerRef.current) {
+          const canvases = chartContainerRef.current.querySelectorAll('canvas');
+
+          if (canvases.length > 0) {
+            containerClickHandler = (event: MouseEvent) => {
+              const target = event.currentTarget as HTMLCanvasElement;
+              if (!target || !candleSeriesRef.current) return;
+
+              const rect = target.getBoundingClientRect();
+              const x = event.clientX - rect.left;
+              const y = event.clientY - rect.top;
+
+              const price = candleSeriesRef.current.coordinateToPrice(y);
+              let time = chart.timeScale().coordinateToTime(x);
+
+              if (price !== null && price !== undefined) {
+                if (!time) {
+                  time = Math.floor(Date.now() / 1000);
+                }
+
+                onChartClick({
+                  time: (typeof time === 'number' ? time : time.timestamp) * 1000,
+                  price: price
+                });
+              }
+            };
+
+            canvases.forEach((canvas) => {
+              canvas.addEventListener('click', containerClickHandler);
+              canvasElements.push(canvas);
+            });
+          }
+        }
+
         if (mounted) {
           setChartReady(true);
           if (onChartReady) {
@@ -515,6 +552,11 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
       mounted = false;
       if (resizeHandler) {
         window.removeEventListener('resize', resizeHandler);
+      }
+      if (containerClickHandler) {
+        canvasElements.forEach((canvas) => {
+          canvas.removeEventListener('click', containerClickHandler);
+        });
       }
       if (chartRef.current) {
         chartRef.current.remove();

@@ -9,6 +9,7 @@ import { usePositionStore } from '@/stores/usePositionStore';
 import { useOrderStore } from '@/stores/useOrderStore';
 import { useCandleStore } from '@/stores/useCandleStore';
 import { useTradingStore } from '@/stores/useTradingStore';
+import { useCrosshairStore } from '@/stores/useCrosshairStore';
 import { playNotificationSound } from '@/lib/sound-utils';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { KeyBinding } from '@/lib/keyboard-utils';
@@ -27,6 +28,7 @@ function SymbolView({ coin }: SymbolViewProps) {
   const [currentPrice, setCurrentPrice] = useState(0);
   const [newTradeKeys, setNewTradeKeys] = useState<Set<string>>(new Set());
   const chartRef = useRef<any>(null);
+  const crosshairStateRef = useRef({ active: false, type: null as any });
 
   const trades = useTradesStore((state) => state.trades[coin]) || [];
   const subscribeToTrades = useTradesStore((state) => state.subscribeToTrades);
@@ -52,6 +54,16 @@ function SymbolView({ coin }: SymbolViewProps) {
   const unsubscribeFromCandles = useCandleStore((state) => state.unsubscribeFromCandles);
   const clearCandles = useCandleStore((state) => state.clearCandles);
   const setActiveSymbol = useCandleStore((state) => state.setActiveSymbol);
+
+  const crosshairActive = useCrosshairStore((state) => state.active);
+  const crosshairType = useCrosshairStore((state) => state.type);
+  const resetCrosshair = useCrosshairStore((state) => state.reset);
+  const placeLimitOrderAtPrice = useTradingStore((state) => state.placeLimitOrderAtPrice);
+
+  useEffect(() => {
+    crosshairStateRef.current = { active: crosshairActive, type: crosshairType };
+    console.log('Crosshair state updated:', { active: crosshairActive, type: crosshairType });
+  }, [crosshairActive, crosshairType]);
   const candleService = useCandleStore((state) => state.service);
 
   const getDecimals = useSymbolMetaStore((state) => state.getDecimals);
@@ -494,12 +506,49 @@ function SymbolView({ coin }: SymbolViewProps) {
         ) : (
           <div className="terminal-border p-1.5 flex flex-col flex-1 min-h-0">
             <div className="text-[10px] text-primary-muted mb-1 uppercase tracking-wider">█ SCALPING CHART</div>
-            <div className="flex-1 min-h-0">
+            <div className={`flex-1 min-h-0 ${crosshairActive ? 'cursor-crosshair' : ''}`}>
               <ScalpingChart
                 coin={coin}
                 interval="1m"
                 onPriceUpdate={setCurrentPrice}
                 onChartReady={(chart) => { chartRef.current = chart; }}
+                onChartClick={async (data) => {
+                  const { active, type } = crosshairStateRef.current;
+                  console.log('Chart clicked at price:', data.price, 'Crosshair active:', active, 'Type:', type);
+
+                  if (active && type) {
+                    try {
+                      const isBuy = type.includes('long');
+                      const isCloud = type.includes('cloud');
+                      const isBig = type.includes('big');
+
+                      let percentage: number;
+                      if (isCloud) {
+                        percentage = orderSettings.cloudPercentage;
+                      } else if (isBig) {
+                        percentage = orderSettings.bigPercentage;
+                      } else {
+                        percentage = orderSettings.smallPercentage;
+                      }
+
+                      console.log('Placing order:', { coin, price: data.price, isBuy, percentage, orderType: isCloud ? 'cloud' : isBig ? 'big' : 'small' });
+
+                      await placeLimitOrderAtPrice({
+                        symbol: coin,
+                        price: data.price,
+                        isBuy,
+                        percentage,
+                      });
+
+                      console.log('Order placed successfully!');
+                      resetCrosshair();
+                    } catch (error) {
+                      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+                      console.error('Order placement failed:', error);
+                      alert(`Failed to place order: ${errorMessage}`);
+                    }
+                  }
+                }}
                 position={position}
                 orders={orders}
               />
