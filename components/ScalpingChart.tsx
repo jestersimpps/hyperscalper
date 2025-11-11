@@ -515,15 +515,20 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
               const y = event.clientY - rect.top;
 
               const price = candleSeriesRef.current.coordinateToPrice(y);
-              let time = chart.timeScale().coordinateToTime(x);
+              const time = chart.timeScale().coordinateToTime(x);
 
               if (price !== null && price !== undefined) {
+                let timestamp: number;
                 if (!time) {
-                  time = Math.floor(Date.now() / 1000);
+                  timestamp = Date.now();
+                } else if (typeof time === 'number') {
+                  timestamp = time * 1000;
+                } else {
+                  timestamp = Date.now();
                 }
 
                 onChartClick({
-                  time: (typeof time === 'number' ? time : time.timestamp) * 1000,
+                  time: timestamp,
                   price: price
                 });
               }
