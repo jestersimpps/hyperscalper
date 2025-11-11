@@ -329,7 +329,7 @@ export default function AppShell({ selectedSymbol, children }: AppShellProps) {
       {/* Main Content Area */}
       <div className="flex flex-1 overflow-hidden">
         {/* Left Sidepanel */}
-        <aside className={`${scannerEnabled ? 'w-[550px]' : 'w-[270px]'} border-r-2 border-border-frame overflow-y-auto transition-all duration-300`}>
+        <aside className={`${scannerEnabled ? 'w-[500px]' : 'w-[270px]'} border-r-2 border-border-frame overflow-y-auto transition-all duration-300`}>
           <Sidepanel selectedSymbol={selectedSymbol} />
         </aside>
 
