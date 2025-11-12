@@ -115,22 +115,30 @@ export default function OpenOrdersList({ currentSymbol }: OpenOrdersListProps) {
     const typeLabel = getOrderTypeLabel(order.orderType);
     const isOptimistic = order.isOptimistic || order.isPendingCancellation;
     const opacity = isOptimistic ? 'opacity-50' : '';
+    const usdValue = order.price * order.size;
 
     return (
       <div
         key={order.oid || order.tempId}
-        className={`flex items-center gap-2 text-[9px] font-mono ${bgColor} ${borderColor} border ${opacity} ${isClickable ? 'cursor-pointer hover:brightness-110' : ''} px-2 py-1 rounded`}
+        className={`flex flex-col gap-1 text-xs font-mono ${bgColor} ${borderColor} border ${opacity} ${isClickable ? 'cursor-pointer hover:brightness-110' : ''} px-2 py-1.5 rounded`}
         onClick={isClickable ? () => handleOrderClick(order.coin) : undefined}
       >
-        <span className={`text-[8px] font-bold ${textColor} w-[45px]`}>{typeLabel}</span>
-        <span className={`flex-1 font-bold ${textColor} truncate`}>{formatPrice(order.price, decimals.price)}</span>
-        <button
-          onClick={(e) => handleCancelOrder(order.coin, order.oid, e)}
-          className="w-[16px] h-[16px] flex items-center justify-center hover:bg-bearish/30 border border-border-frame text-[11px] rounded flex-shrink-0"
-          title="Cancel order"
-        >
-          ×
-        </button>
+        <div className="flex items-center justify-between">
+          <span className={`text-[10px] font-bold ${textColor}`}>{typeLabel}</span>
+          <button
+            onClick={(e) => handleCancelOrder(order.coin, order.oid, e)}
+            className="w-[18px] h-[18px] flex items-center justify-center hover:bg-bearish/30 border border-border-frame text-xs rounded flex-shrink-0"
+            title="Cancel order"
+          >
+            ×
+          </button>
+        </div>
+        <div className={`flex items-center justify-between text-[10px] ${textColor}`}>
+          <span className="font-bold">{formatPrice(order.price, decimals.price)}</span>
+          <span className="opacity-70">
+            ${usdValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </span>
+        </div>
       </div>
     );
   };
@@ -143,25 +151,35 @@ export default function OpenOrdersList({ currentSymbol }: OpenOrdersListProps) {
     const textColor = isLong ? 'text-bullish' : 'text-bearish';
     const pnlColor = position.pnl >= 0 ? 'text-bullish' : 'text-bearish';
     const blinkAnimation = position.pnl > 0 ? 'animate-blink-green' : '';
+    const usdValue = position.currentPrice * position.size;
 
     return (
       <div
         key={`position-${symbol}`}
-        className={`flex items-center gap-2 text-[9px] font-mono ${bgColor} ${borderColor} border-2 ${blinkAnimation} ${isClickable ? 'cursor-pointer hover:brightness-110' : ''} px-2 py-1 rounded`}
+        className={`flex flex-col gap-1 text-xs font-mono ${bgColor} ${borderColor} border-2 ${blinkAnimation} ${isClickable ? 'cursor-pointer hover:brightness-110' : ''} px-2 py-1.5 rounded`}
         onClick={isClickable ? () => handleOrderClick(symbol) : undefined}
       >
-        <span className={`text-[8px] font-bold ${textColor} w-[45px]`}>ENTRY</span>
-        <span className={`flex-1 font-bold ${textColor} truncate`}>{formatPrice(position.entryPrice, decimals.price)}</span>
-        <span className={`text-[8px] font-bold ${pnlColor} mr-1`}>
-          {position.pnl >= 0 ? '+' : ''}{position.pnl.toFixed(2)}
-        </span>
-        <button
-          onClick={(e) => handleClosePosition(symbol, e)}
-          className="w-[16px] h-[16px] flex items-center justify-center hover:bg-bearish/30 border border-border-frame text-[11px] rounded flex-shrink-0"
-          title="Close position"
-        >
-          ×
-        </button>
+        <div className="flex items-center justify-between">
+          <span className={`text-[10px] font-bold ${textColor}`}>ENTRY</span>
+          <div className="flex items-center gap-2">
+            <span className={`text-[10px] font-bold ${pnlColor}`}>
+              {position.pnl >= 0 ? '+' : ''}{position.pnl.toFixed(2)}
+            </span>
+            <button
+              onClick={(e) => handleClosePosition(symbol, e)}
+              className="w-[18px] h-[18px] flex items-center justify-center hover:bg-bearish/30 border border-border-frame text-xs rounded flex-shrink-0"
+              title="Close position"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+        <div className={`flex items-center justify-between text-[10px] ${textColor}`}>
+          <span className="font-bold">{formatPrice(position.entryPrice, decimals.price)}</span>
+          <span className="opacity-70">
+            ${usdValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </span>
+        </div>
       </div>
     );
   };
@@ -179,12 +197,12 @@ export default function OpenOrdersList({ currentSymbol }: OpenOrdersListProps) {
       <div className="flex-1 overflow-y-auto p-1.5">
         {/* Current Symbol Section */}
         <div className="mb-3">
-          <div className="text-[10px] text-primary-muted mb-2 uppercase tracking-wider">
+          <div className="text-xs text-primary-muted mb-2 uppercase tracking-wider">
             {currentSymbol}
           </div>
           <div className="space-y-1.5">
             {currentItems.length === 0 ? (
-              <div className="text-[9px] text-primary-muted/50">No orders or positions</div>
+              <div className="text-xs text-primary-muted/50">No orders or positions</div>
             ) : (
               currentItems.map(item => renderItem(item, currentSymbol, false))
             )}
@@ -196,16 +214,16 @@ export default function OpenOrdersList({ currentSymbol }: OpenOrdersListProps) {
 
         {/* All Other Symbols Section */}
         <div>
-          <div className="text-[10px] text-primary-muted mb-2 uppercase tracking-wider">
+          <div className="text-xs text-primary-muted mb-2 uppercase tracking-wider">
             ALL SYMBOLS
           </div>
           <div className="space-y-2">
             {globalItems.length === 0 ? (
-              <div className="text-[9px] text-primary-muted/50">No orders or positions</div>
+              <div className="text-xs text-primary-muted/50">No orders or positions</div>
             ) : (
               globalItems.map(({ symbol, items }) => (
                 <div key={symbol} className="space-y-1.5">
-                  <div className="text-[9px] text-primary-muted/70 uppercase tracking-wider font-bold">
+                  <div className="text-[11px] text-primary-muted/70 uppercase tracking-wider font-bold">
                     {symbol}
                   </div>
                   {items.map(item => renderItem(item, symbol, true))}

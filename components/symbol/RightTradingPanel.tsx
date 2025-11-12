@@ -1,10 +1,10 @@
 'use client';
 
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 import CrosshairIcon from '@/components/icons/CrosshairIcon';
-import QuickCloseButtons from '@/components/layout/QuickCloseButtons';
 import { useSettingsStore } from '@/stores/useSettingsStore';
 import { useCrosshairStore } from '@/stores/useCrosshairStore';
+import { usePositionStore } from '@/stores/usePositionStore';
 import { formatPnlSchmeckles } from '@/lib/format-utils';
 import type { Position } from '@/models/Position';
 import type { Order } from '@/models/Order';
@@ -24,6 +24,7 @@ interface RightTradingPanelProps {
   onClose50: () => void;
   onClose75: () => void;
   onClose100: () => void;
+  onCloseAllPositions: () => void;
   onCancelEntryOrders: () => void;
   onCancelExitOrders: () => void;
   onCancelAllOrders: () => void;
@@ -44,6 +45,7 @@ function RightTradingPanel({
   onClose50,
   onClose75,
   onClose100,
+  onCloseAllPositions,
   onCancelEntryOrders,
   onCancelExitOrders,
   onCancelAllOrders,
@@ -53,6 +55,13 @@ function RightTradingPanel({
   const crosshairActive = useCrosshairStore((state) => state.active);
   const crosshairType = useCrosshairStore((state) => state.type);
   const setMode = useCrosshairStore((state) => state.setMode);
+  const positions = usePositionStore((state) => state.positions);
+
+  const totalPnl = useMemo(() => {
+    return Object.values(positions).reduce((sum, pos) => {
+      return sum + (pos?.pnl || 0);
+    }, 0);
+  }, [positions]);
 
   const handleCrosshairClick = (type: 'cloud-long' | 'cloud-short' | 'sm-long' | 'sm-short' | 'big-long' | 'big-short' | 'exit-25' | 'exit-50' | 'exit-75' | 'exit-100') => {
     const newMode = crosshairType === type ? null : type;
@@ -300,8 +309,17 @@ function RightTradingPanel({
           <div className="pt-2 border-t border-border-frame">
             <div className="text-[10px] text-primary-muted mb-2 uppercase tracking-wider">█ CLOSE POSITION</div>
             <div className="flex flex-col gap-1.5">
-              <div className="text-[9px] text-primary-muted/60 uppercase tracking-wider mb-0.5">Global</div>
-              <QuickCloseButtons />
+              <div className={`text-[9px] font-mono text-center mb-1 ${totalPnl >= 0 ? 'text-bullish' : 'text-bearish'}`}>
+                TOTAL PNL: {totalPnl >= 0 ? '+' : ''}{totalPnl.toFixed(2)} USD
+              </div>
+              <button
+                className="w-full px-2 py-1.5 bg-bearish/20 border-2 border-bearish/60 text-bearish font-bold hover:bg-bearish/30 hover:border-bearish/80 active:bg-bearish/40 active:scale-95 active:shadow-inner transition-all rounded-sm hover:shadow-[0_0_12px_rgba(239,83,80,0.5)] cursor-pointer text-[10px]"
+                onClick={onCloseAllPositions}
+                title="Emergency: Close 100% of ALL positions across all symbols (hotkey: Shift+E)"
+              >
+                <span className="text-bearish/60 text-xs font-bold mr-1">⇧E</span>
+                EMERGENCY: CLOSE ALL
+              </button>
               <div className="text-[9px] text-primary-muted/60 uppercase tracking-wider mt-2 mb-0.5">Current ({coin})</div>
               <div className="grid grid-cols-2 gap-1.5 text-[10px] font-mono">
                 <button

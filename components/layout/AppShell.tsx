@@ -31,6 +31,7 @@ export default function AppShell({ selectedSymbol, children }: AppShellProps) {
   const isTradesView = pathname?.includes('/trades');
 
   const position = usePositionStore((state) => state.positions[coin]);
+  const allPositions = usePositionStore((state) => state.positions);
   const orders = useOrderStore((state) => state.orders[coin]) || [];
   const getDecimals = useSymbolMetaStore((state) => state.getDecimals);
   const decimals = useMemo(() => getDecimals(coin), [getDecimals, coin]);
@@ -228,6 +229,17 @@ export default function AppShell({ selectedSymbol, children }: AppShellProps) {
     }
   }, [coin, closePosition]);
 
+  const handleCloseAllPositions = useCallback(async () => {
+    try {
+      const positionsToClose = Object.entries(allPositions).filter(([_, pos]) => pos && pos.size > 0);
+      for (const [symbol, _] of positionsToClose) {
+        await closePosition({ symbol, percentage: 100 });
+      }
+    } catch (error) {
+      alert(`Error closing all positions: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }, [allPositions, closePosition]);
+
   const handleCancelEntryOrders = useCallback(async () => {
     try {
       await cancelEntryOrders(coin);
@@ -322,6 +334,7 @@ export default function AppShell({ selectedSymbol, children }: AppShellProps) {
           onClose50={handleClose50}
           onClose75={handleClose75}
           onClose100={handleClose100}
+          onCloseAllPositions={handleCloseAllPositions}
           onCancelEntryOrders={handleCancelEntryOrders}
           onCancelExitOrders={handleCancelExitOrders}
           onCancelAllOrders={handleCancelAllOrders}
