@@ -154,7 +154,7 @@ function RightTradingPanel({
                   onClick={() => handleCrosshairClick('cloud-long')}
                   title="Place limit order at clicked price"
                 >
-                  <CrosshairIcon className="w-4 h-4 text-bullish" />
+                  <CrosshairIcon className="w-6 h-6 text-bullish" />
                 </button>
                 <button
                   className="flex-1 px-2 py-1.5 bg-bullish/20 border border-bullish/40 text-bullish hover:bg-bullish/30 hover:border-bullish/60 active:bg-bullish/50 active:scale-95 active:shadow-inner transition-all rounded-sm hover:shadow-[0_0_8px_rgba(38,166,154,0.3)] cursor-pointer"
@@ -175,7 +175,7 @@ function RightTradingPanel({
                   onClick={() => handleCrosshairClick('cloud-short')}
                   title="Place limit order at clicked price"
                 >
-                  <CrosshairIcon className="w-4 h-4 text-bearish" />
+                  <CrosshairIcon className="w-6 h-6 text-bearish" />
                 </button>
                 <button
                   className="flex-1 px-2 py-1.5 bg-bearish/20 border border-bearish/40 text-bearish hover:bg-bearish/30 hover:border-bearish/60 active:bg-bearish/50 active:scale-95 active:shadow-inner transition-all rounded-sm hover:shadow-[0_0_8px_rgba(239,83,80,0.3)] cursor-pointer"
@@ -197,7 +197,7 @@ function RightTradingPanel({
                   onClick={() => handleCrosshairClick('sm-long')}
                   title="Place limit order at clicked price"
                 >
-                  <CrosshairIcon className="w-4 h-4 text-bullish" />
+                  <CrosshairIcon className="w-6 h-6 text-bullish" />
                 </button>
                 <button
                   className="flex-1 px-2 py-1.5 bg-bullish/20 border border-bullish/40 text-bullish hover:bg-bullish/30 hover:border-bullish/60 active:bg-bullish/50 active:scale-95 active:shadow-inner transition-all rounded-sm hover:shadow-[0_0_8px_rgba(38,166,154,0.3)] cursor-pointer"
@@ -218,7 +218,7 @@ function RightTradingPanel({
                   onClick={() => handleCrosshairClick('sm-short')}
                   title="Place limit order at clicked price"
                 >
-                  <CrosshairIcon className="w-4 h-4 text-bearish" />
+                  <CrosshairIcon className="w-6 h-6 text-bearish" />
                 </button>
                 <button
                   className="flex-1 px-2 py-1.5 bg-bearish/20 border border-bearish/40 text-bearish hover:bg-bearish/30 hover:border-bearish/60 active:bg-bearish/50 active:scale-95 active:shadow-inner transition-all rounded-sm hover:shadow-[0_0_8px_rgba(239,83,80,0.3)] cursor-pointer"
@@ -240,7 +240,7 @@ function RightTradingPanel({
                   onClick={() => handleCrosshairClick('big-long')}
                   title="Place limit order at clicked price"
                 >
-                  <CrosshairIcon className="w-4 h-4 text-bullish" />
+                  <CrosshairIcon className="w-6 h-6 text-bullish" />
                 </button>
                 <button
                   className="flex-1 px-2 py-1.5 bg-bullish/30 border-2 border-bullish/60 text-bullish font-bold hover:bg-bullish/40 hover:border-bullish/80 active:bg-bullish/60 active:scale-95 active:shadow-inner transition-all rounded-sm hover:shadow-[0_0_10px_rgba(38,166,154,0.5)] cursor-pointer"
@@ -261,7 +261,7 @@ function RightTradingPanel({
                   onClick={() => handleCrosshairClick('big-short')}
                   title="Place limit order at clicked price"
                 >
-                  <CrosshairIcon className="w-4 h-4 text-bearish" />
+                  <CrosshairIcon className="w-6 h-6 text-bearish" />
                 </button>
                 <button
                   className="flex-1 px-2 py-1.5 bg-bearish/30 border-2 border-bearish/60 text-bearish font-bold hover:bg-bearish/40 hover:border-bearish/80 active:bg-bearish/60 active:scale-95 active:shadow-inner transition-all rounded-sm hover:shadow-[0_0_10px_rgba(239,83,80,0.5)] cursor-pointer"
@@ -279,7 +279,7 @@ function RightTradingPanel({
             <div className="text-[10px] text-primary-muted mb-2 uppercase tracking-wider">█ EXIT ORDERS</div>
             <div className="grid grid-cols-4 gap-1.5">
               <button
-                className={`w-full aspect-square flex flex-col items-center justify-center border transition-all rounded-sm text-[8px] font-bold disabled:opacity-30 disabled:cursor-not-allowed disabled:active:scale-100 ${
+                className={`w-full aspect-square flex flex-col items-center justify-center border transition-all rounded-sm text-[8px] font-bold disabled:opacity-30 disabled:cursor-not-allowed disabled:active:scale-100 pt-1 ${
                   crosshairType === 'exit-25'
                     ? 'bg-accent-cyan/40 border-accent-cyan/80 shadow-[0_0_12px_rgba(68,186,186,0.6)] animate-pulse cursor-pointer'
                     : 'bg-accent-cyan/10 border-accent-cyan/30 text-accent-cyan hover:bg-accent-cyan/20 hover:border-accent-cyan/50 active:bg-accent-cyan/30 active:scale-95 cursor-pointer'
@@ -288,11 +288,11 @@ function RightTradingPanel({
                 disabled={!position}
                 title="Click to place 25% exit order on chart"
               >
-                <CrosshairIcon className={crosshairType === 'exit-25' ? 'text-accent-cyan' : 'text-accent-cyan/60'} />
+                <CrosshairIcon className={`w-6 h-6 ${crosshairType === 'exit-25' ? 'text-accent-cyan' : 'text-accent-cyan/60'}`} />
                 <span className="mt-0.5">25%</span>
               </button>
               <button
-                className={`w-full aspect-square flex flex-col items-center justify-center border transition-all rounded-sm text-[8px] font-bold disabled:opacity-30 disabled:cursor-not-allowed disabled:active:scale-100 ${
+                className={`w-full aspect-square flex flex-col items-center justify-center border transition-all rounded-sm text-[8px] font-bold disabled:opacity-30 disabled:cursor-not-allowed disabled:active:scale-100 pt-1 ${
                   crosshairType === 'exit-50'
                     ? 'bg-accent-cyan/40 border-accent-cyan/80 shadow-[0_0_12px_rgba(68,186,186,0.6)] animate-pulse cursor-pointer'
                     : 'bg-accent-cyan/10 border-accent-cyan/30 text-accent-cyan hover:bg-accent-cyan/20 hover:border-accent-cyan/50 active:bg-accent-cyan/30 active:scale-95 cursor-pointer'
@@ -301,11 +301,11 @@ function RightTradingPanel({
                 disabled={!position}
                 title="Click to place 50% exit order on chart"
               >
-                <CrosshairIcon className={crosshairType === 'exit-50' ? 'text-accent-cyan' : 'text-accent-cyan/60'} />
+                <CrosshairIcon className={`w-6 h-6 ${crosshairType === 'exit-50' ? 'text-accent-cyan' : 'text-accent-cyan/60'}`} />
                 <span className="mt-0.5">50%</span>
               </button>
               <button
-                className={`w-full aspect-square flex flex-col items-center justify-center border transition-all rounded-sm text-[8px] font-bold disabled:opacity-30 disabled:cursor-not-allowed disabled:active:scale-100 ${
+                className={`w-full aspect-square flex flex-col items-center justify-center border transition-all rounded-sm text-[8px] font-bold disabled:opacity-30 disabled:cursor-not-allowed disabled:active:scale-100 pt-1 ${
                   crosshairType === 'exit-75'
                     ? 'bg-accent-cyan/40 border-accent-cyan/80 shadow-[0_0_12px_rgba(68,186,186,0.6)] animate-pulse cursor-pointer'
                     : 'bg-accent-cyan/10 border-accent-cyan/30 text-accent-cyan hover:bg-accent-cyan/20 hover:border-accent-cyan/50 active:bg-accent-cyan/30 active:scale-95 cursor-pointer'
@@ -314,11 +314,11 @@ function RightTradingPanel({
                 disabled={!position}
                 title="Click to place 75% exit order on chart"
               >
-                <CrosshairIcon className={crosshairType === 'exit-75' ? 'text-accent-cyan' : 'text-accent-cyan/60'} />
+                <CrosshairIcon className={`w-6 h-6 ${crosshairType === 'exit-75' ? 'text-accent-cyan' : 'text-accent-cyan/60'}`} />
                 <span className="mt-0.5">75%</span>
               </button>
               <button
-                className={`w-full aspect-square flex flex-col items-center justify-center border transition-all rounded-sm text-[8px] font-bold disabled:opacity-30 disabled:cursor-not-allowed disabled:active:scale-100 ${
+                className={`w-full aspect-square flex flex-col items-center justify-center border transition-all rounded-sm text-[8px] font-bold disabled:opacity-30 disabled:cursor-not-allowed disabled:active:scale-100 pt-1 ${
                   crosshairType === 'exit-100'
                     ? 'bg-accent-cyan/40 border-accent-cyan/80 shadow-[0_0_12px_rgba(68,186,186,0.6)] animate-pulse cursor-pointer'
                     : 'bg-accent-cyan/10 border-accent-cyan/30 text-accent-cyan hover:bg-accent-cyan/20 hover:border-accent-cyan/50 active:bg-accent-cyan/30 active:scale-95 cursor-pointer'
@@ -327,7 +327,7 @@ function RightTradingPanel({
                 disabled={!position}
                 title="Click to place 100% exit order on chart"
               >
-                <CrosshairIcon className={crosshairType === 'exit-100' ? 'text-accent-cyan' : 'text-accent-cyan/60'} />
+                <CrosshairIcon className={`w-6 h-6 ${crosshairType === 'exit-100' ? 'text-accent-cyan' : 'text-accent-cyan/60'}`} />
                 <span className="mt-0.5">100%</span>
               </button>
             </div>
