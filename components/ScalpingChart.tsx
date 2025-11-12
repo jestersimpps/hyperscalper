@@ -32,6 +32,7 @@ import {
 import { getCandleTimeWindow } from '@/lib/time-utils';
 import { DEFAULT_CANDLE_COUNT } from '@/lib/constants';
 import { invertCandles } from '@/lib/candle-utils';
+import { calculateBreakevenPrice } from '@/lib/breakeven-utils';
 
 interface ScalpingChartProps {
   coin: string;
@@ -231,6 +232,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
   const supportLineSeriesRef = useRef<any[]>([]);
   const resistanceLineSeriesRef = useRef<any[]>([]);
   const positionLineRef = useRef<any>(null);
+  const breakevenBandSeriesRef = useRef<any>(null);
   const orderLinesRef = useRef<any[]>([]);
   const cachedTrendlinesRef = useRef<{ supportLine: any[]; resistanceLine: any[] }>({ supportLine: [], resistanceLine: [] });
   const lastTrendlineCalculationRef = useRef<number>(0);
@@ -1323,6 +1325,78 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
       }
     };
   }, [position, chartReady, chartSettings?.invertedMode, displayCandles.length, candles]);
+
+  // Breakeven band overlay
+  useEffect(() => {
+    if (!chartReady || !chartRef.current || !position) return;
+
+    // Remove existing breakeven band if it exists
+    if (breakevenBandSeriesRef.current) {
+      try {
+        chartRef.current.removeSeries(breakevenBandSeriesRef.current);
+      } catch (e) {
+        // Ignore errors
+      }
+      breakevenBandSeriesRef.current = null;
+    }
+
+    // Create breakeven band if position exists and we have candles to display
+    if (position && displayCandles.length > 0) {
+      const breakevenPrice = calculateBreakevenPrice(
+        position.entryPrice,
+        position.side
+      );
+
+      let displayEntryPrice = position.entryPrice;
+      let displayBreakevenPrice = breakevenPrice;
+
+      if (chartSettings?.invertedMode && candles.length > 0) {
+        const referencePrice = candles[0]?.close || displayCandles[0]?.close;
+        displayEntryPrice = 2 * referencePrice - position.entryPrice;
+        displayBreakevenPrice = 2 * referencePrice - breakevenPrice;
+      }
+
+      // Create baseline series with entry as baseline and breakeven as data
+      const breakevenBandSeries = chartRef.current.addBaselineSeries({
+        baseValue: { type: 'price', price: displayEntryPrice },
+        topFillColor1: 'rgba(255, 255, 0, 0.15)',
+        topFillColor2: 'rgba(255, 255, 0, 0.05)',
+        bottomFillColor1: 'rgba(255, 255, 0, 0.15)',
+        bottomFillColor2: 'rgba(255, 255, 0, 0.05)',
+        lineColor: 'rgba(255, 255, 0, 0)',
+        lineWidth: 0,
+        lastValueVisible: false,
+        priceLineVisible: false,
+        crosshairMarkerVisible: false,
+        priceFormat: {
+          type: 'price',
+          precision: decimals.price,
+          minMove: 1 / Math.pow(10, decimals.price),
+        },
+      });
+
+      // Set data points at breakeven price spanning all candles
+      const breakevenData = displayCandles.map((candle) => ({
+        time: (candle.time / 1000) as any,
+        value: displayBreakevenPrice,
+      }));
+
+      breakevenBandSeries.setData(breakevenData);
+      breakevenBandSeriesRef.current = breakevenBandSeries;
+    }
+
+    // Cleanup on unmount or position change
+    return () => {
+      if (breakevenBandSeriesRef.current && chartRef.current) {
+        try {
+          chartRef.current.removeSeries(breakevenBandSeriesRef.current);
+        } catch (e) {
+          // Ignore errors during cleanup
+        }
+        breakevenBandSeriesRef.current = null;
+      }
+    };
+  }, [position, chartReady, chartSettings?.invertedMode, displayCandles, candles, decimals.price]);
 
   // Order price lines overlay
   useEffect(() => {
