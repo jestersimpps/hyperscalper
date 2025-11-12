@@ -305,7 +305,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     bigPercentage: 25,
   },
   theme: {
-    selected: 'hyper',
+    selected: 'dark-blue',
     playTradeSound: false,
   },
   chart: {
