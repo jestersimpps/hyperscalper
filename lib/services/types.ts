@@ -121,6 +121,9 @@ export interface IHyperliquidService {
   cancelOrder(coin: string, orderId: number): Promise<CancelResponse>;
   cancelAllOrders(coin: string): Promise<CancelResponse>;
   cancelEntryOrders(coin: string): Promise<CancelResponse>;
+  cancelExitOrders(coin: string): Promise<CancelResponse>;
+  cancelTPOrders(coin: string): Promise<CancelResponse>;
+  cancelSLOrders(coin: string): Promise<CancelResponse>;
 
   openLong(params: LongParams): Promise<OrderResponse>;
   openShort(params: ShortParams): Promise<OrderResponse>;

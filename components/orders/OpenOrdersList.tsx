@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useOrderStore } from '@/stores/useOrderStore';
 import { usePositionStore } from '@/stores/usePositionStore';
@@ -39,6 +39,10 @@ export default function OpenOrdersList({ currentSymbol }: OpenOrdersListProps) {
   const confirmedCurrentOrders = ordersState[currentSymbol] || [];
   const optimisticCurrentOrders = optimisticOrdersState[currentSymbol] || [];
   const currentPosition = positionsState[currentSymbol];
+
+  const [newlyAddedItems, setNewlyAddedItems] = useState<Set<string>>(new Set());
+  const [exitingItems, setExitingItems] = useState<Set<string>>(new Set());
+  const prevItemsRef = useRef<Map<string, Set<string>>>(new Map());
 
   const currentItems = useMemo(() => {
     const orders = [...confirmedCurrentOrders, ...optimisticCurrentOrders];
@@ -82,6 +86,83 @@ export default function OpenOrdersList({ currentSymbol }: OpenOrdersListProps) {
     });
   }, [allOrders, currentSymbol, positionsState]);
 
+  const getItemId = (item: OrderOrPosition, symbol: string): string => {
+    if (item.type === 'order') {
+      return `order-${item.data.oid || item.data.tempId}`;
+    }
+    return `position-${symbol}`;
+  };
+
+  useEffect(() => {
+    const allSymbols = [currentSymbol, ...globalItems.map(g => g.symbol)];
+    const currentItemIds = new Map<string, Set<string>>();
+
+    allSymbols.forEach(symbol => {
+      const ids = new Set<string>();
+
+      if (symbol === currentSymbol) {
+        currentItems.forEach(item => {
+          ids.add(getItemId(item, symbol));
+        });
+      } else {
+        const group = globalItems.find(g => g.symbol === symbol);
+        group?.items.forEach(item => {
+          ids.add(getItemId(item, symbol));
+        });
+      }
+
+      currentItemIds.set(symbol, ids);
+    });
+
+    const newIds = new Set<string>();
+    const removedIds = new Set<string>();
+
+    allSymbols.forEach(symbol => {
+      const prevIds = prevItemsRef.current.get(symbol) || new Set();
+      const currIds = currentItemIds.get(symbol) || new Set();
+
+      currIds.forEach(id => {
+        if (!prevIds.has(id)) {
+          newIds.add(id);
+        }
+      });
+
+      prevIds.forEach(id => {
+        if (!currIds.has(id)) {
+          removedIds.add(id);
+        }
+      });
+    });
+
+    if (newIds.size > 0) {
+      setNewlyAddedItems(prev => new Set([...prev, ...newIds]));
+
+      newIds.forEach(id => {
+        setTimeout(() => {
+          setNewlyAddedItems(prev => {
+            const updated = new Set(prev);
+            updated.delete(id);
+            return updated;
+          });
+        }, 500);
+      });
+    }
+
+    if (removedIds.size > 0) {
+      setExitingItems(prev => new Set([...prev, ...removedIds]));
+
+      setTimeout(() => {
+        setExitingItems(prev => {
+          const updated = new Set(prev);
+          removedIds.forEach(id => updated.delete(id));
+          return updated;
+        });
+      }, 400);
+    }
+
+    prevItemsRef.current = currentItemIds;
+  }, [currentItems, globalItems, currentSymbol]);
+
   const handleOrderClick = (symbol: string) => {
     if (symbol !== currentSymbol && address) {
       router.push(`/${address}/${symbol}`);
@@ -106,7 +187,8 @@ export default function OpenOrdersList({ currentSymbol }: OpenOrdersListProps) {
     }
   };
 
-  const renderOrder = (order: Order, isClickable: boolean = false) => {
+  const renderOrder = (order: Order, symbol: string, isClickable: boolean = false) => {
+    const itemId = getItemId({ type: 'order', data: order }, symbol);
     const decimals = getDecimals(order.coin);
     const isBuy = order.side === 'buy';
     const bgColor = isBuy ? 'bg-bullish/10' : 'bg-bearish/10';
@@ -117,10 +199,15 @@ export default function OpenOrdersList({ currentSymbol }: OpenOrdersListProps) {
     const opacity = isOptimistic ? 'opacity-50' : '';
     const usdValue = order.price * order.size;
 
+    const isNewlyAdded = newlyAddedItems.has(itemId);
+    const isExiting = exitingItems.has(itemId);
+    const entranceAnimation = isNewlyAdded ? 'animate-slideInDown' : '';
+    const exitAnimation = isExiting ? 'animate-slideOutUp' : '';
+
     return (
       <div
         key={order.oid || order.tempId}
-        className={`flex flex-col gap-1 text-xs font-mono ${bgColor} ${borderColor} border ${opacity} ${isClickable ? 'cursor-pointer hover:brightness-110' : ''} px-2 py-1.5 rounded`}
+        className={`flex flex-col gap-1 text-xs font-mono ${bgColor} ${borderColor} border ${opacity} ${entranceAnimation} ${exitAnimation} ${isClickable ? 'cursor-pointer hover:brightness-110' : ''} px-2 py-1.5 rounded`}
         onClick={isClickable ? () => handleOrderClick(order.coin) : undefined}
       >
         <div className="flex items-center justify-between">
@@ -144,19 +231,25 @@ export default function OpenOrdersList({ currentSymbol }: OpenOrdersListProps) {
   };
 
   const renderPosition = (position: Position, symbol: string, isClickable: boolean = false) => {
+    const itemId = getItemId({ type: 'position', data: position }, symbol);
     const decimals = getDecimals(symbol);
     const isLong = position.side === 'long';
     const bgColor = isLong ? 'bg-bullish/20' : 'bg-bearish/20';
     const borderColor = isLong ? 'border-bullish/60' : 'border-bearish/60';
     const textColor = isLong ? 'text-bullish' : 'text-bearish';
     const pnlColor = position.pnl >= 0 ? 'text-bullish' : 'text-bearish';
-    const blinkAnimation = position.pnl > 0 ? 'animate-blink-green' : '';
+    const pulseAnimation = position.pnl > 0 ? 'animate-pulseProfitGlow' : '';
     const usdValue = position.currentPrice * position.size;
+
+    const isNewlyAdded = newlyAddedItems.has(itemId);
+    const isExiting = exitingItems.has(itemId);
+    const entranceAnimation = isNewlyAdded ? 'animate-slideInDown' : '';
+    const exitAnimation = isExiting ? 'animate-slideOutUp' : '';
 
     return (
       <div
         key={`position-${symbol}`}
-        className={`flex flex-col gap-1 text-xs font-mono ${bgColor} ${borderColor} border-2 ${blinkAnimation} ${isClickable ? 'cursor-pointer hover:brightness-110' : ''} px-2 py-1.5 rounded`}
+        className={`flex flex-col gap-1 text-xs font-mono ${bgColor} ${borderColor} border-2 ${pulseAnimation} ${entranceAnimation} ${exitAnimation} ${isClickable ? 'cursor-pointer hover:brightness-110' : ''} px-2 py-1.5 rounded`}
         onClick={isClickable ? () => handleOrderClick(symbol) : undefined}
       >
         <div className="flex items-center justify-between">
@@ -186,7 +279,7 @@ export default function OpenOrdersList({ currentSymbol }: OpenOrdersListProps) {
 
   const renderItem = (item: OrderOrPosition, symbol: string, isClickable: boolean = false) => {
     if (item.type === 'order') {
-      return renderOrder(item.data, isClickable);
+      return renderOrder(item.data, symbol, isClickable);
     } else {
       return renderPosition(item.data, symbol, isClickable);
     }

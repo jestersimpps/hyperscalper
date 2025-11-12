@@ -51,6 +51,8 @@ export default function AppShell({ selectedSymbol, children }: AppShellProps) {
   const closePosition = useTradingStore((state) => state.closePosition);
   const cancelEntryOrders = useTradingStore((state) => state.cancelEntryOrders);
   const cancelExitOrders = useTradingStore((state) => state.cancelExitOrders);
+  const cancelTPOrders = useTradingStore((state) => state.cancelTPOrders);
+  const cancelSLOrders = useTradingStore((state) => state.cancelSLOrders);
   const cancelAllOrders = useTradingStore((state) => state.cancelAllOrders);
 
   const handleBuyCloud = useCallback(async () => {
@@ -256,6 +258,22 @@ export default function AppShell({ selectedSymbol, children }: AppShellProps) {
     }
   }, [coin, cancelExitOrders]);
 
+  const handleCancelTPOrders = useCallback(async () => {
+    try {
+      await cancelTPOrders(coin);
+    } catch (error) {
+      alert(`Error canceling TP orders: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }, [coin, cancelTPOrders]);
+
+  const handleCancelSLOrders = useCallback(async () => {
+    try {
+      await cancelSLOrders(coin);
+    } catch (error) {
+      alert(`Error canceling SL orders: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }, [coin, cancelSLOrders]);
+
   const handleCancelAllOrders = useCallback(async () => {
     try {
       await cancelAllOrders(coin);
@@ -337,6 +355,8 @@ export default function AppShell({ selectedSymbol, children }: AppShellProps) {
           onCloseAllPositions={handleCloseAllPositions}
           onCancelEntryOrders={handleCancelEntryOrders}
           onCancelExitOrders={handleCancelExitOrders}
+          onCancelTPOrders={handleCancelTPOrders}
+          onCancelSLOrders={handleCancelSLOrders}
           onCancelAllOrders={handleCancelAllOrders}
         />
 

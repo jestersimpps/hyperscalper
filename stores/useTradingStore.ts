@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { HyperliquidService } from '@/lib/services/hyperliquid.service';
 import { useOrderStore } from './useOrderStore';
+import { usePositionStore } from './usePositionStore';
 import toast from 'react-hot-toast';
 
 const ORDER_COUNT = 5;
@@ -65,6 +66,8 @@ interface TradingStore {
   moveStopLoss: (params: MoveStopLossParams) => Promise<void>;
   cancelEntryOrders: (symbol: string) => Promise<void>;
   cancelExitOrders: (symbol: string) => Promise<void>;
+  cancelTPOrders: (symbol: string) => Promise<void>;
+  cancelSLOrders: (symbol: string) => Promise<void>;
   cancelAllOrders: (symbol: string) => Promise<void>;
   cancelOrder: (coin: string, oid: string) => Promise<void>;
 }
@@ -1218,6 +1221,130 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
     } finally {
       set((state) => ({
         isExecuting: { ...state.isExecuting, [`cancelExit_${symbol}`]: false },
+      }));
+    }
+  },
+
+  cancelTPOrders: async (symbol: string) => {
+    const { service } = get();
+    if (!service) throw new Error('Service not initialized');
+
+    const orderStore = useOrderStore.getState();
+    const positionStore = usePositionStore.getState();
+    const position = positionStore.positions[symbol];
+
+    if (!position) {
+      toast.error('No position found');
+      return;
+    }
+
+    const allOrders = orderStore.getAllOrders(symbol);
+    const tpOrders = allOrders.filter(order => {
+      if (position.side === 'long') {
+        return order.side === 'sell' && order.price > position.entryPrice;
+      } else {
+        return order.side === 'buy' && order.price < position.entryPrice;
+      }
+    });
+
+    if (tpOrders.length === 0) {
+      toast.error('No take profit orders found');
+      return;
+    }
+
+    set((state) => ({
+      isExecuting: { ...state.isExecuting, [`cancelTP_${symbol}`]: true },
+      errors: { ...state.errors, [`cancelTP_${symbol}`]: null },
+    }));
+
+    tpOrders.forEach(order => {
+      if (!order.isOptimistic) {
+        orderStore.markPendingCancellation(symbol, order.oid);
+      } else if (order.tempId) {
+        orderStore.rollbackOptimisticOrder(symbol, order.tempId);
+      }
+    });
+
+    try {
+      await service.cancelTPOrders(symbol);
+      tpOrders.forEach(order => {
+        if (!order.isOptimistic) {
+          orderStore.confirmCancellation(symbol, order.oid);
+        }
+      });
+      toast.success('Take profit orders cancelled');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`Cancel failed: ${errorMessage}`);
+      set((state) => ({
+        errors: { ...state.errors, [`cancelTP_${symbol}`]: errorMessage },
+      }));
+      throw error;
+    } finally {
+      set((state) => ({
+        isExecuting: { ...state.isExecuting, [`cancelTP_${symbol}`]: false },
+      }));
+    }
+  },
+
+  cancelSLOrders: async (symbol: string) => {
+    const { service } = get();
+    if (!service) throw new Error('Service not initialized');
+
+    const orderStore = useOrderStore.getState();
+    const positionStore = usePositionStore.getState();
+    const position = positionStore.positions[symbol];
+
+    if (!position) {
+      toast.error('No position found');
+      return;
+    }
+
+    const allOrders = orderStore.getAllOrders(symbol);
+    const slOrders = allOrders.filter(order => {
+      if (position.side === 'long') {
+        return order.side === 'sell' && order.price < position.entryPrice;
+      } else {
+        return order.side === 'buy' && order.price > position.entryPrice;
+      }
+    });
+
+    if (slOrders.length === 0) {
+      toast.error('No stop loss orders found');
+      return;
+    }
+
+    set((state) => ({
+      isExecuting: { ...state.isExecuting, [`cancelSL_${symbol}`]: true },
+      errors: { ...state.errors, [`cancelSL_${symbol}`]: null },
+    }));
+
+    slOrders.forEach(order => {
+      if (!order.isOptimistic) {
+        orderStore.markPendingCancellation(symbol, order.oid);
+      } else if (order.tempId) {
+        orderStore.rollbackOptimisticOrder(symbol, order.tempId);
+      }
+    });
+
+    try {
+      await service.cancelSLOrders(symbol);
+      slOrders.forEach(order => {
+        if (!order.isOptimistic) {
+          orderStore.confirmCancellation(symbol, order.oid);
+        }
+      });
+      toast.success('Stop loss orders cancelled');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`Cancel failed: ${errorMessage}`);
+      set((state) => ({
+        errors: { ...state.errors, [`cancelSL_${symbol}`]: errorMessage },
+      }));
+      throw error;
+    } finally {
+      set((state) => ({
+        isExecuting: { ...state.isExecuting, [`cancelSL_${symbol}`]: false },
       }));
     }
   },

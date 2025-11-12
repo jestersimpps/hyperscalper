@@ -365,6 +365,41 @@ body {
   50% { color: var(--status-bearish); text-shadow: 0 0 4px var(--status-bearish); }
 }
 
+@keyframes slideInDown {
+  0% {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideOutUp {
+  0% {
+    opacity: 1;
+    transform: translateY(0);
+    max-height: 100px;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-10px);
+    max-height: 0;
+  }
+}
+
+@keyframes pulseProfitGlow {
+  0%, 100% {
+    background-color: transparent;
+    box-shadow: 0 0 0 0 transparent;
+  }
+  50% {
+    background-color: color-mix(in srgb, var(--status-bullish) 8%, transparent);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--status-bullish) 20%, transparent);
+  }
+}
+
 .animate-flash-pnl-increase {
   animation: flash-pnl-increase 0.5s ease-in-out;
 }
@@ -391,4 +426,16 @@ body {
 
 .animate-blink-red {
   animation: blink-red 1s ease-in-out;
+}
+
+.animate-slideInDown {
+  animation: slideInDown 0.4s ease-out;
+}
+
+.animate-slideOutUp {
+  animation: slideOutUp 0.3s ease-in forwards;
+}
+
+.animate-pulseProfitGlow {
+  animation: pulseProfitGlow 2s ease-in-out infinite;
 }

@@ -593,6 +593,88 @@ export class HyperliquidService implements IHyperliquidService {
     return await this.walletClient!.cancel({ cancels });
   }
 
+  async cancelTPOrders(coin: string): Promise<CancelResponse> {
+    this.ensureWalletClient();
+    const [orders, positions] = await Promise.all([
+      this.getOpenOrders(),
+      this.getOpenPositions()
+    ]);
+
+    const position = positions.find(p => p.position.coin === coin);
+    if (!position) {
+      return { status: 'ok', response: { type: 'cancel', data: { statuses: [] } } } as CancelResponse;
+    }
+
+    const positionSize = parseFloat(position.position.szi);
+    const isLong = positionSize > 0;
+    const entryPrice = parseFloat(position.position.entryPx || '0');
+
+    const coinOrders = orders.filter(order => order.coin === coin);
+    const tpOrders = coinOrders.filter(order => {
+      const orderPrice = parseFloat(order.limitPx || order.triggerPx || '0');
+      const isBuyOrder = order.side?.toUpperCase() === 'B';
+
+      if (isLong) {
+        return !isBuyOrder && orderPrice > entryPrice;
+      } else {
+        return isBuyOrder && orderPrice < entryPrice;
+      }
+    });
+
+    if (tpOrders.length === 0) {
+      return { status: 'ok', response: { type: 'cancel', data: { statuses: [] } } } as CancelResponse;
+    }
+
+    const coinIndex = await this.getCoinIndex(coin);
+    const cancels = tpOrders.map(order => ({
+      a: coinIndex,
+      o: order.oid
+    }));
+
+    return await this.walletClient!.cancel({ cancels });
+  }
+
+  async cancelSLOrders(coin: string): Promise<CancelResponse> {
+    this.ensureWalletClient();
+    const [orders, positions] = await Promise.all([
+      this.getOpenOrders(),
+      this.getOpenPositions()
+    ]);
+
+    const position = positions.find(p => p.position.coin === coin);
+    if (!position) {
+      return { status: 'ok', response: { type: 'cancel', data: { statuses: [] } } } as CancelResponse;
+    }
+
+    const positionSize = parseFloat(position.position.szi);
+    const isLong = positionSize > 0;
+    const entryPrice = parseFloat(position.position.entryPx || '0');
+
+    const coinOrders = orders.filter(order => order.coin === coin);
+    const slOrders = coinOrders.filter(order => {
+      const orderPrice = parseFloat(order.limitPx || order.triggerPx || '0');
+      const isBuyOrder = order.side?.toUpperCase() === 'B';
+
+      if (isLong) {
+        return !isBuyOrder && orderPrice < entryPrice;
+      } else {
+        return isBuyOrder && orderPrice > entryPrice;
+      }
+    });
+
+    if (slOrders.length === 0) {
+      return { status: 'ok', response: { type: 'cancel', data: { statuses: [] } } } as CancelResponse;
+    }
+
+    const coinIndex = await this.getCoinIndex(coin);
+    const cancels = slOrders.map(order => ({
+      a: coinIndex,
+      o: order.oid
+    }));
+
+    return await this.walletClient!.cancel({ cancels });
+  }
+
   async openLong(params: LongParams): Promise<OrderResponse> {
     this.ensureWalletClient();
     const price = params.price || await this.getMarketPrice(params.coin, true);
