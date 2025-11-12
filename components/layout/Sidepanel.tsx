@@ -283,13 +283,13 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
   const sortedSymbols = useMemo(() => {
     const symbols = [...allSymbolsToShow];
 
-    // Sort all symbols by 24h price change
+    // Sort all symbols by absolute value of 24h price change
     symbols.sort((a, b) => {
       const volatilityA = useSymbolVolatilityStore.getState().volatility[a];
       const volatilityB = useSymbolVolatilityStore.getState().volatility[b];
       const percentChangeA = volatilityA?.percentChange ?? 0;
       const percentChangeB = volatilityB?.percentChange ?? 0;
-      return percentChangeB - percentChangeA;
+      return Math.abs(percentChangeB) - Math.abs(percentChangeA);
     });
 
     return symbols;
