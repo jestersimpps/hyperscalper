@@ -10,6 +10,7 @@ export default function LandingPage() {
   const { credentials, isLoaded } = useCredentials();
   const [showCredentials, setShowCredentials] = useState(false);
   const [scrollY, setScrollY] = useState(0);
+  const [visibleSections, setVisibleSections] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     const handleScroll = () => {
@@ -18,6 +19,25 @@ export default function LandingPage() {
 
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const index = parseInt(entry.target.getAttribute('data-section-index') || '0');
+            setVisibleSections((prev) => new Set([...prev, index]));
+          }
+        });
+      },
+      { threshold: 0.1 }
+    );
+
+    const sections = document.querySelectorAll('[data-section-index]');
+    sections.forEach((section) => observer.observe(section));
+
+    return () => observer.disconnect();
   }, []);
 
   useEffect(() => {
@@ -78,22 +98,39 @@ export default function LandingPage() {
           ></div>
 
           <div className="relative z-20 max-w-5xl mx-auto px-6 text-center">
-            <h1 className="text-5xl md:text-8xl font-bold mb-6 tracking-tight bg-gradient-to-r from-white via-primary to-white bg-clip-text text-transparent">
-              HYPERSCALPER
-            </h1>
-            <p className="text-2xl md:text-4xl text-primary mb-6 font-mono font-light">
+            <div className="flex items-center justify-center gap-4 mb-6">
+              <h1 className="text-5xl md:text-8xl font-bold tracking-tight bg-gradient-to-r from-white via-primary to-white bg-clip-text text-transparent animate-gradient bg-[length:200%_auto]">
+                HYPERSCALPER
+              </h1>
+              <span className="px-3 py-1 bg-yellow-500/20 border border-yellow-500/50 rounded-lg text-yellow-500 font-mono text-xs md:text-sm font-bold">
+                BETA
+              </span>
+            </div>
+            <p className="text-xl md:text-3xl text-white mb-3 font-mono font-light">
+              Advanced Trading Terminal for <span className="text-primary font-bold">Hyperliquid</span>
+            </p>
+            <p className="text-lg md:text-2xl text-primary/80 mb-6 font-mono font-light">
               Scalp smarter. Trade faster. Win more.
             </p>
             <p className="text-base md:text-xl text-gray-300 mb-10 max-w-3xl mx-auto leading-relaxed">
-              No backend. No middleman. Direct to Hyperliquid. Your keys never leave your browser.
+              No backend. No middleman. Direct connection to Hyperliquid DEX. Your keys never leave your browser.
             </p>
-            <button
-              onClick={() => setShowCredentials(true)}
-              className="group relative px-8 py-4 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary font-mono uppercase tracking-wider transition-all text-sm rounded-xl shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:scale-105"
-            >
-              <span className="relative z-10">Launch Terminal</span>
-              <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-            </button>
+            <div className="flex gap-4 justify-center">
+              <a
+                href="/0xb83de012dba672c76a7dbbbf3e459cb59d7d6e36/btc/"
+                className="group relative px-8 py-4 bg-gradient-to-r from-gray-700 to-gray-600 hover:from-gray-600 hover:to-gray-500 font-mono uppercase tracking-wider transition-all text-sm rounded-xl shadow-lg hover:shadow-xl hover:scale-105"
+              >
+                <span className="relative z-10">View Demo</span>
+                <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+              </a>
+              <button
+                onClick={() => setShowCredentials(true)}
+                className="group relative px-8 py-4 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary font-mono uppercase tracking-wider transition-all text-sm rounded-xl shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:scale-105"
+              >
+                <span className="relative z-10">Launch Terminal</span>
+                <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+              </button>
+            </div>
           </div>
         </header>
 
@@ -158,184 +195,248 @@ export default function LandingPage() {
             </div>
           </section>
 
-          <section className="mb-32">
-            <h2 className="text-4xl md:text-5xl font-bold mb-16 font-mono text-center bg-gradient-to-r from-white to-primary bg-clip-text text-transparent">
+        </div>
+
+        <section className="mb-32 w-full">
+          <div className="max-w-6xl mx-auto px-6 mb-12">
+            <h2 className="text-4xl md:text-5xl font-bold font-mono text-center bg-gradient-to-r from-white to-primary bg-clip-text text-transparent">
               FEATURES THAT MATTER
             </h2>
+          </div>
 
-            <div className="space-y-24">
-              <div className="backdrop-blur-lg bg-white/5 border border-white/10 rounded-2xl p-8 md:p-12 hover:bg-white/10 transition-all">
-                <div className="grid md:grid-cols-2 gap-12 items-center">
-                  <div>
-                    <h3 className="text-2xl md:text-3xl font-mono text-primary mb-6">SYMBOL OVERVIEW WITH MINICHARTS</h3>
-                    <p className="text-gray-200 text-lg leading-relaxed mb-4">
-                      See every symbol at a glance. Quick minicharts show you price action without opening multiple tabs.
-                      Spot opportunities across the entire market in seconds.
-                    </p>
-                    <p className="text-base text-gray-400 leading-relaxed">
-                      Scalping is about speed. You can't waste time clicking through symbols.
-                      Overview mode puts everything in front of you instantly - price, change, volume, and chart pattern.
-                    </p>
-                  </div>
-                  <div className="backdrop-blur-sm bg-black/20 border border-white/5 rounded-xl aspect-video overflow-hidden">
-                    <img
-                      src="/landing/symboloverview.png"
-                      alt="Symbol overview with minicharts demonstration"
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
+          <div className="relative overflow-hidden w-full">
+            <div className="flex gap-6 animate-scroll-left">
+              {/* First set of features */}
+              <div className="backdrop-blur-lg bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 hover:border-primary/30 transition-all overflow-hidden flex-none w-80">
+
+                <div className="group aspect-video overflow-hidden bg-black/20">
+                  <img
+                    src="/landing/symboloverview.png"
+                    alt="Symbol overview with minicharts"
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                  />
+                </div>
+                <div className="p-6">
+                  <h3 className="text-lg font-mono text-primary mb-2">SYMBOL OVERVIEW</h3>
+                  <p className="text-sm text-gray-300 leading-relaxed">
+                    See every symbol at a glance with minicharts. Spot opportunities across the entire market in seconds.
+                  </p>
                 </div>
               </div>
 
-              <div className="backdrop-blur-lg bg-white/5 border border-white/10 rounded-2xl p-8 md:p-12 hover:bg-white/10 transition-all">
-                <div className="grid md:grid-cols-2 gap-12 items-center">
-                  <div className="order-2 md:order-1 backdrop-blur-sm bg-black/20 border border-white/5 rounded-xl aspect-video overflow-hidden">
-                    <img
-                      src="/landing/preciseordering.gif"
-                      alt="Precise cursor-based order placement demo"
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <div className="order-1 md:order-2">
-                    <h3 className="text-2xl md:text-3xl font-mono text-primary mb-6">PRECISE CURSOR-BASED ORDERING</h3>
-                    <p className="text-gray-200 text-lg leading-relaxed mb-4">
-                      Click exactly where you want to enter. No fumbling with price inputs.
-                      Place limit orders directly on the chart at your desired price level.
-                    </p>
-                    <p className="text-base text-gray-400 leading-relaxed">
-                      When you're scalping, every tick matters. Traditional order forms force you to type prices manually - by the time you hit submit, the opportunity is gone.
-                      Our cursor placement lets you react instantly to support/resistance touches.
-                    </p>
-                  </div>
+              <div className="backdrop-blur-lg bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 hover:border-primary/30 transition-all overflow-hidden flex-none w-80">
+                <div className="group aspect-video overflow-hidden bg-black/20">
+                  <img
+                    src="/landing/preciseordering.gif"
+                    alt="Precise cursor-based order placement"
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                  />
+                </div>
+                <div className="p-6">
+                  <h3 className="text-lg font-mono text-primary mb-2">PRECISE ORDERING</h3>
+                  <p className="text-sm text-gray-300 leading-relaxed">
+                    Click exactly where you want to enter. Place limit orders directly on the chart at your desired price.
+                  </p>
                 </div>
               </div>
 
-              <div className="backdrop-blur-lg bg-white/5 border border-white/10 rounded-2xl p-8 md:p-12 hover:bg-white/10 transition-all">
-                <div className="grid md:grid-cols-2 gap-12 items-center">
-                  <div>
-                    <h3 className="text-2xl md:text-3xl font-mono text-primary mb-6">KEYBOARD SHORTCUTS FOR SPEED</h3>
-                    <p className="text-gray-200 text-lg leading-relaxed mb-4">
-                      Never touch your mouse again. Buy, sell, close positions, adjust stops - all from your keyboard.
-                      Muscle memory beats clicking every time.
-                    </p>
-                    <p className="text-base text-gray-400 leading-relaxed">
-                      Pro traders don't click buttons. They use hotkeys. When seconds count, keyboard shortcuts let you enter and exit positions
-                      before the market moves against you. Set your own keybinds and trade at machine speed.
-                    </p>
-                  </div>
-                  <div className="backdrop-blur-sm bg-black/20 border border-white/5 rounded-xl aspect-video overflow-hidden">
-                    <img
-                      src="/landing/keyboardshortcuts.png"
-                      alt="Keyboard shortcuts demonstration"
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
+              <div className="backdrop-blur-lg bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 hover:border-primary/30 transition-all overflow-hidden flex-none w-80">
+                <div className="group aspect-video overflow-hidden bg-black/20">
+                  <img
+                    src="/landing/keyboardshortcuts.png"
+                    alt="Keyboard shortcuts"
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                  />
+                </div>
+                <div className="p-6">
+                  <h3 className="text-lg font-mono text-primary mb-2">KEYBOARD SHORTCUTS</h3>
+                  <p className="text-sm text-gray-300 leading-relaxed">
+                    Trade at machine speed with hotkeys. Buy, sell, close positions - all from your keyboard.
+                  </p>
                 </div>
               </div>
 
-              <div className="backdrop-blur-lg bg-white/5 border border-white/10 rounded-2xl p-8 md:p-12 hover:bg-white/10 transition-all">
-                <div className="grid md:grid-cols-2 gap-12 items-center">
-                  <div className="order-2 md:order-1 backdrop-blur-sm bg-black/20 border border-white/5 rounded-xl aspect-video overflow-hidden">
-                    <img
-                      src="/landing/scanner.png"
-                      alt="Market scanner for signals demonstration"
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <div className="order-1 md:order-2">
-                    <h3 className="text-2xl md:text-3xl font-mono text-primary mb-6">MARKET SCANNER FOR SIGNALS</h3>
-                    <p className="text-gray-200 text-lg leading-relaxed mb-4">
-                      Auto-scan the entire market for setups. Divergences, signal strength, momentum shifts - all ranked by quality.
-                      Stop hunting. Start trading the best opportunities.
-                    </p>
-                    <p className="text-base text-gray-400 leading-relaxed">
-                      You can't watch 50 charts at once. The scanner does it for you, constantly monitoring every symbol for your exact criteria.
-                      Only the highest-probability setups make the list. No noise, just signals ready to trade.
-                    </p>
-                  </div>
+              <div className="backdrop-blur-lg bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 hover:border-primary/30 transition-all overflow-hidden flex-none w-80">
+                <div className="group aspect-video overflow-hidden bg-black/20">
+                  <img
+                    src="/landing/scanner.png"
+                    alt="Market scanner for signals"
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                  />
+                </div>
+                <div className="p-6">
+                  <h3 className="text-lg font-mono text-primary mb-2">MARKET SCANNER</h3>
+                  <p className="text-sm text-gray-300 leading-relaxed">
+                    Auto-scan the entire market for setups. Find the highest-probability trades ranked by quality.
+                  </p>
                 </div>
               </div>
 
-              <div className="backdrop-blur-lg bg-white/5 border border-white/10 rounded-2xl p-8 md:p-12 hover:bg-white/10 transition-all">
-                <div className="grid md:grid-cols-2 gap-12 items-center">
-                  <div>
-                    <h3 className="text-2xl md:text-3xl font-mono text-primary mb-6">INSTANT MULTI-TIMEFRAME ANALYSIS</h3>
-                    <p className="text-gray-200 text-lg leading-relaxed mb-4">
-                      Switch between 1m, 5m, 15m, 1h overview and scalping chart instantly.
-                      See the full picture without losing focus on your trade.
-                    </p>
-                    <p className="text-base text-gray-400 leading-relaxed">
-                      Scalping a 1-minute chart without checking higher timeframes is gambling. Context matters - you need to know if you're buying into resistance or catching a pullback in an uptrend.
-                      Quick timeframe switching keeps you aligned with the bigger picture while executing on lower TFs.
-                    </p>
-                  </div>
-                  <div className="backdrop-blur-sm bg-black/20 border border-white/5 rounded-xl aspect-video overflow-hidden">
-                    <img
-                      src="/landing/multitimeframe.png"
-                      alt="Multi-timeframe analysis demonstration"
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
+              <div className="backdrop-blur-lg bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 hover:border-primary/30 transition-all overflow-hidden flex-none w-80">
+                <div className="group aspect-video overflow-hidden bg-black/20">
+                  <img
+                    src="/landing/multitimeframe.png"
+                    alt="Multi-timeframe analysis"
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                  />
+                </div>
+                <div className="p-6">
+                  <h3 className="text-lg font-mono text-primary mb-2">MULTI-TIMEFRAME</h3>
+                  <p className="text-sm text-gray-300 leading-relaxed">
+                    Switch between 1m, 5m, 15m, 1h instantly. See the full picture while executing on lower TFs.
+                  </p>
                 </div>
               </div>
 
-              <div className="backdrop-blur-lg bg-white/5 border border-white/10 rounded-2xl p-8 md:p-12 hover:bg-white/10 transition-all">
-                <div className="grid md:grid-cols-2 gap-12 items-center">
-                  <div>
-                    <h3 className="text-2xl md:text-3xl font-mono text-primary mb-6">TRACK YOUR PERFORMANCE</h3>
-                    <p className="text-gray-200 text-lg leading-relaxed mb-4">
-                      Daily and monthly overviews show your exact stats. P&L, win rate, profit factor - all the numbers that matter.
-                      Know what's working and what needs adjustment.
-                    </p>
-                    <p className="text-base text-gray-400 leading-relaxed">
-                      You can't improve what you don't measure. Our performance tracking breaks down every metric by day and month.
-                      See your edge in real numbers. Track progress over time. Make data-driven decisions about your strategy.
-                    </p>
-                  </div>
-                  <div className="space-y-4">
-                    <div className="backdrop-blur-sm bg-black/20 border border-white/5 rounded-xl overflow-hidden">
-                      <img
-                        src="/landing/dailyoverview.png"
-                        alt="Daily performance overview"
-                        className="w-full h-auto"
-                      />
-                    </div>
-                    <div className="backdrop-blur-sm bg-black/20 border border-white/5 rounded-xl overflow-hidden">
-                      <img
-                        src="/landing/monthlyoverview.png"
-                        alt="Monthly performance overview"
-                        className="w-full h-auto"
-                      />
-                    </div>
-                  </div>
+              <div className="backdrop-blur-lg bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 hover:border-primary/30 transition-all overflow-hidden flex-none w-80">
+                <div className="group aspect-video overflow-hidden bg-black/20">
+                  <img
+                    src="/landing/dailyoverview.png"
+                    alt="Performance tracking"
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                  />
+                </div>
+                <div className="p-6">
+                  <h3 className="text-lg font-mono text-primary mb-2">PERFORMANCE TRACKING</h3>
+                  <p className="text-sm text-gray-300 leading-relaxed">
+                    Daily and monthly overviews. Track P&L, win rate, profit factor - all the numbers that matter.
+                  </p>
                 </div>
               </div>
 
-              <div className="backdrop-blur-lg bg-white/5 border border-white/10 rounded-2xl p-8 md:p-12 hover:bg-white/10 transition-all">
-                <div className="grid md:grid-cols-2 gap-12 items-center">
-                  <div className="order-2 md:order-1 backdrop-blur-sm bg-black/20 border border-white/5 rounded-xl aspect-video overflow-hidden">
-                    <img
-                      src="/landing/multimonitor.png"
-                      alt="Multi-monitor chart layout demonstration"
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <div className="order-1 md:order-2">
-                    <h3 className="text-2xl md:text-3xl font-mono text-primary mb-6">MULTI-MONITOR LAYOUTS</h3>
-                    <p className="text-gray-200 text-lg leading-relaxed mb-4">
-                      Pop out charts to separate windows. Build your perfect multi-screen setup.
-                      Watch multiple symbols and timeframes simultaneously without cramming everything into one screen.
-                    </p>
-                    <p className="text-base text-gray-400 leading-relaxed">
-                      One monitor isn't enough for serious scalping. You need BTC on one screen, alts on another, scanner on the third.
-                      Our popup charts work seamlessly across multiple displays - position them however you want and they all stay in sync.
-                    </p>
-                  </div>
+              <div className="backdrop-blur-lg bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 hover:border-primary/30 transition-all overflow-hidden flex-none w-80">
+                <div className="group aspect-video overflow-hidden bg-black/20">
+                  <img
+                    src="/landing/multimonitor.png"
+                    alt="Multi-monitor layouts"
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                  />
+                </div>
+                <div className="p-6">
+                  <h3 className="text-lg font-mono text-primary mb-2">MULTI-MONITOR</h3>
+                  <p className="text-sm text-gray-300 leading-relaxed">
+                    Pop out charts to separate windows. Build your perfect multi-screen trading setup.
+                  </p>
                 </div>
               </div>
+
+              {/* Duplicate set for seamless loop */}
+              <div className="backdrop-blur-lg bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 hover:border-primary/30 transition-all overflow-hidden flex-none w-80">
+                <div className="group aspect-video overflow-hidden bg-black/20">
+                  <img
+                    src="/landing/symboloverview.png"
+                    alt="Symbol overview with minicharts"
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                  />
+                </div>
+                <div className="p-6">
+                  <h3 className="text-lg font-mono text-primary mb-2">SYMBOL OVERVIEW</h3>
+                  <p className="text-sm text-gray-300 leading-relaxed">
+                    See every symbol at a glance with minicharts. Spot opportunities across the entire market in seconds.
+                  </p>
+                </div>
+              </div>
+
+              <div className="backdrop-blur-lg bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 hover:border-primary/30 transition-all overflow-hidden flex-none w-80">
+                <div className="group aspect-video overflow-hidden bg-black/20">
+                  <img
+                    src="/landing/preciseordering.gif"
+                    alt="Precise cursor-based order placement"
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                  />
+                </div>
+                <div className="p-6">
+                  <h3 className="text-lg font-mono text-primary mb-2">PRECISE ORDERING</h3>
+                  <p className="text-sm text-gray-300 leading-relaxed">
+                    Click exactly where you want to enter. Place limit orders directly on the chart at your desired price.
+                  </p>
+                </div>
+              </div>
+
+              <div className="backdrop-blur-lg bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 hover:border-primary/30 transition-all overflow-hidden flex-none w-80">
+                <div className="group aspect-video overflow-hidden bg-black/20">
+                  <img
+                    src="/landing/keyboardshortcuts.png"
+                    alt="Keyboard shortcuts"
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                  />
+                </div>
+                <div className="p-6">
+                  <h3 className="text-lg font-mono text-primary mb-2">KEYBOARD SHORTCUTS</h3>
+                  <p className="text-sm text-gray-300 leading-relaxed">
+                    Trade at machine speed with hotkeys. Buy, sell, close positions - all from your keyboard.
+                  </p>
+                </div>
+              </div>
+
+              <div className="backdrop-blur-lg bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 hover:border-primary/30 transition-all overflow-hidden flex-none w-80">
+                <div className="group aspect-video overflow-hidden bg-black/20">
+                  <img
+                    src="/landing/scanner.png"
+                    alt="Market scanner for signals"
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                  />
+                </div>
+                <div className="p-6">
+                  <h3 className="text-lg font-mono text-primary mb-2">MARKET SCANNER</h3>
+                  <p className="text-sm text-gray-300 leading-relaxed">
+                    Auto-scan the entire market for setups. Find the highest-probability trades ranked by quality.
+                  </p>
+                </div>
+              </div>
+
+              <div className="backdrop-blur-lg bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 hover:border-primary/30 transition-all overflow-hidden flex-none w-80">
+                <div className="group aspect-video overflow-hidden bg-black/20">
+                  <img
+                    src="/landing/multitimeframe.png"
+                    alt="Multi-timeframe analysis"
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                  />
+                </div>
+                <div className="p-6">
+                  <h3 className="text-lg font-mono text-primary mb-2">MULTI-TIMEFRAME</h3>
+                  <p className="text-sm text-gray-300 leading-relaxed">
+                    Switch between 1m, 5m, 15m, 1h instantly. See the full picture while executing on lower TFs.
+                  </p>
+                </div>
+              </div>
+
+              <div className="backdrop-blur-lg bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 hover:border-primary/30 transition-all overflow-hidden flex-none w-80">
+                <div className="group aspect-video overflow-hidden bg-black/20">
+                  <img
+                    src="/landing/dailyoverview.png"
+                    alt="Performance tracking"
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                  />
+                </div>
+                <div className="p-6">
+                  <h3 className="text-lg font-mono text-primary mb-2">PERFORMANCE TRACKING</h3>
+                  <p className="text-sm text-gray-300 leading-relaxed">
+                    Daily and monthly overviews. Track P&L, win rate, profit factor - all the numbers that matter.
+                  </p>
+                </div>
+              </div>
+
+              <div className="backdrop-blur-lg bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 hover:border-primary/30 transition-all overflow-hidden flex-none w-80">
+                <div className="group aspect-video overflow-hidden bg-black/20">
+                  <img
+                    src="/landing/multimonitor.png"
+                    alt="Multi-monitor layouts"
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                  />
+                </div>
+                <div className="p-6">
+                  <h3 className="text-lg font-mono text-primary mb-2">MULTI-MONITOR</h3>
+                  <p className="text-sm text-gray-300 leading-relaxed">
+                    Pop out charts to separate windows. Build your perfect multi-screen trading setup.
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
         </section>
 
+        <div className="max-w-6xl mx-auto px-6">
           <section className="mb-32">
             <h2 className="text-4xl md:text-5xl font-bold mb-12 font-mono text-center bg-gradient-to-r from-white to-primary bg-clip-text text-transparent">
               BUILT FOR SCALPERS
@@ -408,13 +509,22 @@ export default function LandingPage() {
             <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-2xl p-12 inline-block">
               <h3 className="text-3xl font-bold mb-4 font-mono">READY TO TRADE?</h3>
               <p className="text-gray-300 mb-8 max-w-md">Start scalping smarter with zero setup. Just connect your wallet and go.</p>
-              <button
-                onClick={() => setShowCredentials(true)}
-                className="group relative px-8 py-4 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary font-mono uppercase tracking-wider transition-all text-sm rounded-xl shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:scale-105"
-              >
-                <span className="relative z-10">Launch Terminal</span>
-                <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-              </button>
+              <div className="flex gap-4 justify-center">
+                <a
+                  href="/0xb83de012dba672c76a7dbbbf3e459cb59d7d6e36/btc/"
+                  className="group relative px-8 py-4 bg-gradient-to-r from-gray-700 to-gray-600 hover:from-gray-600 hover:to-gray-500 font-mono uppercase tracking-wider transition-all text-sm rounded-xl shadow-lg hover:shadow-xl hover:scale-105"
+                >
+                  <span className="relative z-10">View Demo</span>
+                  <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                </a>
+                <button
+                  onClick={() => setShowCredentials(true)}
+                  className="group relative px-8 py-4 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary font-mono uppercase tracking-wider transition-all text-sm rounded-xl shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:scale-105"
+                >
+                  <span className="relative z-10">Launch Terminal</span>
+                  <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                </button>
+              </div>
             </div>
           </footer>
         </div>

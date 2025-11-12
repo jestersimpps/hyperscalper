@@ -6,6 +6,7 @@ import SettingsPanel from "@/components/layout/SettingsPanel";
 import { CredentialsProvider } from "@/lib/context/credentials-context";
 import { RequireCredentials } from "@/components/auth/RequireCredentials";
 import { ConditionalServiceProvider } from "@/components/providers/ConditionalServiceProvider";
+import { Analytics } from "@vercel/analytics/next";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -42,6 +43,7 @@ export default function RootLayout({
             </ConditionalServiceProvider>
           </RequireCredentials>
         </CredentialsProvider>
+        <Analytics />
       </body>
     </html>
   );
