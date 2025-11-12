@@ -6,6 +6,7 @@ import { useOrderStore } from '@/stores/useOrderStore';
 import { usePositionStore } from '@/stores/usePositionStore';
 import { useTradingStore } from '@/stores/useTradingStore';
 import { useSymbolMetaStore } from '@/stores/useSymbolMetaStore';
+import { useSettingsStore } from '@/stores/useSettingsStore';
 import { useAddressFromUrl } from '@/lib/hooks/use-address-from-url';
 import {
   getOrderTypeLabel,
@@ -13,7 +14,7 @@ import {
   groupOrdersBySymbol,
   getAllOrdersAcrossSymbols
 } from '@/lib/utils/order-helpers';
-import { formatPrice, formatSize } from '@/lib/format-utils';
+import { formatPrice, formatSize, formatPnlSchmeckles } from '@/lib/format-utils';
 import type { Order } from '@/models/Order';
 import type { Position } from '@/models/Position';
 
@@ -35,6 +36,7 @@ export default function OpenOrdersList({ currentSymbol }: OpenOrdersListProps) {
   const cancelOrder = useTradingStore((state) => state.cancelOrder);
   const closePosition = useTradingStore((state) => state.closePosition);
   const getDecimals = useSymbolMetaStore((state) => state.getDecimals);
+  const schmecklesMode = useSettingsStore((state) => state.settings.chart.schmecklesMode);
 
   const confirmedCurrentOrders = ordersState[currentSymbol] || [];
   const optimisticCurrentOrders = optimisticOrdersState[currentSymbol] || [];
@@ -151,6 +153,11 @@ export default function OpenOrdersList({ currentSymbol }: OpenOrdersListProps) {
     const textColor = isLong ? 'text-bullish' : 'text-bearish';
     const pnlColor = position.pnl >= 0 ? 'text-bullish' : 'text-bearish';
     const usdValue = position.currentPrice * position.size;
+    const positionLabel = isLong ? 'LONG' : 'SHORT';
+
+    const pnlDisplay = schmecklesMode
+      ? formatPnlSchmeckles(position.pnl, usdValue)
+      : `${position.pnl >= 0 ? '+' : ''}$${Math.abs(position.pnl).toFixed(2)}`;
 
     return (
       <div
@@ -159,10 +166,10 @@ export default function OpenOrdersList({ currentSymbol }: OpenOrdersListProps) {
         onClick={isClickable ? () => handleOrderClick(symbol) : undefined}
       >
         <div className="flex items-center justify-between">
-          <span className={`text-[10px] font-bold ${textColor}`}>ENTRY</span>
+          <span className={`text-[10px] font-bold ${textColor}`}>{positionLabel}</span>
           <div className="flex items-center gap-2">
             <span className={`text-[10px] font-bold ${pnlColor}`}>
-              {position.pnl >= 0 ? '+' : ''}{position.pnl.toFixed(2)}
+              {pnlDisplay}
             </span>
             <button
               onClick={(e) => handleClosePosition(symbol, e)}
