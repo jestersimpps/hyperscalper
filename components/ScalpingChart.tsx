@@ -1344,7 +1344,8 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
     if (position && displayCandles.length > 0) {
       const breakevenPrice = calculateBreakevenPrice(
         position.entryPrice,
-        position.side
+        position.side,
+        position.size
       );
 
       let displayEntryPrice = position.entryPrice;
