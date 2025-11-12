@@ -401,7 +401,7 @@ function RightTradingPanel({
                 ✕ CANCEL ENTRY ORDERS
               </button>
               <button
-                className="w-full px-2 py-1.5 bg-accent-orange/10 border border-accent-orange/30 text-accent-orange hover:bg-accent-orange/20 hover:border-accent-orange/50 active:bg-accent-orange/30 active:scale-95 active:shadow-inner transition-all rounded-sm hover:shadow-[0_0_8px_rgba(255,165,0,0.3)] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 cursor-pointer text-[10px] font-mono"
+                className="w-full px-4 py-1.5 bg-accent-orange/10 border border-accent-orange/30 text-accent-orange hover:bg-accent-orange/20 hover:border-accent-orange/50 active:bg-accent-orange/30 active:scale-95 active:shadow-inner transition-all rounded-sm hover:shadow-[0_0_8px_rgba(255,165,0,0.3)] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 cursor-pointer text-[10px] font-mono"
                 onClick={onCancelTPOrders}
                 disabled={!hasTPOrders}
                 title="Cancel all take profit orders for this symbol"
@@ -409,7 +409,7 @@ function RightTradingPanel({
                 ✕ CANCEL TP ORDERS
               </button>
               <button
-                className="w-full px-2 py-1.5 bg-accent-orange/10 border border-accent-orange/30 text-accent-orange hover:bg-accent-orange/20 hover:border-accent-orange/50 active:bg-accent-orange/30 active:scale-95 active:shadow-inner transition-all rounded-sm hover:shadow-[0_0_8px_rgba(255,165,0,0.3)] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 cursor-pointer text-[10px] font-mono"
+                className="w-full px-4 py-1.5 bg-accent-orange/10 border border-accent-orange/30 text-accent-orange hover:bg-accent-orange/20 hover:border-accent-orange/50 active:bg-accent-orange/30 active:scale-95 active:shadow-inner transition-all rounded-sm hover:shadow-[0_0_8px_rgba(255,165,0,0.3)] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 cursor-pointer text-[10px] font-mono"
                 onClick={onCancelSLOrders}
                 disabled={!hasSLOrders}
                 title="Cancel all stop loss orders for this symbol"
