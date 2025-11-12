@@ -38,6 +38,15 @@ interface LimitOrderAtPriceParams {
   currentPrice: number;
 }
 
+interface ExitOrderAtPriceParams {
+  symbol: string;
+  price: number;
+  percentage: 25 | 50 | 75 | 100;
+  positionSide: 'long' | 'short';
+  positionSize: number;
+  currentPrice: number;
+}
+
 interface TradingStore {
   service: HyperliquidService | null;
   isExecuting: Record<string, boolean>;
@@ -51,11 +60,13 @@ interface TradingStore {
   bigLong: (params: MarketOrderParams) => Promise<void>;
   bigShort: (params: MarketOrderParams) => Promise<void>;
   placeLimitOrderAtPrice: (params: LimitOrderAtPriceParams) => Promise<void>;
+  placeExitOrderAtPrice: (params: ExitOrderAtPriceParams) => Promise<void>;
   closePosition: (params: ClosePositionParams) => Promise<void>;
   moveStopLoss: (params: MoveStopLossParams) => Promise<void>;
   cancelEntryOrders: (symbol: string) => Promise<void>;
   cancelExitOrders: (symbol: string) => Promise<void>;
   cancelAllOrders: (symbol: string) => Promise<void>;
+  cancelOrder: (coin: string, oid: string) => Promise<void>;
 }
 
 export const useTradingStore = create<TradingStore>((set, get) => ({
@@ -880,6 +891,108 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
     }
   },
 
+  placeExitOrderAtPrice: async (params: ExitOrderAtPriceParams) => {
+    const { service } = get();
+    if (!service) throw new Error('Service not initialized');
+
+    const { symbol, price, percentage, positionSide, positionSize, currentPrice } = params;
+
+    const isLong = positionSide === 'long';
+    const priceAboveCurrent = price > currentPrice;
+
+    const isTakeProfit = (isLong && priceAboveCurrent) || (!isLong && !priceAboveCurrent);
+    const orderType = isTakeProfit ? 'tp' : 'stop';
+    const tpslType = isTakeProfit ? 'tp' : 'sl';
+
+    console.log('[placeExitOrderAtPrice] Starting:', {
+      symbol,
+      price,
+      currentPrice,
+      positionSide,
+      percentage,
+      orderType: isTakeProfit ? 'TAKE PROFIT' : 'STOP LOSS',
+      reason: isLong
+        ? (priceAboveCurrent ? 'LONG position, price above (TP)' : 'LONG position, price below (SL)')
+        : (priceAboveCurrent ? 'SHORT position, price above (SL)' : 'SHORT position, price below (TP)')
+    });
+
+    const tempId = `temp_${Date.now()}_${Math.random()}`;
+    const orderStore = useOrderStore.getState();
+
+    set((state) => ({
+      isExecuting: { ...state.isExecuting, [`exitOrder_${symbol}`]: true },
+      errors: { ...state.errors, [`exitOrder_${symbol}`]: null },
+    }));
+
+    try {
+      const metadata = await service.getMetadataCache(symbol);
+
+      const sizeToExit = (Math.abs(positionSize) * percentage) / 100;
+      const formattedSize = service.formatSizeCached(sizeToExit, metadata);
+      const formattedPrice = service.formatPriceCached(price, metadata);
+
+      const isBuy = !isLong;
+
+      orderStore.addOptimisticOrder(symbol, {
+        oid: tempId,
+        coin: symbol,
+        side: isBuy ? 'buy' : 'sell',
+        price: parseFloat(formattedPrice),
+        size: parseFloat(formattedSize),
+        orderType,
+        timestamp: Date.now(),
+        isOptimistic: true,
+        tempId: tempId,
+      });
+
+      let response;
+      if (isTakeProfit) {
+        response = await service.placeTakeProfit({
+          coin: symbol,
+          triggerPrice: formattedPrice,
+          size: formattedSize,
+          isBuy,
+        });
+        console.log('[placeExitOrderAtPrice] ✅ Take profit order placed successfully');
+      } else {
+        response = await service.placeStopLoss({
+          coin: symbol,
+          triggerPrice: formattedPrice,
+          size: formattedSize,
+          isBuy,
+        });
+        console.log('[placeExitOrderAtPrice] ✅ Stop loss order placed successfully');
+      }
+
+      if (response && response.status === 'ok' && response.response?.data?.statuses?.[0]) {
+        const status = response.response.data.statuses[0];
+        if ('resting' in status && status.resting?.oid) {
+          const realOid = status.resting.oid;
+          orderStore.confirmOptimisticOrder(symbol, tempId, String(realOid));
+          toast.success(`${isTakeProfit ? 'Take profit' : 'Stop loss'} order placed`);
+        } else {
+          toast.error('Exit order placement failed (no OID returned)');
+        }
+      } else {
+        orderStore.rollbackOptimisticOrder(symbol, tempId);
+        toast.error('Exit order placement failed');
+      }
+    } catch (error) {
+      orderStore.rollbackOptimisticOrder(symbol, tempId);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('[placeExitOrderAtPrice] ❌ Error:', error);
+      toast.error(`Exit order failed: ${errorMessage}`);
+      set((state) => ({
+        errors: { ...state.errors, [`exitOrder_${symbol}`]: errorMessage },
+      }));
+      throw error;
+    } finally {
+      set((state) => ({
+        isExecuting: { ...state.isExecuting, [`exitOrder_${symbol}`]: false },
+      }));
+    }
+  },
+
   closePosition: async (params: ClosePositionParams) => {
     const { service } = get();
     if (!service) throw new Error('Service not initialized');
@@ -1147,6 +1260,49 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
     } finally {
       set((state) => ({
         isExecuting: { ...state.isExecuting, [`cancelAll_${symbol}`]: false },
+      }));
+    }
+  },
+
+  cancelOrder: async (coin: string, oid: string) => {
+    const { service } = get();
+    if (!service) throw new Error('Service not initialized');
+
+    const orderStore = useOrderStore.getState();
+    const allOrders = orderStore.getAllOrders(coin);
+    const order = allOrders.find(o => o.oid === oid);
+
+    if (!order) {
+      throw new Error('Order not found');
+    }
+
+    set((state) => ({
+      isExecuting: { ...state.isExecuting, [`cancel_${oid}`]: true },
+      errors: { ...state.errors, [`cancel_${oid}`]: null },
+    }));
+
+    if (!order.isOptimistic) {
+      orderStore.markPendingCancellation(coin, oid);
+    } else if (order.tempId) {
+      orderStore.rollbackOptimisticOrder(coin, order.tempId);
+      set((state) => ({
+        isExecuting: { ...state.isExecuting, [`cancel_${oid}`]: false },
+      }));
+      return;
+    }
+
+    try {
+      await service.cancelOrder(coin, parseInt(oid));
+      orderStore.confirmCancellation(coin, oid);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      set((state) => ({
+        errors: { ...state.errors, [`cancel_${oid}`]: errorMessage },
+      }));
+      throw error;
+    } finally {
+      set((state) => ({
+        isExecuting: { ...state.isExecuting, [`cancel_${oid}`]: false },
       }));
     }
   },

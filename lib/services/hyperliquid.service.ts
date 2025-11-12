@@ -18,6 +18,7 @@ import {
   Fill
 } from '@nktkas/hyperliquid';
 import { privateKeyToAccount } from 'viem/accounts';
+import toast from 'react-hot-toast';
 import type { UserFill } from '@/types';
 import type {
   IHyperliquidService,
@@ -69,7 +70,9 @@ export class HyperliquidService implements IHyperliquidService {
           isTestnet
         });
       } catch (error) {
-        throw new Error(`Failed to initialize wallet client: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        console.error('Failed to initialize wallet client:', errorMessage);
+        toast.error(`Wallet initialization failed: ${errorMessage}`);
       }
     }
   }

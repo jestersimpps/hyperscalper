@@ -2,7 +2,6 @@
 
 import { memo } from 'react';
 import { useRouter } from 'next/navigation';
-import { PositionPriceIndicator } from '@/components/PositionPriceIndicator';
 import MiniPriceChart from '@/components/scanner/MiniPriceChart';
 
 interface SymbolItemProps {
@@ -83,9 +82,6 @@ const SymbolItem = memo(({
               </div>
             </div>
           </button>
-          <div className="px-2 relative z-10">
-            <PositionPriceIndicator symbol={symbol} invertedMode={invertedMode} />
-          </div>
         </div>
         <div className="flex flex-col">
           {!isTop20 && isPinned && (

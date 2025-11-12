@@ -16,13 +16,9 @@ import { useSymbolCandlesStore } from '@/stores/useSymbolCandlesStore';
 import { useGlobalPollingStore } from '@/stores/useGlobalPollingStore';
 import { formatPrice } from '@/lib/format-utils';
 import { useAddressFromUrl } from '@/lib/hooks/use-address-from-url';
-import { PositionPriceIndicator } from '@/components/PositionPriceIndicator';
-import { usePositionAnimations } from '@/hooks/usePositionAnimations';
 import { usePriceVolumeAnimation } from '@/hooks/usePriceVolumeAnimation';
 import MiniPriceChart from '@/components/scanner/MiniPriceChart';
-import PositionItem from '@/components/sidepanel/PositionItem';
 import SymbolItem from '@/components/sidepanel/SymbolItem';
-import { formatPnlSchmeckles } from '@/lib/format-utils';
 import {
   getInvertedColorClass,
   getInvertedAnimationClass,
@@ -38,37 +34,17 @@ interface SidepanelProps {
 
 interface SymbolPriceProps {
   symbol: string;
-  pnlAnimationClass?: string;
   closePrices?: number[];
-  show24hChange?: boolean;
 }
 
-const SymbolPrice = memo(({ symbol, pnlAnimationClass, closePrices, show24hChange = false }: SymbolPriceProps) => {
+const SymbolPrice = memo(({ symbol, closePrices }: SymbolPriceProps) => {
   const price = useSidebarPricesStore((state) => state.prices[symbol]);
-  const position = usePositionStore((state) => state.positions[symbol]);
-  const schmecklesMode = useSettingsStore((state) => state.settings.chart.schmecklesMode);
   const invertedMode = useSettingsStore((state) => state.settings.chart.invertedMode);
 
   const { priceDirection } = usePriceVolumeAnimation(symbol, closePrices, undefined);
 
   const decimals = useSymbolMetaStore.getState().getDecimals(symbol);
   const formattedPrice = price ? formatPrice(price, decimals.price) : '-.--';
-
-  const positionValue = position && position.size > 0 ? position.size * position.currentPrice : 0;
-
-  const pnlText = position && position.size > 0
-    ? schmecklesMode
-      ? formatPnlSchmeckles(position.pnl, positionValue)
-      : `${position.pnl >= 0 ? '+' : ''}${position.pnl.toFixed(2)} USD`
-    : schmecklesMode ? '+- SH' : '+-.-- USD';
-
-  const pnlColorClass = position && position.size > 0
-    ? (position.pnl >= 0 ? 'text-bullish' : 'text-bearish')
-    : 'text-primary-muted';
-
-  const pnlTooltip = position && position.size > 0
-    ? `Unrealized PnL: ${position.pnl >= 0 ? '+' : ''}$${position.pnl.toFixed(2)}`
-    : 'No active position';
 
   const volatilityData = useSymbolVolatilityStore.getState().volatility[symbol];
   const percentChange = volatilityData?.percentChange || 0;
@@ -98,11 +74,7 @@ const SymbolPrice = memo(({ symbol, pnlAnimationClass, closePrices, show24hChang
 
   return (
     <div className="flex flex-col text-xs font-mono text-right flex-shrink-0 w-24 tabular-nums">
-      {show24hChange ? (
-        <span className={`${changeColorClass}`} title={changeTooltip}>{changeText}</span>
-      ) : (
-        <span className={`${pnlColorClass} ${pnlAnimationClass || ''}`} title={pnlTooltip}>{pnlText}</span>
-      )}
+      <span className={`${changeColorClass}`} title={changeTooltip}>{changeText}</span>
       <span className={`${priceColorClass} ${priceBlinkClass}`} title={`Current price: $${formattedPrice}`}>${formattedPrice}</span>
     </div>
   );
@@ -308,21 +280,11 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
     return `${hours}h ago`;
   };
 
-  const { symbolsWithOpenPositions, symbolsWithoutPositions } = useMemo(() => {
-    const withPositions: string[] = [];
-    const withoutPositions: string[] = [];
+  const sortedSymbols = useMemo(() => {
+    const symbols = [...allSymbolsToShow];
 
-    allSymbolsToShow.forEach(symbol => {
-      const position = getPosition(symbol);
-      if (position && position.size > 0) {
-        withPositions.push(symbol);
-      } else {
-        withoutPositions.push(symbol);
-      }
-    });
-
-    // Sort symbols without positions by 24h price change
-    withoutPositions.sort((a, b) => {
+    // Sort all symbols by 24h price change
+    symbols.sort((a, b) => {
       const volatilityA = useSymbolVolatilityStore.getState().volatility[a];
       const volatilityB = useSymbolVolatilityStore.getState().volatility[b];
       const percentChangeA = volatilityA?.percentChange ?? 0;
@@ -330,17 +292,14 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
       return percentChangeB - percentChangeA;
     });
 
-    return { symbolsWithOpenPositions: withPositions, symbolsWithoutPositions: withoutPositions };
-  }, [allSymbolsToShow, symbolsWithPositions]);
-
-  const [positionListRef] = useAutoAnimate();
-  const positionAnimations = usePositionAnimations(symbolsWithOpenPositions, positions);
+    return symbols;
+  }, [allSymbolsToShow]);
 
   return (
     <div className="p-2 h-full flex gap-2 overflow-hidden">
       {/* Left Column - Scanner */}
       {settings.scanner.enabled && (
-        <div className="flex-[0.5] flex flex-col overflow-hidden">
+        <div className="w-[200px] flex flex-col overflow-hidden flex-shrink-0">
           <div className="terminal-border p-2 mb-2 flex-shrink-0">
             <div className="flex items-center justify-between mb-2">
               <span className="text-primary text-xs font-bold tracking-wider">█ SCANNER</span>
@@ -618,72 +577,9 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
       )}
 
       {/* Right Column - Symbols */}
-      <div className={`${settings.scanner.enabled ? 'flex-[0.5]' : 'flex-1'} flex flex-col overflow-hidden gap-3`}>
-        {/* Open Positions Section */}
-        {symbolsWithOpenPositions.length > 0 && (
-          <div className="flex-shrink-0">
-            <div className="terminal-border p-1.5 mb-2">
-              <div className="terminal-text text-center">
-                <span className="text-primary text-xs font-bold tracking-wider">█ OPEN POSITIONS</span>
-              </div>
-            </div>
-            <div ref={positionListRef} className="flex flex-col gap-1 max-h-96 overflow-y-auto">
-              {isLoadingTopSymbols && symbolsWithOpenPositions.length === 0 ? (
-                <>
-                  <SymbolItemSkeleton />
-                  <SymbolItemSkeleton />
-                </>
-              ) : (
-                symbolsWithOpenPositions.map((symbol) => {
-                  const position = positions[symbol];
-                  if (!position) return null;
-
-                  const isPinned = pinnedSymbols.includes(symbol);
-                  const top20Data = topSymbols.find(s => s.name === symbol);
-                  const isTop20 = !!top20Data;
-                  const volumeInMillions = top20Data ? (top20Data.volume / 1000000).toFixed(1) : null;
-
-                  const animationState = positionAnimations[symbol];
-                  const itemAnimationClass = animationState?.isNew
-                    ? animationState.side === 'long' ? 'animate-highlight-new-long' : 'animate-highlight-new-short'
-                    : animationState?.sizeChange ? 'animate-pulse-scale' : '';
-
-                  const pnlAnimationClass = animationState?.pnlChange === 'increase'
-                    ? 'animate-flash-pnl-increase'
-                    : animationState?.pnlChange === 'decrease'
-                    ? 'animate-flash-pnl-decrease'
-                    : '';
-
-                  const symbolClosePrices = getClosePrices(symbol);
-
-                  return (
-                    <PositionItem
-                      key={symbol}
-                      symbol={symbol}
-                      selectedSymbol={selectedSymbol}
-                      onSymbolSelect={onSymbolSelect}
-                      address={address || ''}
-                      position={position}
-                      isPinned={isPinned}
-                      isTop20={isTop20}
-                      volumeInMillions={volumeInMillions}
-                      itemAnimationClass={itemAnimationClass}
-                      pnlAnimationClass={pnlAnimationClass}
-                      closePrices={symbolClosePrices || undefined}
-                      unpinSymbol={unpinSymbol}
-                      SymbolPrice={SymbolPrice}
-                      SymbolVolume={SymbolVolume}
-                      invertedMode={invertedMode}
-                    />
-                  );
-                })
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Rest of Symbols Section */}
-        {symbolsWithoutPositions.length > 0 && (
+      <div className="flex-1 flex flex-col overflow-hidden gap-3">
+        {/* Symbols Section */}
+        {sortedSymbols.length > 0 && (
           <div className="flex-1 flex flex-col overflow-hidden">
             <div className="terminal-border p-2 mb-2">
               <div className="flex items-center justify-between">
@@ -741,7 +637,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                               <span className="text-primary text-xs font-mono font-bold">
                                 {symbol}/USD
                               </span>
-                              <SymbolPrice symbol={symbol} show24hChange={true} />
+                              <SymbolPrice symbol={symbol} />
                             </div>
                           </button>
                           <button
@@ -775,7 +671,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
                   <SymbolItemSkeleton />
                 </>
               ) : (
-                symbolsWithoutPositions.map((symbol) => {
+                sortedSymbols.map((symbol) => {
                   const isPinned = pinnedSymbols.includes(symbol);
                   const top20Data = topSymbols.find(s => s.name === symbol);
                   const isTop20 = !!top20Data;

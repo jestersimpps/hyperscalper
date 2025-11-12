@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type CrosshairType = 'cloud-long' | 'cloud-short' | 'sm-long' | 'sm-short' | 'big-long' | 'big-short' | null;
+export type CrosshairType = 'cloud-long' | 'cloud-short' | 'sm-long' | 'sm-short' | 'big-long' | 'big-short' | 'exit-25' | 'exit-50' | 'exit-75' | 'exit-100' | null;
 
 interface CrosshairStore {
   active: boolean;

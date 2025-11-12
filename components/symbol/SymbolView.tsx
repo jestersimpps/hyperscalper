@@ -61,6 +61,7 @@ function SymbolView({ coin }: SymbolViewProps) {
   const crosshairType = useCrosshairStore((state) => state.type);
   const resetCrosshair = useCrosshairStore((state) => state.reset);
   const placeLimitOrderAtPrice = useTradingStore((state) => state.placeLimitOrderAtPrice);
+  const placeExitOrderAtPrice = useTradingStore((state) => state.placeExitOrderAtPrice);
 
   useEffect(() => {
     crosshairStateRef.current = { active: crosshairActive, type: crosshairType };
@@ -514,37 +515,78 @@ function SymbolView({ coin }: SymbolViewProps) {
                 interval="1m"
                 onPriceUpdate={setCurrentPrice}
                 onChartReady={(chart) => { chartRef.current = chart; }}
-                onChartClick={async (data) => {
+onChartClick={async (data) => {
                   const { active, type } = crosshairStateRef.current;
                   console.log('Chart clicked at price:', data.price, 'Crosshair active:', active, 'Type:', type);
 
                   if (active && type) {
                     try {
-                      const isBuy = type.includes('long');
-                      const isCloud = type.includes('cloud');
-                      const isBig = type.includes('big');
+                      // Handle exit order types
+                      if (type.startsWith('exit-')) {
+                        const allPositions = usePositionStore.getState().positions;
+                        const currentPosition = allPositions[coin];
 
-                      let percentage: number;
-                      if (isCloud) {
-                        percentage = orderSettings.cloudPercentage;
-                      } else if (isBig) {
-                        percentage = orderSettings.bigPercentage;
+                        console.log('[EXIT ORDER DEBUG] All positions:', allPositions);
+                        console.log('[EXIT ORDER DEBUG] Current coin:', coin);
+                        console.log('[EXIT ORDER DEBUG] Position for coin:', currentPosition);
+
+                        if (!currentPosition) {
+                          console.error('Cannot place exit order: no position for', coin);
+                          alert(`No position to place exit order for ${coin}`);
+                          return;
+                        }
+
+                        const percentageStr = type.replace('exit-', '');
+                        const percentage = parseInt(percentageStr) as 25 | 50 | 75 | 100;
+
+                        console.log('Placing exit order:', {
+                          coin,
+                          price: data.price,
+                          currentPrice: currentPosition.currentPrice,
+                          percentage,
+                          positionSide: currentPosition.side,
+                          positionSize: currentPosition.size
+                        });
+
+                        await placeExitOrderAtPrice({
+                          symbol: coin,
+                          price: data.price,
+                          percentage,
+                          positionSide: currentPosition.side,
+                          positionSize: currentPosition.size,
+                          currentPrice: currentPosition.currentPrice,
+                        });
+
+                        console.log('Exit order placed successfully!');
+                        resetCrosshair();
                       } else {
-                        percentage = orderSettings.smallPercentage;
+                        // Handle entry order types
+                        const isBuy = type.includes('long');
+                        const isCloud = type.includes('cloud');
+                        const isBig = type.includes('big');
+
+                        let percentage: number;
+                        if (isCloud) {
+                          percentage = orderSettings.cloudPercentage;
+                        } else if (isBig) {
+                          percentage = orderSettings.bigPercentage;
+                        } else {
+                          percentage = orderSettings.smallPercentage;
+                        }
+
+                        console.log('Placing order:', { coin, price: data.price, currentPrice, isBuy, percentage, orderType: isCloud ? 'cloud' : isBig ? 'big' : 'small' });
+
+                        await placeLimitOrderAtPrice({
+                          symbol: coin,
+                          price: data.price,
+                          isBuy,
+                          percentage,
+                          currentPrice,
+                        });
+
+                        console.log('Order placed successfully!');
+                        resetCrosshair();
                       }
-
-                      console.log('Placing order:', { coin, price: data.price, currentPrice, isBuy, percentage, orderType: isCloud ? 'cloud' : isBig ? 'big' : 'small' });
-
-                      await placeLimitOrderAtPrice({
-                        symbol: coin,
-                        price: data.price,
-                        isBuy,
-                        percentage,
-                        currentPrice,
-                      });
-
-                      console.log('Order placed successfully!');
-                      resetCrosshair();
                     } catch (error) {
                       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
                       console.error('Order placement failed:', error);

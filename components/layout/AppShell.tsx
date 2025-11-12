@@ -3,6 +3,7 @@
 import { ReactNode, useMemo, useCallback } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import RightTradingPanel from '@/components/symbol/RightTradingPanel';
+import OpenOrdersList from '@/components/orders/OpenOrdersList';
 import Sidepanel from '@/components/layout/Sidepanel';
 import WalletIndicator from '@/components/layout/WalletIndicator';
 import CalendarIcon from '@/components/icons/CalendarIcon';
@@ -47,7 +48,6 @@ export default function AppShell({ selectedSymbol, children }: AppShellProps) {
   const bigLong = useTradingStore((state) => state.bigLong);
   const bigShort = useTradingStore((state) => state.bigShort);
   const closePosition = useTradingStore((state) => state.closePosition);
-  const moveStopLoss = useTradingStore((state) => state.moveStopLoss);
   const cancelEntryOrders = useTradingStore((state) => state.cancelEntryOrders);
   const cancelExitOrders = useTradingStore((state) => state.cancelExitOrders);
   const cancelAllOrders = useTradingStore((state) => state.cancelAllOrders);
@@ -228,38 +228,6 @@ export default function AppShell({ selectedSymbol, children }: AppShellProps) {
     }
   }, [coin, closePosition]);
 
-  const handleMoveSL25 = useCallback(async () => {
-    try {
-      await moveStopLoss({ coin, percentage: 25 });
-    } catch (error) {
-      alert(`Error moving stop loss: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }, [coin, moveStopLoss]);
-
-  const handleMoveSL50 = useCallback(async () => {
-    try {
-      await moveStopLoss({ coin, percentage: 50 });
-    } catch (error) {
-      alert(`Error moving stop loss: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }, [coin, moveStopLoss]);
-
-  const handleMoveSL75 = useCallback(async () => {
-    try {
-      await moveStopLoss({ coin, percentage: 75 });
-    } catch (error) {
-      alert(`Error moving stop loss: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }, [coin, moveStopLoss]);
-
-  const handleMoveSLBreakeven = useCallback(async () => {
-    try {
-      await moveStopLoss({ coin, percentage: 0 });
-    } catch (error) {
-      alert(`Error moving stop loss: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }, [coin, moveStopLoss]);
-
   const handleCancelEntryOrders = useCallback(async () => {
     try {
       await cancelEntryOrders(coin);
@@ -354,14 +322,13 @@ export default function AppShell({ selectedSymbol, children }: AppShellProps) {
           onClose50={handleClose50}
           onClose75={handleClose75}
           onClose100={handleClose100}
-          onMoveSL25={handleMoveSL25}
-          onMoveSL50={handleMoveSL50}
-          onMoveSL75={handleMoveSL75}
-          onMoveSLBreakeven={handleMoveSLBreakeven}
           onCancelEntryOrders={handleCancelEntryOrders}
           onCancelExitOrders={handleCancelExitOrders}
           onCancelAllOrders={handleCancelAllOrders}
         />
+
+        {/* Orders List Column */}
+        <OpenOrdersList currentSymbol={coin} />
       </div>
     </div>
   );
