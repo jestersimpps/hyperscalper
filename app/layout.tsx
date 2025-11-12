@@ -19,8 +19,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "BTC-USD Live Chart | Hyperliquid",
-  description: "Real-time Bitcoin perpetual futures candlestick chart powered by Hyperliquid API",
+  title: "Hyperscalper | Advanced Trading Terminal for Hyperliquid",
+  description: "Professional scalping terminal for Hyperliquid DEX. Real-time charts, advanced indicators, market scanner, and instant order execution. No backend, your keys never leave your browser.",
 };
 
 export default function RootLayout({
