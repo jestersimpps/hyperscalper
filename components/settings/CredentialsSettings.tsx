@@ -16,6 +16,7 @@ export function CredentialsSettings({ initialWalletAddress }: CredentialsSetting
   const [showKey, setShowKey] = useState(false);
   const [status, setStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
+  const [walletAddressError, setWalletAddressError] = useState('');
 
   useEffect(() => {
     if (credentials) {
@@ -45,6 +46,10 @@ export function CredentialsSettings({ initialWalletAddress }: CredentialsSetting
         const account = privateKeyToAccount(privateKey as `0x${string}`);
         address = account.address;
         setWalletAddress(address);
+      }
+
+      if (address.startsWith('0x') && address.length === 66) {
+        throw new Error('Wallet address cannot be a private key. Please use the Derive button or enter a valid wallet address.');
       }
 
       await saveCredentials(privateKey, address, isTestnet);
@@ -80,6 +85,17 @@ export function CredentialsSettings({ initialWalletAddress }: CredentialsSetting
     }
   };
 
+  const handleWalletAddressChange = (value: string) => {
+    setWalletAddressError('');
+
+    if (value.startsWith('0x') && value.length === 66) {
+      setWalletAddressError('⚠️ This looks like a private key! Do NOT enter your private key here. Use the Private Key field above.');
+      return;
+    }
+
+    setWalletAddress(value);
+  };
+
   const deriveAddress = () => {
     try {
       if (!privateKey || !privateKey.startsWith('0x')) {
@@ -87,6 +103,7 @@ export function CredentialsSettings({ initialWalletAddress }: CredentialsSetting
       }
       const account = privateKeyToAccount(privateKey as `0x${string}`);
       setWalletAddress(account.address);
+      setWalletAddressError('');
       setStatus('success');
       setTimeout(() => setStatus('idle'), 1000);
     } catch (error) {
@@ -182,9 +199,13 @@ export function CredentialsSettings({ initialWalletAddress }: CredentialsSetting
               id="walletAddress"
               type="text"
               value={walletAddress}
-              onChange={(e) => setWalletAddress(e.target.value)}
+              onChange={(e) => handleWalletAddressChange(e.target.value)}
               placeholder="0x..."
-              className="flex-1 px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+              className={`flex-1 px-4 py-2 bg-gray-800 border rounded-lg text-white focus:outline-none focus:ring-2 font-mono text-sm ${
+                walletAddressError
+                  ? 'border-red-500 focus:ring-red-500'
+                  : 'border-gray-700 focus:ring-blue-500'
+              }`}
             />
             <button
               type="button"
@@ -195,6 +216,11 @@ export function CredentialsSettings({ initialWalletAddress }: CredentialsSetting
               Derive
             </button>
           </div>
+          {walletAddressError && (
+            <div className="mt-2 bg-red-900/30 border border-red-700/50 rounded-lg p-3">
+              <p className="text-sm text-red-400 font-medium">{walletAddressError}</p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -207,7 +233,7 @@ export function CredentialsSettings({ initialWalletAddress }: CredentialsSetting
       <div className="flex gap-3">
         <button
           onClick={handleSave}
-          disabled={status === 'saving' || !privateKey}
+          disabled={status === 'saving' || !privateKey || !!walletAddressError}
           className="flex-1 px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded-lg font-medium transition-colors"
         >
           {status === 'saving' ? 'Saving...' : status === 'success' ? 'Saved!' : 'Save Credentials'}
