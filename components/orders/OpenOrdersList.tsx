@@ -66,7 +66,9 @@ export default function OpenOrdersList({ currentSymbol }: OpenOrdersListProps) {
     const filtered = allOrders.filter(order => order.coin !== currentSymbol);
     const grouped = groupOrdersBySymbol(filtered);
 
-    return grouped.map(group => {
+    const symbolsWithItems = new Set<string>();
+    const result = grouped.map(group => {
+      symbolsWithItems.add(group.symbol);
       const items: OrderOrPosition[] = group.orders.map(order => ({ type: 'order' as const, data: order }));
       const position = positionsState[group.symbol];
 
@@ -82,6 +84,17 @@ export default function OpenOrdersList({ currentSymbol }: OpenOrdersListProps) {
 
       return { symbol: group.symbol, items };
     });
+
+    Object.entries(positionsState).forEach(([symbol, position]) => {
+      if (position && symbol !== currentSymbol && !symbolsWithItems.has(symbol)) {
+        result.push({
+          symbol,
+          items: [{ type: 'position' as const, data: position }]
+        });
+      }
+    });
+
+    return result;
   }, [allOrders, currentSymbol, positionsState]);
 
   const handleOrderClick = (symbol: string) => {
