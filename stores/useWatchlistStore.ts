@@ -99,6 +99,15 @@ const calculateStatistics = (fills: any[], positions: any[]): WalletStatistics =
   };
 };
 
+const fetchWithTimeout = <T,>(promise: Promise<T>, timeoutMs: number): Promise<T> => {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error('Request timeout')), timeoutMs)
+    )
+  ]);
+};
+
 export const useWatchlistStore = create<WatchlistStore>((set, get) => ({
   watchedWallets: [],
   walletData: new Map(),
@@ -190,13 +199,32 @@ export const useWatchlistStore = create<WatchlistStore>((set, get) => ({
     try {
       const now = Date.now();
       const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000;
+      const TIMEOUT_MS = 30000;
 
-      const [positions, orders, recentFills, balance] = await Promise.all([
-        service.getOpenPositions(address),
-        service.getOpenOrders(address),
-        service.getUserFillsByTime(thirtyDaysAgo, now, address),
-        service.getAccountBalance(address)
+      const results = await Promise.allSettled([
+        fetchWithTimeout(service.getOpenPositions(address), TIMEOUT_MS),
+        fetchWithTimeout(service.getOpenOrders(address), TIMEOUT_MS),
+        fetchWithTimeout(service.getUserFillsByTime(thirtyDaysAgo, now, address), TIMEOUT_MS),
+        fetchWithTimeout(service.getAccountBalance(address), TIMEOUT_MS)
       ]);
+
+      const positions = results[0].status === 'fulfilled' ? results[0].value : [];
+      const orders = results[1].status === 'fulfilled' ? results[1].value : [];
+      const recentFills = results[2].status === 'fulfilled' ? results[2].value : [];
+      const balance = results[3].status === 'fulfilled' ? results[3].value : undefined;
+
+      if (results[0].status === 'rejected') {
+        console.error(`Failed to fetch positions for ${address}:`, results[0].reason);
+      }
+      if (results[1].status === 'rejected') {
+        console.error(`Failed to fetch orders for ${address}:`, results[1].reason);
+      }
+      if (results[2].status === 'rejected') {
+        console.error(`Failed to fetch fills for ${address}:`, results[2].reason);
+      }
+      if (results[3].status === 'rejected') {
+        console.error(`Failed to fetch balance for ${address}:`, results[3].reason);
+      }
 
       const statistics = calculateStatistics(recentFills, positions);
 
@@ -296,6 +324,8 @@ export const useWatchlistStore = create<WatchlistStore>((set, get) => ({
     if (pollingInterval) {
       clearInterval(pollingInterval);
     }
+
+    get().fetchAllWalletsData();
 
     const interval = setInterval(() => {
       get().fetchAllWalletsData();

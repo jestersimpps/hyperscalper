@@ -31,6 +31,23 @@ export default function WatchlistView() {
   }, [isInitialized, initialize]);
 
   useEffect(() => {
+    if (isInitialized) {
+      const stuckLoadingWallets = watchedWallets.filter(w => w.isLoading);
+      if (stuckLoadingWallets.length > 0) {
+        console.warn('[WatchlistView] Clearing stuck loading states for wallets:',
+          stuckLoadingWallets.map(w => w.address));
+        stuckLoadingWallets.forEach(wallet => {
+          useWatchlistStore.setState(state => ({
+            watchedWallets: state.watchedWallets.map(w =>
+              w.address === wallet.address ? { ...w, isLoading: false } : w
+            )
+          }));
+        });
+      }
+    }
+  }, [isInitialized, watchedWallets]);
+
+  useEffect(() => {
     if (service) {
       setService(service);
     }
