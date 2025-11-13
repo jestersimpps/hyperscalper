@@ -12,6 +12,7 @@ interface WalletCardProps {
   onRemove: () => void;
   onUpdateNickname: (address: string, nickname: string) => void;
   onToggleFollow: (address: string) => void;
+  onRefresh: (address: string) => void;
 }
 
 export default function WalletCard({
@@ -21,7 +22,8 @@ export default function WalletCard({
   onExpand,
   onRemove,
   onUpdateNickname,
-  onToggleFollow
+  onToggleFollow,
+  onRefresh
 }: WalletCardProps) {
   const [isEditingNickname, setIsEditingNickname] = useState(false);
   const [nicknameInput, setNicknameInput] = useState(wallet.nickname || '');
@@ -91,6 +93,14 @@ export default function WalletCard({
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => onRefresh(wallet.address)}
+              disabled={wallet.isLoading}
+              className="px-2 py-0.5 text-[9px] border rounded transition-colors text-primary-muted border-frame hover:text-primary hover:border-primary disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Refresh wallet data"
+            >
+              ↻
+            </button>
             <button
               onClick={() => onToggleFollow(wallet.address)}
               className={`px-2 py-0.5 text-[9px] border rounded transition-colors ${

@@ -9,6 +9,7 @@ import AddWalletModal from '@/components/watchlist/AddWalletModal';
 export default function WatchlistView() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [expandedWallet, setExpandedWallet] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const watchedWallets = useWatchlistStore((state) => state.watchedWallets);
   const walletData = useWatchlistStore((state) => state.walletData);
@@ -18,6 +19,7 @@ export default function WatchlistView() {
   const startPolling = useWatchlistStore((state) => state.startPolling);
   const stopPolling = useWatchlistStore((state) => state.stopPolling);
   const fetchWalletData = useWatchlistStore((state) => state.fetchWalletData);
+  const fetchAllWalletsData = useWatchlistStore((state) => state.fetchAllWalletsData);
   const removeWallet = useWatchlistStore((state) => state.removeWallet);
   const updateNickname = useWatchlistStore((state) => state.updateNickname);
   const toggleFollow = useWatchlistStore((state) => state.toggleFollow);
@@ -88,6 +90,19 @@ export default function WatchlistView() {
     toggleFollow(address);
   };
 
+  const handleRefreshAll = async () => {
+    setIsRefreshing(true);
+    try {
+      await fetchAllWalletsData();
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  const handleRefreshWallet = async (address: string) => {
+    await fetchWalletData(address);
+  };
+
   return (
     <div className="h-full flex flex-col bg-bg-primary">
       <div className="flex flex-col h-full w-full p-2 gap-2 overflow-y-auto">
@@ -99,12 +114,21 @@ export default function WatchlistView() {
                 Track positions, orders, and performance of other traders
               </p>
             </div>
-            <button
-              onClick={() => setIsAddModalOpen(true)}
-              className="px-3 py-1.5 text-[10px] font-mono uppercase tracking-wider bg-primary/10 hover:bg-primary/20 active:bg-primary/30 active:scale-95 text-primary border border-primary rounded cursor-pointer transition-all"
-            >
-              + ADD WALLET
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={handleRefreshAll}
+                disabled={isRefreshing || watchedWallets.length === 0}
+                className="px-3 py-1.5 text-[10px] font-mono uppercase tracking-wider bg-primary/10 hover:bg-primary/20 active:bg-primary/30 active:scale-95 text-primary border border-primary rounded cursor-pointer transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-primary/10"
+              >
+                {isRefreshing ? '↻ REFRESHING...' : '↻ REFRESH'}
+              </button>
+              <button
+                onClick={() => setIsAddModalOpen(true)}
+                className="px-3 py-1.5 text-[10px] font-mono uppercase tracking-wider bg-primary/10 hover:bg-primary/20 active:bg-primary/30 active:scale-95 text-primary border border-primary rounded cursor-pointer transition-all"
+              >
+                + ADD WALLET
+              </button>
+            </div>
           </div>
 
           {watchedWallets.length === 0 ? (
@@ -126,6 +150,7 @@ export default function WatchlistView() {
                   onRemove={() => handleRemoveWallet(wallet.address)}
                   onUpdateNickname={handleUpdateNickname}
                   onToggleFollow={handleToggleFollow}
+                  onRefresh={handleRefreshWallet}
                 />
               ))}
             </div>

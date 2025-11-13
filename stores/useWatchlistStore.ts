@@ -31,7 +31,15 @@ interface WatchlistStore {
 }
 
 const STORAGE_KEY = 'hyperscalper_watchlist';
+const SNAPSHOTS_STORAGE_KEY = 'hyperscalper_watchlist_snapshots';
 const POLLING_INTERVAL = 5 * 60 * 1000;
+
+interface WalletSnapshot {
+  address: string;
+  positions: any[];
+  orders: any[];
+  lastFetched: number;
+}
 
 const loadWatchlistFromStorage = (): WatchedWallet[] => {
   if (typeof window === 'undefined') return [];
@@ -55,6 +63,38 @@ const saveWatchlistToStorage = (wallets: WatchedWallet[]) => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(wallets));
   } catch (error) {
     console.error('Failed to save watchlist to storage:', error);
+  }
+};
+
+const loadWalletSnapshotsFromStorage = (): Map<string, WalletSnapshot> => {
+  if (typeof window === 'undefined') return new Map();
+
+  try {
+    const stored = localStorage.getItem(SNAPSHOTS_STORAGE_KEY);
+    if (!stored) return new Map();
+
+    const parsed = JSON.parse(stored);
+    if (!Array.isArray(parsed)) return new Map();
+
+    const snapshotsMap = new Map<string, WalletSnapshot>();
+    parsed.forEach((snapshot: WalletSnapshot) => {
+      snapshotsMap.set(snapshot.address, snapshot);
+    });
+    return snapshotsMap;
+  } catch (error) {
+    console.error('Failed to load wallet snapshots from storage:', error);
+    return new Map();
+  }
+};
+
+const saveWalletSnapshotsToStorage = (snapshots: Map<string, WalletSnapshot>) => {
+  if (typeof window === 'undefined') return;
+
+  try {
+    const snapshotsArray = Array.from(snapshots.values());
+    localStorage.setItem(SNAPSHOTS_STORAGE_KEY, JSON.stringify(snapshotsArray));
+  } catch (error) {
+    console.error('Failed to save wallet snapshots to storage:', error);
   }
 };
 
@@ -121,7 +161,25 @@ export const useWatchlistStore = create<WatchlistStore>((set, get) => ({
 
   initialize: () => {
     const wallets = loadWatchlistFromStorage();
-    set({ watchedWallets: wallets, isInitialized: true });
+    const snapshots = loadWalletSnapshotsFromStorage();
+
+    const initialWalletData = new Map<string, WalletData>();
+    snapshots.forEach((snapshot, address) => {
+      initialWalletData.set(address, {
+        address: snapshot.address,
+        positions: snapshot.positions,
+        orders: snapshot.orders,
+        recentFills: [],
+        statistics: calculateStatistics([], snapshot.positions),
+        lastFetched: snapshot.lastFetched
+      });
+    });
+
+    set({
+      watchedWallets: wallets,
+      walletData: initialWalletData,
+      isInitialized: true
+    });
   },
 
   addWallet: (address: string, nickname?: string) => {
@@ -134,7 +192,8 @@ export const useWatchlistStore = create<WatchlistStore>((set, get) => ({
     const newWallet: WatchedWallet = {
       address: address.toLowerCase(),
       nickname,
-      addedAt: Date.now()
+      addedAt: Date.now(),
+      isLoading: true
     };
 
     const updatedWallets = [...watchedWallets, newWallet];
@@ -146,15 +205,20 @@ export const useWatchlistStore = create<WatchlistStore>((set, get) => ({
 
   removeWallet: (address: string) => {
     const { watchedWallets, walletData } = get();
+    const normalizedAddress = address.toLowerCase();
     const updatedWallets = watchedWallets.filter(
-      w => w.address.toLowerCase() !== address.toLowerCase()
+      w => w.address !== normalizedAddress
     );
 
     const newWalletData = new Map(walletData);
-    newWalletData.delete(address.toLowerCase());
+    newWalletData.delete(normalizedAddress);
 
     set({ watchedWallets: updatedWallets, walletData: newWalletData });
     saveWatchlistToStorage(updatedWallets);
+
+    const snapshots = loadWalletSnapshotsFromStorage();
+    snapshots.delete(normalizedAddress);
+    saveWalletSnapshotsToStorage(snapshots);
   },
 
   updateNickname: (address: string, nickname: string) => {
@@ -299,6 +363,15 @@ export const useWatchlistStore = create<WatchlistStore>((set, get) => ({
             : w
         )
       });
+
+      const snapshots = loadWalletSnapshotsFromStorage();
+      snapshots.set(normalizedAddress, {
+        address: normalizedAddress,
+        positions,
+        orders,
+        lastFetched: Date.now()
+      });
+      saveWalletSnapshotsToStorage(snapshots);
     } catch (error) {
       console.error(`Failed to fetch data for wallet ${address}:`, error);
 
@@ -345,8 +418,13 @@ export const useWatchlistStore = create<WatchlistStore>((set, get) => ({
 
   clearWalletData: (address: string) => {
     const { walletData } = get();
+    const normalizedAddress = address.toLowerCase();
     const newWalletData = new Map(walletData);
-    newWalletData.delete(address.toLowerCase());
+    newWalletData.delete(normalizedAddress);
     set({ walletData: newWalletData });
+
+    const snapshots = loadWalletSnapshotsFromStorage();
+    snapshots.delete(normalizedAddress);
+    saveWalletSnapshotsToStorage(snapshots);
   }
 }));
