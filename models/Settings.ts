@@ -144,7 +144,7 @@ export interface OrderSettings {
   bigPercentage: number;
 }
 
-export type ThemeName = 'dark' | 'hyper' | 'hyper-black' | 'midnight' | 'light' | 'dark-blue' | 'afternoon' | 'psychedelic' | 'nintendo' | 'gameboy' | 'sega' | 'playstation' | 'cyberpunk' | 'vaporwave' | 'matrix' | 'synthwave' | 'ocean' | 'c64' | 'amber';
+export type ThemeName = 'dark' | 'hyper' | 'hyper-black' | 'midnight' | 'light' | 'dark-blue' | 'afternoon' | 'psychedelic' | 'nintendo' | 'gameboy' | 'sega' | 'playstation' | 'cyberpunk' | 'vaporwave' | 'matrix' | 'synthwave' | 'ocean' | 'c64' | 'amber' | 'girly';
 
 export interface ThemeSettings {
   selected: ThemeName;

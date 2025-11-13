@@ -305,6 +305,22 @@
   --status-bearish-bg: #1a0f00;
 }
 
+[data-theme="girly"] {
+  --background-primary: #f5ebf2;
+  --background-secondary: #faf3f8;
+  --border-frame: #e8d4e4;
+  --primary: #c96fb0;
+  --primary-muted: #d99dc7;
+  --primary-dark: #a85592;
+  --accent-blue: #a8c9e8;
+  --accent-blue-dark: #7ba8d4;
+  --accent-rose: #f5a8c9;
+  --accent-dark-blue: #d4b5e8;
+  --status-bullish: #89d4b8;
+  --status-bearish: #f5a4a4;
+  --status-bearish-bg: #fce8e8;
+}
+
 @theme inline {
   --color-bg-primary: var(--background-primary);
   --color-bg-secondary: var(--background-secondary);

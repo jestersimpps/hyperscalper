@@ -91,7 +91,7 @@ export default function SettingsPanel() {
                 : 'text-primary-muted hover:text-primary hover:bg-primary/5'
             }`}
           >
-            █ Scanner
+            Scanner
           </button>
           <button
             onClick={() => setActiveTab('indicators')}
@@ -101,7 +101,7 @@ export default function SettingsPanel() {
                 : 'text-primary-muted hover:text-primary hover:bg-primary/5'
             }`}
           >
-            █ Indicators
+            Indicators
           </button>
           <button
             onClick={() => setActiveTab('orders')}
@@ -111,7 +111,7 @@ export default function SettingsPanel() {
                 : 'text-primary-muted hover:text-primary hover:bg-primary/5'
             }`}
           >
-            █ Orders
+            Orders
           </button>
           <button
             onClick={() => setActiveTab('ui')}
@@ -121,7 +121,7 @@ export default function SettingsPanel() {
                 : 'text-primary-muted hover:text-primary hover:bg-primary/5'
             }`}
           >
-            █ UI
+            UI
           </button>
           <button
             onClick={() => setActiveTab('credentials')}
@@ -131,7 +131,7 @@ export default function SettingsPanel() {
                 : 'text-primary-muted hover:text-primary hover:bg-primary/5'
             }`}
           >
-            █ Credentials
+            Credentials
           </button>
         </div>
 
@@ -1395,7 +1395,7 @@ export default function SettingsPanel() {
                   Choose a color theme for the application. Changes apply instantly.
                 </p>
                 <div className="grid grid-cols-3 gap-2">
-                  {(['hyper', 'hyper-black', 'dark', 'dark-blue', 'midnight', 'light', 'afternoon', 'psychedelic', 'nintendo', 'gameboy', 'sega', 'playstation', 'cyberpunk', 'vaporwave', 'matrix', 'synthwave', 'ocean', 'c64', 'amber'] as ThemeName[]).map((themeName) => (
+                  {(['hyper', 'hyper-black', 'dark', 'dark-blue', 'midnight', 'light', 'afternoon', 'psychedelic', 'nintendo', 'gameboy', 'sega', 'playstation', 'cyberpunk', 'vaporwave', 'matrix', 'synthwave', 'ocean', 'c64', 'amber', 'girly'] as ThemeName[]).map((themeName) => (
                     <label
                       key={themeName}
                       className="flex items-center gap-2 p-2 bg-bg-primary border border-frame rounded cursor-pointer hover:border-primary/50 transition-colors"
