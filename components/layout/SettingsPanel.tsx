@@ -39,7 +39,7 @@ export default function SettingsPanel() {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-end p-4 bg-black/60 backdrop-blur-sm animate-fade-in"
+      className="fixed inset-0 z-50 flex items-start md:items-start justify-center md:justify-end p-0 md:p-4 bg-black/60 backdrop-blur-sm animate-fade-in"
       onClick={handleBackdropClick}
     >
       <style jsx>{`
@@ -65,9 +65,9 @@ export default function SettingsPanel() {
         }
       `}</style>
 
-      <div className="terminal-border bg-bg-primary w-[600px] max-h-[80vh] flex flex-col animate-slide-in">
+      <div className="terminal-border bg-bg-primary w-full md:w-[600px] h-full md:h-auto md:max-h-[80vh] flex flex-col animate-slide-in">
         {/* Header */}
-        <div className="p-4 border-b border-frame flex justify-between items-center">
+        <div className="p-3 md:p-4 border-b border-frame flex justify-between items-center">
           <div className="flex items-center gap-2">
             <span className="text-primary text-2xl">⚙</span>
             <h2 className="text-primary text-sm font-bold uppercase tracking-wider">Settings</h2>
@@ -82,10 +82,10 @@ export default function SettingsPanel() {
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-frame bg-bg-secondary">
+        <div className="flex border-b border-frame bg-bg-secondary overflow-x-auto">
           <button
             onClick={() => setActiveTab('scanner')}
-            className={`flex-1 px-4 py-3 text-xs font-mono uppercase tracking-wider transition-all ${
+            className={`flex-1 px-2 md:px-4 py-2 md:py-3 text-[10px] md:text-xs font-mono uppercase tracking-wider transition-all whitespace-nowrap ${
               activeTab === 'scanner'
                 ? 'bg-primary/10 text-primary border-b-2 border-primary'
                 : 'text-primary-muted hover:text-primary hover:bg-primary/5'
@@ -95,7 +95,7 @@ export default function SettingsPanel() {
           </button>
           <button
             onClick={() => setActiveTab('indicators')}
-            className={`flex-1 px-4 py-3 text-xs font-mono uppercase tracking-wider transition-all ${
+            className={`flex-1 px-2 md:px-4 py-2 md:py-3 text-[10px] md:text-xs font-mono uppercase tracking-wider transition-all whitespace-nowrap ${
               activeTab === 'indicators'
                 ? 'bg-primary/10 text-primary border-b-2 border-primary'
                 : 'text-primary-muted hover:text-primary hover:bg-primary/5'
@@ -105,7 +105,7 @@ export default function SettingsPanel() {
           </button>
           <button
             onClick={() => setActiveTab('orders')}
-            className={`flex-1 px-4 py-3 text-xs font-mono uppercase tracking-wider transition-all ${
+            className={`flex-1 px-2 md:px-4 py-2 md:py-3 text-[10px] md:text-xs font-mono uppercase tracking-wider transition-all whitespace-nowrap ${
               activeTab === 'orders'
                 ? 'bg-primary/10 text-primary border-b-2 border-primary'
                 : 'text-primary-muted hover:text-primary hover:bg-primary/5'
@@ -115,7 +115,7 @@ export default function SettingsPanel() {
           </button>
           <button
             onClick={() => setActiveTab('ui')}
-            className={`flex-1 px-4 py-3 text-xs font-mono uppercase tracking-wider transition-all ${
+            className={`flex-1 px-2 md:px-4 py-2 md:py-3 text-[10px] md:text-xs font-mono uppercase tracking-wider transition-all whitespace-nowrap ${
               activeTab === 'ui'
                 ? 'bg-primary/10 text-primary border-b-2 border-primary'
                 : 'text-primary-muted hover:text-primary hover:bg-primary/5'
@@ -125,7 +125,7 @@ export default function SettingsPanel() {
           </button>
           <button
             onClick={() => setActiveTab('credentials')}
-            className={`flex-1 px-4 py-3 text-xs font-mono uppercase tracking-wider transition-all ${
+            className={`flex-1 px-2 md:px-4 py-2 md:py-3 text-[10px] md:text-xs font-mono uppercase tracking-wider transition-all whitespace-nowrap ${
               activeTab === 'credentials'
                 ? 'bg-primary/10 text-primary border-b-2 border-primary'
                 : 'text-primary-muted hover:text-primary hover:bg-primary/5'
@@ -136,7 +136,7 @@ export default function SettingsPanel() {
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-3 md:p-6">
           {activeTab === 'scanner' && (
             <div className="space-y-3">
               <div className="p-3 bg-bg-secondary border border-frame rounded">

@@ -30,6 +30,7 @@ import type { TimeInterval } from '@/types';
 interface SidepanelProps {
   selectedSymbol: string;
   onSymbolSelect?: (symbol: string) => void;
+  mobileView?: 'scanner' | 'symbols' | 'all';
 }
 
 interface SymbolPriceProps {
@@ -155,7 +156,7 @@ const SymbolItemSkeleton = memo(() => {
 
 SymbolItemSkeleton.displayName = 'SymbolItemSkeleton';
 
-export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelProps) {
+export default function Sidepanel({ selectedSymbol, onSymbolSelect, mobileView = 'all' }: SidepanelProps) {
   const router = useRouter();
   const address = useAddressFromUrl();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -298,8 +299,8 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
   return (
     <div className="p-2 h-full flex gap-2 overflow-hidden">
       {/* Left Column - Scanner */}
-      {settings.scanner.enabled && (
-        <div className="w-[200px] flex flex-col overflow-hidden flex-shrink-0">
+      {settings.scanner.enabled && (mobileView === 'all' || mobileView === 'scanner') && (
+        <div className={`${mobileView === 'scanner' ? 'w-full' : 'w-[200px]'} flex flex-col overflow-hidden flex-shrink-0`}>
           <div className="terminal-border p-2 mb-2 flex-shrink-0">
             <div className="flex items-center justify-between mb-2">
               <span className="text-primary text-xs font-bold tracking-wider">█ SCANNER</span>
@@ -577,9 +578,10 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
       )}
 
       {/* Right Column - Symbols */}
-      <div className="flex-1 flex flex-col overflow-hidden gap-3">
-        {/* Symbols Section */}
-        {sortedSymbols.length > 0 && (
+      {(mobileView === 'all' || mobileView === 'symbols') && (
+        <div className="flex-1 flex flex-col overflow-hidden gap-3">
+          {/* Symbols Section */}
+          {sortedSymbols.length > 0 && (
           <div className="flex-1 flex flex-col overflow-hidden">
             <div className="terminal-border p-2 mb-2">
               <div className="flex items-center justify-between">
@@ -700,7 +702,8 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect }: SidepanelP
             </div>
           </div>
         )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

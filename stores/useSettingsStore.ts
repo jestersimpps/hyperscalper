@@ -3,10 +3,12 @@ import { persist } from 'zustand/middleware';
 import { AppSettings, DEFAULT_SETTINGS, StochasticSettings, EmaSettings, MacdSettings, ScannerSettings, OrderSettings, ThemeSettings, ChartSettings } from '@/models/Settings';
 
 type TabType = 'scanner' | 'indicators' | 'orders' | 'ui' | 'credentials';
+type MobileTabType = 'scanner' | 'symbols' | 'chart' | 'actions' | 'orders-positions';
 
 interface SettingsStore {
   isPanelOpen: boolean;
   activeTab: TabType;
+  mobileActiveTab: MobileTabType;
   isMultiChartView: boolean;
   settings: AppSettings;
   openPanel: () => void;
@@ -14,6 +16,7 @@ interface SettingsStore {
   togglePanel: () => void;
   toggleMultiChartView: () => void;
   setActiveTab: (tab: TabType) => void;
+  setMobileActiveTab: (tab: MobileTabType) => void;
   updateStochasticSettings: (settings: Partial<StochasticSettings>) => void;
   updateEmaSettings: (settings: Partial<EmaSettings>) => void;
   updateMacdSettings: (settings: Partial<MacdSettings>) => void;
@@ -233,6 +236,7 @@ export const useSettingsStore = create<SettingsStore>()(
     (set) => ({
       isPanelOpen: false,
       activeTab: 'scanner',
+      mobileActiveTab: 'chart',
       isMultiChartView: false,
       settings: DEFAULT_SETTINGS,
       openPanel: () => set({ isPanelOpen: true }),
@@ -240,6 +244,7 @@ export const useSettingsStore = create<SettingsStore>()(
       togglePanel: () => set((state) => ({ isPanelOpen: !state.isPanelOpen })),
       toggleMultiChartView: () => set((state) => ({ isMultiChartView: !state.isMultiChartView })),
       setActiveTab: (tab) => set({ activeTab: tab }),
+      setMobileActiveTab: (tab) => set({ mobileActiveTab: tab }),
       updateStochasticSettings: (updates) =>
         set((state) => ({
           settings: {
@@ -339,12 +344,16 @@ export const useSettingsStore = create<SettingsStore>()(
     }),
     {
       name: 'hyperscalper-settings',
-      partialize: (state) => ({ settings: state.settings }),
+      partialize: (state) => ({
+        settings: state.settings,
+        mobileActiveTab: state.mobileActiveTab,
+      }),
       merge: (persistedState, currentState) => {
-        const persisted = persistedState as { settings?: any };
+        const persisted = persistedState as { settings?: any; mobileActiveTab?: MobileTabType };
         return {
           ...currentState,
           settings: mergeSettings(persisted?.settings),
+          mobileActiveTab: persisted?.mobileActiveTab ?? 'chart',
         };
       },
     }

@@ -97,7 +97,7 @@ function RightTradingPanel({
   };
 
   return (
-    <aside className="w-[200px] border-l-2 border-border-frame overflow-y-auto">
+    <aside className="w-full md:w-[200px] md:border-l-2 border-border-frame overflow-y-auto">
       <div className="p-2 flex flex-col gap-2">
         <div className="terminal-border p-1.5 flex flex-col">
           <div className="text-[12px] text-primary-muted mb-1.5 uppercase tracking-wider">█ POSITION</div>
@@ -146,7 +146,7 @@ function RightTradingPanel({
               <div className="text-[9px] text-primary-muted/60 uppercase tracking-wider mb-0.5">Cloud</div>
               <div className="flex gap-1">
                 <button
-                  className={`px-2 py-1.5 border rounded-sm transition-all ${
+                  className={`hidden md:flex px-2 py-1.5 border rounded-sm transition-all ${
                     crosshairActive && crosshairType === 'cloud-long'
                       ? 'bg-bullish/40 border-bullish/80 shadow-[0_0_12px_rgba(38,166,154,0.6)] animate-pulse'
                       : 'bg-bullish/20 border-bullish/40 hover:bg-bullish/30 hover:border-bullish/60'
@@ -167,7 +167,7 @@ function RightTradingPanel({
               </div>
               <div className="flex gap-1">
                 <button
-                  className={`px-2 py-1.5 border rounded-sm transition-all ${
+                  className={`hidden md:flex px-2 py-1.5 border rounded-sm transition-all ${
                     crosshairActive && crosshairType === 'cloud-short'
                       ? 'bg-bearish/40 border-bearish/80 shadow-[0_0_12px_rgba(239,83,80,0.6)] animate-pulse'
                       : 'bg-bearish/20 border-bearish/40 hover:bg-bearish/30 hover:border-bearish/60'
@@ -189,7 +189,7 @@ function RightTradingPanel({
               <div className="text-[9px] text-primary-muted/60 uppercase tracking-wider mt-2 mb-0.5">Small</div>
               <div className="flex gap-1">
                 <button
-                  className={`px-2 py-1.5 border rounded-sm transition-all ${
+                  className={`hidden md:flex px-2 py-1.5 border rounded-sm transition-all ${
                     crosshairActive && crosshairType === 'sm-long'
                       ? 'bg-bullish/40 border-bullish/80 shadow-[0_0_12px_rgba(38,166,154,0.6)] animate-pulse'
                       : 'bg-bullish/20 border-bullish/40 hover:bg-bullish/30 hover:border-bullish/60'
@@ -210,7 +210,7 @@ function RightTradingPanel({
               </div>
               <div className="flex gap-1">
                 <button
-                  className={`px-2 py-1.5 border rounded-sm transition-all ${
+                  className={`hidden md:flex px-2 py-1.5 border rounded-sm transition-all ${
                     crosshairActive && crosshairType === 'sm-short'
                       ? 'bg-bearish/40 border-bearish/80 shadow-[0_0_12px_rgba(239,83,80,0.6)] animate-pulse'
                       : 'bg-bearish/20 border-bearish/40 hover:bg-bearish/30 hover:border-bearish/60'
@@ -232,7 +232,7 @@ function RightTradingPanel({
               <div className="text-[9px] text-primary-muted/60 uppercase tracking-wider mt-2 mb-0.5">Big</div>
               <div className="flex gap-1">
                 <button
-                  className={`px-2 py-1.5 border-2 rounded-sm transition-all ${
+                  className={`hidden md:flex px-2 py-1.5 border-2 rounded-sm transition-all ${
                     crosshairActive && crosshairType === 'big-long'
                       ? 'bg-bullish/50 border-bullish/90 shadow-[0_0_14px_rgba(38,166,154,0.7)] animate-pulse'
                       : 'bg-bullish/30 border-bullish/60 hover:bg-bullish/40 hover:border-bullish/80'
@@ -253,7 +253,7 @@ function RightTradingPanel({
               </div>
               <div className="flex gap-1">
                 <button
-                  className={`px-2 py-1.5 border-2 rounded-sm transition-all ${
+                  className={`hidden md:flex px-2 py-1.5 border-2 rounded-sm transition-all ${
                     crosshairActive && crosshairType === 'big-short'
                       ? 'bg-bearish/50 border-bearish/90 shadow-[0_0_14px_rgba(239,83,80,0.7)] animate-pulse'
                       : 'bg-bearish/30 border-bearish/60 hover:bg-bearish/40 hover:border-bearish/80'
@@ -275,7 +275,7 @@ function RightTradingPanel({
             </div>
           </div>
 
-          <div className="pt-2 border-t border-border-frame">
+          <div className="pt-2 border-t border-border-frame hidden md:block">
             <div className="text-[10px] text-primary-muted mb-2 uppercase tracking-wider">█ EXIT ORDERS</div>
             <div className="grid grid-cols-4 gap-1.5">
               <button

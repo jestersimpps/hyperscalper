@@ -212,7 +212,7 @@ export default function OpenOrdersList({ currentSymbol }: OpenOrdersListProps) {
   };
 
   return (
-    <div className="w-[200px] border-l-2 border-border-frame flex flex-col h-full">
+    <div className="w-full md:w-[200px] md:border-l-2 border-border-frame flex flex-col h-full">
       <div className="flex-1 overflow-y-auto p-1.5">
         {/* Current Symbol Section */}
         <div className="mb-3">

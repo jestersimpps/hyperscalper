@@ -82,7 +82,7 @@ export default function TerminalHeader({ coin, onRefreshCharts, onAutoZoom, onZo
           <div className="text-right text-[10px]">
             <div className="text-primary-muted">{currentTime || '--'}</div>
           </div>
-          <div className="flex items-center gap-3 px-2 py-1 terminal-border">
+          <div className="hidden md:flex items-center gap-3 px-2 py-1 terminal-border">
             {renderStreamIndicator('candles', 'CANDLES')}
             {renderStreamIndicator('trades', 'TRADES')}
             {renderStreamIndicator('prices', 'PRICES')}
@@ -90,7 +90,7 @@ export default function TerminalHeader({ coin, onRefreshCharts, onAutoZoom, onZo
           {onRefreshCharts && (
             <button
               onClick={onRefreshCharts}
-              className="px-2 py-1 text-xs bg-primary/10 hover:bg-primary/20 active:bg-primary/30 active:scale-95 text-primary border border-primary rounded cursor-pointer transition-all"
+              className="hidden md:block px-2 py-1 text-xs bg-primary/10 hover:bg-primary/20 active:bg-primary/30 active:scale-95 text-primary border border-primary rounded cursor-pointer transition-all"
               title="Refresh 1m chart data and resubscribe to websocket"
             >
               ↻ REFRESH
@@ -99,7 +99,7 @@ export default function TerminalHeader({ coin, onRefreshCharts, onAutoZoom, onZo
           {onAutoZoom && (
             <button
               onClick={onAutoZoom}
-              className="px-2 py-1 text-xs bg-primary/10 hover:bg-primary/20 active:bg-primary/30 active:scale-95 text-primary border border-primary rounded cursor-pointer transition-all"
+              className="hidden md:block px-2 py-1 text-xs bg-primary/10 hover:bg-primary/20 active:bg-primary/30 active:scale-95 text-primary border border-primary rounded cursor-pointer transition-all"
               title="Auto zoom chart to fit all data"
             >
               ⊡ FIT
@@ -108,7 +108,7 @@ export default function TerminalHeader({ coin, onRefreshCharts, onAutoZoom, onZo
           {onZoomTo50 && (
             <button
               onClick={onZoomTo50}
-              className="px-2 py-1 text-xs bg-primary/10 hover:bg-primary/20 active:bg-primary/30 active:scale-95 text-primary border border-primary rounded cursor-pointer transition-all"
+              className="hidden md:block px-2 py-1 text-xs bg-primary/10 hover:bg-primary/20 active:bg-primary/30 active:scale-95 text-primary border border-primary rounded cursor-pointer transition-all"
               title="Zoom to last 50 candles"
             >
               ⊡ 50
@@ -116,7 +116,7 @@ export default function TerminalHeader({ coin, onRefreshCharts, onAutoZoom, onZo
           )}
           <button
             onClick={toggleMultiChartView}
-            className={`px-3 py-1.5 text-[10px] font-mono uppercase tracking-wider transition-all rounded-sm ${
+            className={`hidden md:block px-3 py-1.5 text-[10px] font-mono uppercase tracking-wider transition-all rounded-sm ${
               isMultiChartView
                 ? 'bg-primary/20 text-primary border-2 border-primary'
                 : 'bg-bg-secondary text-primary-muted border-2 border-frame hover:text-primary hover:bg-primary/10'

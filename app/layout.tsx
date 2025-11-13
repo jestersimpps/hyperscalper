@@ -24,6 +24,12 @@ export const metadata: Metadata = {
   description: "Professional scalping terminal for Hyperliquid DEX. Real-time charts, advanced indicators, market scanner, and instant order execution. No backend, your keys never leave your browser.",
 };
 
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{

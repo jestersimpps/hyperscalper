@@ -6,6 +6,7 @@ import RightTradingPanel from '@/components/symbol/RightTradingPanel';
 import OpenOrdersList from '@/components/orders/OpenOrdersList';
 import Sidepanel from '@/components/layout/Sidepanel';
 import WalletIndicator from '@/components/layout/WalletIndicator';
+import { MobileTabBar } from '@/components/layout/MobileTabBar';
 import CalendarIcon from '@/components/icons/CalendarIcon';
 import EyeIcon from '@/components/icons/EyeIcon';
 import SettingsIcon from '@/components/icons/SettingsIcon';
@@ -41,6 +42,7 @@ export default function AppShell({ selectedSymbol, children }: AppShellProps) {
   const scannerEnabled = useSettingsStore((state) => state.settings.scanner.enabled);
   const invertedMode = useSettingsStore((state) => state.settings.chart.invertedMode);
   const togglePanel = useSettingsStore((state) => state.togglePanel);
+  const mobileActiveTab = useSettingsStore((state) => state.mobileActiveTab);
 
   const candleKey = `${coin}-1m`;
   const candles = useCandleStore((state) => state.candles[candleKey]) || [];
@@ -287,26 +289,26 @@ export default function AppShell({ selectedSymbol, children }: AppShellProps) {
   return (
     <div className="flex flex-col h-screen bg-bg-primary text-primary font-mono">
       {/* Top Header with Title, Navigation Icons, and Wallet Indicator */}
-      <header className="border-b-2 border-border-frame flex items-center justify-between px-4 py-1.5">
+      <header className="border-b-2 border-border-frame flex items-center justify-between px-2 md:px-4 py-1.5 w-full max-w-full overflow-hidden">
         {/* Left: Title */}
-        <div className="text-primary text-sm font-bold tracking-wider terminal-text flex items-center gap-2">
-          <span>█ HYPERLIQUID TERMINAL <span className="text-primary-muted font-normal text-xs">v1.0.0</span></span>
-          <span className="text-primary-muted font-normal text-xs">by</span>
+        <div className="text-primary text-sm font-bold tracking-wider terminal-text flex items-center gap-2 min-w-0 flex-shrink overflow-hidden">
+          <span className="whitespace-nowrap overflow-hidden text-ellipsis">█ HYPERLIQUID TERMINAL <span className="text-primary-muted font-normal text-xs hidden sm:inline">v1.0.0</span></span>
+          <span className="text-primary-muted font-normal text-xs hidden lg:inline">by</span>
           <a
             href="https://github.com/jestersimpps"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-primary-muted font-normal text-xs hover:text-primary hover:underline transition-colors"
+            className="text-primary-muted font-normal text-xs hover:text-primary hover:underline transition-colors hidden lg:inline"
           >
             @jestersimpps
           </a>
         </div>
 
         {/* Right: Navigation Icons + Wallet Indicator */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1 md:gap-3 flex-shrink-0">
           <button
             onClick={() => address && router.push(`/${address}/trades`)}
-            className={`px-2 py-1.5 active:scale-95 cursor-pointer transition-all rounded-sm ${
+            className={`hidden md:flex px-2 py-1.5 active:scale-95 cursor-pointer transition-all rounded-sm ${
               isTradesView
                 ? 'bg-primary/20 text-primary border-2 border-primary'
                 : 'bg-bg-secondary text-primary-muted border-2 border-frame hover:text-primary hover:bg-primary/10'
@@ -317,7 +319,7 @@ export default function AppShell({ selectedSymbol, children }: AppShellProps) {
           </button>
           <button
             onClick={() => address && router.push(`/${address}/watchlist`)}
-            className={`px-2 py-1.5 active:scale-95 cursor-pointer transition-all rounded-sm ${
+            className={`hidden md:flex px-2 py-1.5 active:scale-95 cursor-pointer transition-all rounded-sm ${
               isWatchlistView
                 ? 'bg-primary/20 text-primary border-2 border-primary'
                 : 'bg-bg-secondary text-primary-muted border-2 border-frame hover:text-primary hover:bg-primary/10'
@@ -339,43 +341,103 @@ export default function AppShell({ selectedSymbol, children }: AppShellProps) {
 
       {/* Main Content Area */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Left Sidepanel */}
-        <aside className={`${scannerEnabled ? 'w-[500px]' : 'w-[270px]'} border-r-2 border-border-frame overflow-y-auto transition-all duration-300`}>
-          <Sidepanel selectedSymbol={selectedSymbol} />
-        </aside>
+        {/* Desktop Layout - 3 columns (≥768px) */}
+        <div className="hidden md:flex flex-1 overflow-hidden">
+          {/* Left Sidepanel */}
+          <aside className={`${scannerEnabled ? 'w-[500px]' : 'w-[270px]'} border-r-2 border-border-frame overflow-y-auto transition-all duration-300`}>
+            <Sidepanel selectedSymbol={selectedSymbol} />
+          </aside>
 
-        {/* Center Content */}
-        <main className="flex-1 h-full overflow-hidden">
-          {children}
-        </main>
+          {/* Center Content */}
+          <main className="flex-1 h-full overflow-hidden">
+            {children}
+          </main>
 
-        {/* Right Trading Panel */}
-        <RightTradingPanel
-          coin={coin}
-          position={position}
-          orders={orders}
-          decimals={decimals}
-          onBuyCloud={handleBuyCloud}
-          onSellCloud={handleSellCloud}
-          onSmLong={handleSmLong}
-          onSmShort={handleSmShort}
-          onBigLong={handleBigLong}
-          onBigShort={handleBigShort}
-          onClose25={handleClose25}
-          onClose50={handleClose50}
-          onClose75={handleClose75}
-          onClose100={handleClose100}
-          onCloseAllPositions={handleCloseAllPositions}
-          onCancelEntryOrders={handleCancelEntryOrders}
-          onCancelExitOrders={handleCancelExitOrders}
-          onCancelTPOrders={handleCancelTPOrders}
-          onCancelSLOrders={handleCancelSLOrders}
-          onCancelAllOrders={handleCancelAllOrders}
-        />
+          {/* Right Trading Panel */}
+          <RightTradingPanel
+            coin={coin}
+            position={position}
+            orders={orders}
+            decimals={decimals}
+            onBuyCloud={handleBuyCloud}
+            onSellCloud={handleSellCloud}
+            onSmLong={handleSmLong}
+            onSmShort={handleSmShort}
+            onBigLong={handleBigLong}
+            onBigShort={handleBigShort}
+            onClose25={handleClose25}
+            onClose50={handleClose50}
+            onClose75={handleClose75}
+            onClose100={handleClose100}
+            onCloseAllPositions={handleCloseAllPositions}
+            onCancelEntryOrders={handleCancelEntryOrders}
+            onCancelExitOrders={handleCancelExitOrders}
+            onCancelTPOrders={handleCancelTPOrders}
+            onCancelSLOrders={handleCancelSLOrders}
+            onCancelAllOrders={handleCancelAllOrders}
+          />
 
-        {/* Orders List Column */}
-        <OpenOrdersList currentSymbol={coin} />
+          {/* Orders List Column */}
+          <OpenOrdersList currentSymbol={coin} />
+        </div>
+
+        {/* Mobile Layout - Single tab view (<768px) */}
+        <div className="flex md:hidden flex-1 overflow-x-hidden overflow-y-hidden w-full h-full">
+          {mobileActiveTab === 'scanner' && (
+            <div className="flex-1 h-full overflow-y-auto overflow-x-hidden w-full pb-14">
+              <Sidepanel selectedSymbol={selectedSymbol} mobileView="scanner" />
+            </div>
+          )}
+
+          {mobileActiveTab === 'symbols' && (
+            <div className="flex-1 h-full overflow-y-auto overflow-x-hidden w-full pb-14">
+              <Sidepanel selectedSymbol={selectedSymbol} mobileView="symbols" />
+            </div>
+          )}
+
+          {mobileActiveTab === 'chart' && (
+            <main className="flex-1 h-full overflow-hidden w-full pb-14">
+              {children}
+            </main>
+          )}
+
+          {mobileActiveTab === 'actions' && (
+            <div className="flex-1 h-full overflow-y-auto overflow-x-hidden w-full pb-14">
+              <RightTradingPanel
+                coin={coin}
+                position={position}
+                orders={orders}
+                decimals={decimals}
+                onBuyCloud={handleBuyCloud}
+                onSellCloud={handleSellCloud}
+                onSmLong={handleSmLong}
+                onSmShort={handleSmShort}
+                onBigLong={handleBigLong}
+                onBigShort={handleBigShort}
+                onClose25={handleClose25}
+                onClose50={handleClose50}
+                onClose75={handleClose75}
+                onClose100={handleClose100}
+                onCloseAllPositions={handleCloseAllPositions}
+                onCancelEntryOrders={handleCancelEntryOrders}
+                onCancelExitOrders={handleCancelExitOrders}
+                onCancelTPOrders={handleCancelTPOrders}
+                onCancelSLOrders={handleCancelSLOrders}
+                onCancelAllOrders={handleCancelAllOrders}
+              />
+            </div>
+          )}
+
+          {mobileActiveTab === 'orders-positions' && (
+            <div className="flex-1 h-full overflow-y-auto overflow-x-hidden w-full pb-14">
+              <OpenOrdersList currentSymbol={coin} />
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Mobile Tab Bar */}
+      <MobileTabBar />
     </div>
   );
 }
