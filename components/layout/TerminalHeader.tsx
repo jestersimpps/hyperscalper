@@ -8,9 +8,10 @@ interface TerminalHeaderProps {
   coin: string;
   onRefreshCharts?: () => void;
   onAutoZoom?: () => void;
+  onZoomTo50?: () => void;
 }
 
-export default function TerminalHeader({ coin, onRefreshCharts, onAutoZoom }: TerminalHeaderProps) {
+export default function TerminalHeader({ coin, onRefreshCharts, onAutoZoom, onZoomTo50 }: TerminalHeaderProps) {
   const [currentTime, setCurrentTime] = useState('');
 
   const streams = useWebSocketStatusStore((state) => state.streams);
@@ -102,6 +103,15 @@ export default function TerminalHeader({ coin, onRefreshCharts, onAutoZoom }: Te
               title="Auto zoom chart to fit all data"
             >
               ⊡ FIT
+            </button>
+          )}
+          {onZoomTo50 && (
+            <button
+              onClick={onZoomTo50}
+              className="px-2 py-1 text-xs bg-primary/10 hover:bg-primary/20 active:bg-primary/30 active:scale-95 text-primary border border-primary rounded cursor-pointer transition-all"
+              title="Zoom to last 50 candles"
+            >
+              ⊡ 50
             </button>
           )}
           <button

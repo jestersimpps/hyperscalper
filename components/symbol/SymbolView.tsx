@@ -462,13 +462,51 @@ function SymbolView({ coin }: SymbolViewProps) {
   const handleAutoZoom = useCallback(() => {
     try {
       if (chartRef.current && chartRef.current.timeScale) {
-        chartRef.current.timeScale().fitContent();
+        const candleKey = `${coin}-1m`;
+        const candles = useCandleStore.getState().candles[candleKey] || [];
+
+        if (candles.length >= 2) {
+          const fromTime = candles[0].time / 1000;
+          const toTime = candles[candles.length - 1].time / 1000;
+          const rightPadding = 10 * 60; // 10 candles worth of time (10 minutes)
+
+          chartRef.current.timeScale().setVisibleRange({
+            from: fromTime,
+            to: toTime + rightPadding,
+          });
+        } else {
+          chartRef.current.timeScale().fitContent();
+        }
         console.log('[SymbolView] Auto zoom applied');
       }
     } catch (error) {
       console.error('[SymbolView] Error applying auto zoom:', error);
     }
-  }, []);
+  }, [coin]);
+
+  const handleZoomTo50 = useCallback(() => {
+    try {
+      if (chartRef.current && chartRef.current.timeScale) {
+        const candleKey = `${coin}-1m`;
+        const candles = useCandleStore.getState().candles[candleKey] || [];
+        if (candles.length >= 2) {
+          const endIndex = candles.length - 1;
+          const startIndex = Math.max(0, endIndex - 49);
+          const fromTime = candles[startIndex].time / 1000;
+          const toTime = candles[endIndex].time / 1000;
+          const rightPadding = 10 * 60; // 10 candles worth of time (10 minutes)
+
+          chartRef.current.timeScale().setVisibleRange({
+            from: fromTime,
+            to: toTime + rightPadding,
+          });
+          console.log('[SymbolView] Zoomed to last 50 candles');
+        }
+      }
+    } catch (error) {
+      console.error('[SymbolView] Error zooming to 50 candles:', error);
+    }
+  }, [coin]);
 
   const keyBindings: KeyBinding[] = [
     { key: 'q', action: handleBuyCloud, description: 'Buy Cloud' },
@@ -499,6 +537,7 @@ function SymbolView({ coin }: SymbolViewProps) {
           coin={coin}
           onRefreshCharts={handleRefreshCharts}
           onAutoZoom={handleAutoZoom}
+          onZoomTo50={handleZoomTo50}
         />
 
         {/* Chart View - Single or Multi-Timeframe */}

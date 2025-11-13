@@ -7,6 +7,7 @@ import OpenOrdersList from '@/components/orders/OpenOrdersList';
 import Sidepanel from '@/components/layout/Sidepanel';
 import WalletIndicator from '@/components/layout/WalletIndicator';
 import CalendarIcon from '@/components/icons/CalendarIcon';
+import EyeIcon from '@/components/icons/EyeIcon';
 import SettingsIcon from '@/components/icons/SettingsIcon';
 import { usePositionStore } from '@/stores/usePositionStore';
 import { useOrderStore } from '@/stores/useOrderStore';
@@ -29,6 +30,7 @@ export default function AppShell({ selectedSymbol, children }: AppShellProps) {
   const coin = pathname?.split('/')[2]?.toUpperCase() || 'BTC';
   const address = useAddressFromUrl();
   const isTradesView = pathname?.includes('/trades');
+  const isWatchlistView = pathname?.includes('/watchlist');
 
   const position = usePositionStore((state) => state.positions[coin]);
   const allPositions = usePositionStore((state) => state.positions);
@@ -312,6 +314,17 @@ export default function AppShell({ selectedSymbol, children }: AppShellProps) {
             title="Today's Trades"
           >
             <CalendarIcon />
+          </button>
+          <button
+            onClick={() => address && router.push(`/${address}/watchlist`)}
+            className={`px-2 py-1.5 active:scale-95 cursor-pointer transition-all rounded-sm ${
+              isWatchlistView
+                ? 'bg-primary/20 text-primary border-2 border-primary'
+                : 'bg-bg-secondary text-primary-muted border-2 border-frame hover:text-primary hover:bg-primary/10'
+            }`}
+            title="Wallet Watchlist"
+          >
+            <EyeIcon />
           </button>
           <button
             onClick={togglePanel}

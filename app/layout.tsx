@@ -7,6 +7,7 @@ import { CredentialsProvider } from "@/lib/context/credentials-context";
 import { RequireCredentials } from "@/components/auth/RequireCredentials";
 import { ConditionalServiceProvider } from "@/components/providers/ConditionalServiceProvider";
 import { Analytics } from "@vercel/analytics/next";
+import { Toaster } from "react-hot-toast";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -43,6 +44,31 @@ export default function RootLayout({
             </ConditionalServiceProvider>
           </RequireCredentials>
         </CredentialsProvider>
+        <Toaster
+          position="top-right"
+          toastOptions={{
+            duration: 4000,
+            style: {
+              background: '#1a1a1a',
+              color: '#00ff00',
+              border: '1px solid #00ff00',
+              fontFamily: 'monospace',
+              fontSize: '12px',
+            },
+            success: {
+              iconTheme: {
+                primary: '#00ff00',
+                secondary: '#1a1a1a',
+              },
+            },
+            error: {
+              iconTheme: {
+                primary: '#ff0000',
+                secondary: '#1a1a1a',
+              },
+            },
+          }}
+        />
         <Analytics />
       </body>
     </html>
