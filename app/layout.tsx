@@ -45,26 +45,32 @@ export default function RootLayout({
           </RequireCredentials>
         </CredentialsProvider>
         <Toaster
-          position="top-right"
+          position="top-center"
           toastOptions={{
             duration: 4000,
             style: {
-              background: '#1a1a1a',
-              color: '#00ff00',
-              border: '1px solid #00ff00',
+              background: 'var(--background-secondary)',
+              color: 'var(--primary)',
+              border: '1px solid var(--border-frame)',
               fontFamily: 'monospace',
               fontSize: '12px',
             },
             success: {
+              style: {
+                border: '1px solid var(--status-bullish)',
+              },
               iconTheme: {
-                primary: '#00ff00',
-                secondary: '#1a1a1a',
+                primary: 'var(--status-bullish)',
+                secondary: 'var(--background-secondary)',
               },
             },
             error: {
+              style: {
+                border: '1px solid var(--status-bearish)',
+              },
               iconTheme: {
-                primary: '#ff0000',
-                secondary: '#1a1a1a',
+                primary: 'var(--status-bearish)',
+                secondary: 'var(--background-secondary)',
               },
             },
           }}

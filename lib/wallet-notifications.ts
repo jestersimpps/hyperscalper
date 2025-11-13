@@ -36,20 +36,31 @@ export function notifyClosedPosition(
   const unrealizedPnl = parseFloat(position.position.unrealizedPnl);
   const pnlColor = unrealizedPnl > 0 ? '🟢' : unrealizedPnl < 0 ? '🔴' : '⚪';
 
-  toast(
-    `${displayName} closed ${side} ${position.position.coin}\nP&L: ${pnlColor} $${unrealizedPnl.toFixed(2)}`,
-    {
-      duration: 6000,
-      icon: '📉',
-      style: {
-        background: '#1a1a1a',
-        color: unrealizedPnl > 0 ? '#00ff00' : unrealizedPnl < 0 ? '#ff0000' : '#00ff00',
-        border: '1px solid #00ff00',
-        fontFamily: 'monospace',
-        fontSize: '12px',
-      },
-    }
-  );
+  if (unrealizedPnl > 0) {
+    toast.success(
+      `${displayName} closed ${side} ${position.position.coin}\nP&L: ${pnlColor} $${unrealizedPnl.toFixed(2)}`,
+      {
+        duration: 6000,
+        icon: '📉',
+      }
+    );
+  } else if (unrealizedPnl < 0) {
+    toast.error(
+      `${displayName} closed ${side} ${position.position.coin}\nP&L: ${pnlColor} $${unrealizedPnl.toFixed(2)}`,
+      {
+        duration: 6000,
+        icon: '📉',
+      }
+    );
+  } else {
+    toast(
+      `${displayName} closed ${side} ${position.position.coin}\nP&L: ${pnlColor} $${unrealizedPnl.toFixed(2)}`,
+      {
+        duration: 6000,
+        icon: '📉',
+      }
+    );
+  }
 }
 
 export function notifyReducedPosition(
