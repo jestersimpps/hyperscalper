@@ -20,7 +20,6 @@ export function notifyNewPosition(
     `${displayName} opened ${side} ${position.position.coin}\nSize: ${size.toFixed(4)} @ $${entryPx.toFixed(2)}`,
     {
       duration: 6000,
-      icon: '📈',
     }
   );
 }
@@ -41,7 +40,6 @@ export function notifyClosedPosition(
       `${displayName} closed ${side} ${position.position.coin}\nP&L: ${pnlColor} $${unrealizedPnl.toFixed(2)}`,
       {
         duration: 6000,
-        icon: '📉',
       }
     );
   } else if (unrealizedPnl < 0) {
@@ -49,7 +47,6 @@ export function notifyClosedPosition(
       `${displayName} closed ${side} ${position.position.coin}\nP&L: ${pnlColor} $${unrealizedPnl.toFixed(2)}`,
       {
         duration: 6000,
-        icon: '📉',
       }
     );
   } else {
@@ -57,7 +54,6 @@ export function notifyClosedPosition(
       `${displayName} closed ${side} ${position.position.coin}\nP&L: ${pnlColor} $${unrealizedPnl.toFixed(2)}`,
       {
         duration: 6000,
-        icon: '📉',
       }
     );
   }
@@ -78,7 +74,6 @@ export function notifyReducedPosition(
     `${displayName} reduced ${side.toUpperCase()} ${coin}\nReduced by: ${reduced.toFixed(4)}`,
     {
       duration: 6000,
-      icon: '📊',
     }
   );
 }
@@ -97,7 +92,6 @@ export function notifyNewOrder(
     `${displayName} placed ${side} order ${order.coin}\nSize: ${size.toFixed(4)} @ $${price.toFixed(2)}`,
     {
       duration: 6000,
-      icon: '📝',
     }
   );
 }
@@ -116,7 +110,6 @@ export function notifyRemovedOrder(
     `${displayName} cancelled ${side} order ${order.coin}\nSize: ${size.toFixed(4)} @ $${price.toFixed(2)}`,
     {
       duration: 6000,
-      icon: '❌',
     }
   );
 }
