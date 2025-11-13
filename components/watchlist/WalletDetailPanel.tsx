@@ -1,18 +1,47 @@
 'use client';
 
-import type { WalletData } from '@/models/WatchedWallet';
+import type { WalletData, WalletChangeEvent } from '@/models/WatchedWallet';
 import WalletStatistics from './WalletStatistics';
 
 interface WalletDetailPanelProps {
   data: WalletData;
 }
 
+const formatChangeType = (type: string): string => {
+  switch (type) {
+    case 'position_opened': return 'OPENED';
+    case 'position_closed': return 'CLOSED';
+    case 'position_reduced': return 'REDUCED';
+    case 'order_placed': return 'PLACED';
+    case 'order_cancelled': return 'CANCELLED';
+    default: return type.toUpperCase();
+  }
+};
+
+const formatTimestamp = (timestamp: number): string => {
+  const date = new Date(timestamp);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMins / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+};
+
 export default function WalletDetailPanel({ data }: WalletDetailPanelProps) {
-  const { positions, orders, recentFills, statistics, balance } = data;
+  const { positions, orders, recentFills, statistics, balance, changeHistory = [] } = data;
 
   return (
-    <div className="space-y-3 pt-3 border-t border-frame">
-      {statistics && <WalletStatistics statistics={statistics} />}
+    <div className="grid grid-cols-2 gap-3 pt-3 border-t border-frame">
+      {/* Left Column - Current Data */}
+      <div className="space-y-3">
+        {statistics && <WalletStatistics statistics={statistics} />}
 
       {balance && (
         <div className="bg-bg-secondary p-2 rounded">
@@ -156,11 +185,71 @@ export default function WalletDetailPanel({ data }: WalletDetailPanelProps) {
         </div>
       )}
 
-      {positions.length === 0 && orders.length === 0 && recentFills.length === 0 && (
-        <div className="text-center py-4">
-          <p className="text-primary-muted text-[10px]">No trading activity</p>
+        {positions.length === 0 && orders.length === 0 && recentFills.length === 0 && (
+          <div className="text-center py-4">
+            <p className="text-primary-muted text-[10px]">No trading activity</p>
+          </div>
+        )}
+      </div>
+
+      {/* Right Column - Change History */}
+      <div className="bg-bg-secondary p-2 rounded">
+        <div className="text-[10px] text-primary-muted uppercase mb-2 font-bold">
+          Change History ({changeHistory.length})
         </div>
-      )}
+        <div className="space-y-1 max-h-[500px] overflow-y-auto">
+          {changeHistory.length > 0 ? (
+            changeHistory.map((event, idx) => {
+              const isPosition = event.type.startsWith('position_');
+              const isOrder = event.type.startsWith('order_');
+              const typeColor =
+                event.type === 'position_opened' || event.type === 'order_placed' ? 'text-bullish' :
+                event.type === 'position_closed' || event.type === 'order_cancelled' ? 'text-bearish' :
+                'text-primary-muted';
+              const sideColor = event.side === 'long' || event.side === 'buy' ? 'text-bullish' : 'text-bearish';
+
+              return (
+                <div key={idx} className="p-1.5 bg-bg-primary rounded text-[9px]">
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-primary font-bold">{event.coin}</span>
+                      <span className={sideColor}>{event.side.toUpperCase()}</span>
+                      <span className={typeColor}>{formatChangeType(event.type)}</span>
+                    </div>
+                    <span className="text-primary-muted text-[8px]">{formatTimestamp(event.timestamp)}</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-[8px]">
+                    {event.size !== undefined && (
+                      <div>
+                        <span className="text-primary-muted">Size: </span>
+                        <span className="text-primary">{event.size.toFixed(4)}</span>
+                      </div>
+                    )}
+                    {event.price !== undefined && (
+                      <div>
+                        <span className="text-primary-muted">Price: </span>
+                        <span className="text-primary">${event.price.toFixed(2)}</span>
+                      </div>
+                    )}
+                    {event.pnl !== undefined && (
+                      <div>
+                        <span className="text-primary-muted">P&L: </span>
+                        <span className={event.pnl > 0 ? 'text-bullish' : event.pnl < 0 ? 'text-bearish' : 'text-primary-muted'}>
+                          ${event.pnl.toFixed(2)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <div className="text-center py-4">
+              <p className="text-primary-muted text-[10px]">No changes recorded yet</p>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

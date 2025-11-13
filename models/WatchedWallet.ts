@@ -19,6 +19,7 @@ export interface WalletData {
   balance?: AccountBalance;
   statistics?: WalletStatistics;
   lastFetched: number;
+  changeHistory?: WalletChangeEvent[];
 }
 
 export interface WalletStatistics {
@@ -30,4 +31,21 @@ export interface WalletStatistics {
   avgLoss: number;
   totalFees: number;
   unrealizedPnl: number;
+}
+
+export type WalletChangeType =
+  | 'position_opened'
+  | 'position_closed'
+  | 'position_reduced'
+  | 'order_placed'
+  | 'order_cancelled';
+
+export interface WalletChangeEvent {
+  timestamp: number;
+  type: WalletChangeType;
+  coin: string;
+  side: string;
+  size?: number;
+  price?: number;
+  pnl?: number;
 }

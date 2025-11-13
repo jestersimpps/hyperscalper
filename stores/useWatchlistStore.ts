@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { HyperliquidService } from '@/lib/services/hyperliquid.service';
-import type { WatchedWallet, WalletData, WalletStatistics } from '@/models/WatchedWallet';
+import type { WatchedWallet, WalletData, WalletStatistics, WalletChangeEvent } from '@/models/WatchedWallet';
 import { groupFillsByPosition } from '@/lib/trade-grouping-utils';
 import {
   notifyNewPosition,
@@ -32,7 +32,9 @@ interface WatchlistStore {
 
 const STORAGE_KEY = 'hyperscalper_watchlist';
 const SNAPSHOTS_STORAGE_KEY = 'hyperscalper_watchlist_snapshots';
+const CHANGE_HISTORY_STORAGE_KEY = 'hyperscalper_watchlist_history';
 const POLLING_INTERVAL = 5 * 60 * 1000;
+const MAX_HISTORY_EVENTS = 50;
 
 interface WalletSnapshot {
   address: string;
@@ -96,6 +98,45 @@ const saveWalletSnapshotsToStorage = (snapshots: Map<string, WalletSnapshot>) =>
   } catch (error) {
     console.error('Failed to save wallet snapshots to storage:', error);
   }
+};
+
+const loadChangeHistoryFromStorage = (): Map<string, WalletChangeEvent[]> => {
+  if (typeof window === 'undefined') return new Map();
+
+  try {
+    const stored = localStorage.getItem(CHANGE_HISTORY_STORAGE_KEY);
+    if (!stored) return new Map();
+
+    const parsed = JSON.parse(stored);
+    if (typeof parsed !== 'object') return new Map();
+
+    return new Map(Object.entries(parsed));
+  } catch (error) {
+    console.error('Failed to load change history from storage:', error);
+    return new Map();
+  }
+};
+
+const saveChangeHistoryToStorage = (history: Map<string, WalletChangeEvent[]>) => {
+  if (typeof window === 'undefined') return;
+
+  try {
+    const historyObj = Object.fromEntries(history);
+    localStorage.setItem(CHANGE_HISTORY_STORAGE_KEY, JSON.stringify(historyObj));
+  } catch (error) {
+    console.error('Failed to save change history to storage:', error);
+  }
+};
+
+const addChangeEvent = (address: string, event: WalletChangeEvent): WalletChangeEvent[] => {
+  const history = loadChangeHistoryFromStorage();
+  const walletHistory = history.get(address) || [];
+
+  const updatedHistory = [event, ...walletHistory].slice(0, MAX_HISTORY_EVENTS);
+  history.set(address, updatedHistory);
+  saveChangeHistoryToStorage(history);
+
+  return updatedHistory;
 };
 
 const calculateStatistics = (fills: any[], positions: any[]): WalletStatistics => {
@@ -162,6 +203,7 @@ export const useWatchlistStore = create<WatchlistStore>((set, get) => ({
   initialize: () => {
     const wallets = loadWatchlistFromStorage();
     const snapshots = loadWalletSnapshotsFromStorage();
+    const changeHistory = loadChangeHistoryFromStorage();
 
     const initialWalletData = new Map<string, WalletData>();
     snapshots.forEach((snapshot, address) => {
@@ -171,7 +213,8 @@ export const useWatchlistStore = create<WatchlistStore>((set, get) => ({
         orders: snapshot.orders,
         recentFills: [],
         statistics: calculateStatistics([], snapshot.positions),
-        lastFetched: snapshot.lastFetched
+        lastFetched: snapshot.lastFetched,
+        changeHistory: changeHistory.get(address) || []
       });
     });
 
@@ -219,6 +262,10 @@ export const useWatchlistStore = create<WatchlistStore>((set, get) => ({
     const snapshots = loadWalletSnapshotsFromStorage();
     snapshots.delete(normalizedAddress);
     saveWalletSnapshotsToStorage(snapshots);
+
+    const changeHistory = loadChangeHistoryFromStorage();
+    changeHistory.delete(normalizedAddress);
+    saveChangeHistoryToStorage(changeHistory);
   },
 
   updateNickname: (address: string, nickname: string) => {
@@ -292,17 +339,9 @@ export const useWatchlistStore = create<WatchlistStore>((set, get) => ({
 
       const statistics = calculateStatistics(recentFills, positions);
 
-      const newWalletData: WalletData = {
-        address: normalizedAddress,
-        positions,
-        orders,
-        recentFills: recentFills.sort((a, b) => b.time - a.time).slice(0, 50),
-        balance,
-        statistics,
-        lastFetched: Date.now()
-      };
+      let changeHistory = previousData?.changeHistory || loadChangeHistoryFromStorage().get(normalizedAddress) || [];
 
-      if (isFollowed && previousData) {
+      if (previousData) {
         const walletNickname = wallet?.nickname;
 
         const previousPositions = previousData.positions;
@@ -313,7 +352,22 @@ export const useWatchlistStore = create<WatchlistStore>((set, get) => ({
 
         currentPositions.forEach(pos => {
           if (!previousCoins.has(pos.position.coin)) {
-            notifyNewPosition(normalizedAddress, walletNickname, pos);
+            const szi = parseFloat(pos.position.szi);
+            const side = szi > 0 ? 'long' : 'short';
+            const entryPx = parseFloat(pos.position.entryPx);
+
+            changeHistory = addChangeEvent(normalizedAddress, {
+              timestamp: Date.now(),
+              type: 'position_opened',
+              coin: pos.position.coin,
+              side,
+              size: Math.abs(szi),
+              price: entryPx
+            });
+
+            if (isFollowed) {
+              notifyNewPosition(normalizedAddress, walletNickname, pos);
+            }
           } else {
             const prevPos = previousPositions.find(p => p.position.coin === pos.position.coin);
             if (prevPos) {
@@ -321,7 +375,19 @@ export const useWatchlistStore = create<WatchlistStore>((set, get) => ({
               const currSize = Math.abs(parseFloat(pos.position.szi));
               if (currSize < prevSize) {
                 const side = parseFloat(pos.position.szi) > 0 ? 'long' : 'short';
-                notifyReducedPosition(normalizedAddress, walletNickname, pos.position.coin, prevSize, currSize, side);
+                const reduced = prevSize - currSize;
+
+                changeHistory = addChangeEvent(normalizedAddress, {
+                  timestamp: Date.now(),
+                  type: 'position_reduced',
+                  coin: pos.position.coin,
+                  side,
+                  size: reduced
+                });
+
+                if (isFollowed) {
+                  notifyReducedPosition(normalizedAddress, walletNickname, pos.position.coin, prevSize, currSize, side);
+                }
               }
             }
           }
@@ -329,7 +395,22 @@ export const useWatchlistStore = create<WatchlistStore>((set, get) => ({
 
         previousPositions.forEach(prevPos => {
           if (!currentCoins.has(prevPos.position.coin)) {
-            notifyClosedPosition(normalizedAddress, walletNickname, prevPos);
+            const unrealizedPnl = parseFloat(prevPos.position.unrealizedPnl);
+            const szi = parseFloat(prevPos.position.szi);
+            const side = szi > 0 ? 'long' : 'short';
+
+            changeHistory = addChangeEvent(normalizedAddress, {
+              timestamp: Date.now(),
+              type: 'position_closed',
+              coin: prevPos.position.coin,
+              side,
+              size: Math.abs(szi),
+              pnl: unrealizedPnl
+            });
+
+            if (isFollowed) {
+              notifyClosedPosition(normalizedAddress, walletNickname, prevPos);
+            }
           }
         });
 
@@ -341,16 +422,57 @@ export const useWatchlistStore = create<WatchlistStore>((set, get) => ({
 
         currentOrders.forEach(order => {
           if (!previousOrderIds.has(order.oid.toString())) {
-            notifyNewOrder(normalizedAddress, walletNickname, order);
+            const side = order.side === 'A' ? 'sell' : 'buy';
+            const size = Math.abs(parseFloat(order.origSz || order.sz || '0'));
+            const price = order.isTrigger ? parseFloat(order.triggerPx || '0') : parseFloat(order.limitPx || '0');
+
+            changeHistory = addChangeEvent(normalizedAddress, {
+              timestamp: Date.now(),
+              type: 'order_placed',
+              coin: order.coin,
+              side,
+              size,
+              price
+            });
+
+            if (isFollowed) {
+              notifyNewOrder(normalizedAddress, walletNickname, order);
+            }
           }
         });
 
         previousOrders.forEach(order => {
           if (!currentOrderIds.has(order.oid.toString())) {
-            notifyRemovedOrder(normalizedAddress, walletNickname, order);
+            const side = order.side === 'A' ? 'sell' : 'buy';
+            const size = Math.abs(parseFloat(order.origSz || order.sz || '0'));
+            const price = order.isTrigger ? parseFloat(order.triggerPx || '0') : parseFloat(order.limitPx || '0');
+
+            changeHistory = addChangeEvent(normalizedAddress, {
+              timestamp: Date.now(),
+              type: 'order_cancelled',
+              coin: order.coin,
+              side,
+              size,
+              price
+            });
+
+            if (isFollowed) {
+              notifyRemovedOrder(normalizedAddress, walletNickname, order);
+            }
           }
         });
       }
+
+      const newWalletData: WalletData = {
+        address: normalizedAddress,
+        positions,
+        orders,
+        recentFills: recentFills.sort((a, b) => b.time - a.time).slice(0, 50),
+        balance,
+        statistics,
+        lastFetched: Date.now(),
+        changeHistory
+      };
 
       const updatedWalletData = new Map(walletData);
       updatedWalletData.set(normalizedAddress, newWalletData);
@@ -426,5 +548,9 @@ export const useWatchlistStore = create<WatchlistStore>((set, get) => ({
     const snapshots = loadWalletSnapshotsFromStorage();
     snapshots.delete(normalizedAddress);
     saveWalletSnapshotsToStorage(snapshots);
+
+    const changeHistory = loadChangeHistoryFromStorage();
+    changeHistory.delete(normalizedAddress);
+    saveChangeHistoryToStorage(changeHistory);
   }
 }));
