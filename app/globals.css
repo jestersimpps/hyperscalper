@@ -242,19 +242,19 @@
 }
 
 [data-theme="synthwave"] {
-  --background-primary: #1a0933;
-  --background-secondary: #0d041a;
+  --background-primary: #0f0520;
+  --background-secondary: #1a0933;
   --border-frame: #ff00ff;
-  --primary: #ff007f;
+  --primary: #ff71ce;
   --primary-muted: #bd00ff;
   --primary-dark: #ff00ff;
-  --accent-blue: #00d9ff;
+  --accent-blue: #01cdfe;
   --accent-blue-dark: #0099cc;
-  --accent-rose: #ff006e;
+  --accent-rose: #ff6ac1;
   --accent-dark-blue: #7b00e0;
-  --status-bullish: #00ffaa;
-  --status-bearish: #ff006e;
-  --status-bearish-bg: #1a0010;
+  --status-bullish: #05ffa1;
+  --status-bearish: #ff073a;
+  --status-bearish-bg: #2a0a15;
 }
 
 [data-theme="ocean"] {
@@ -290,19 +290,19 @@
 }
 
 [data-theme="amber"] {
-  --background-primary: #000000;
-  --background-secondary: #0a0a0a;
+  --background-primary: #0a0a0a;
+  --background-secondary: #1a1a1a;
   --border-frame: #cc8800;
   --primary: #ffb000;
   --primary-muted: #cc8800;
   --primary-dark: #996600;
-  --accent-blue: #ffb000;
-  --accent-blue-dark: #cc8800;
-  --accent-rose: #ffb000;
+  --accent-blue: #00d4ff;
+  --accent-blue-dark: #0099cc;
+  --accent-rose: #ff6b35;
   --accent-dark-blue: #664400;
-  --status-bullish: #ffcc00;
-  --status-bearish: #cc6600;
-  --status-bearish-bg: #1a0f00;
+  --status-bullish: #00ff88;
+  --status-bearish: #ff4444;
+  --status-bearish-bg: #2a1010;
 }
 
 [data-theme="girly"] {
