@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, memo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useOrderStore } from '@/stores/useOrderStore';
 import { usePositionStore } from '@/stores/usePositionStore';
@@ -97,31 +97,31 @@ export default function OpenOrdersList({ currentSymbol }: OpenOrdersListProps) {
     return result;
   }, [allOrders, currentSymbol, positionsState]);
 
-  const handleOrderClick = (symbol: string) => {
+  const handleOrderClick = useCallback((symbol: string) => {
     if (symbol !== currentSymbol && address) {
       router.push(`/${address}/${symbol}`);
     }
-  };
+  }, [currentSymbol, address, router]);
 
-  const handleCancelOrder = async (coin: string, oid: string, e: React.MouseEvent) => {
+  const handleCancelOrder = useCallback(async (coin: string, oid: string, e: React.MouseEvent) => {
     e.stopPropagation();
     try {
       await cancelOrder(coin, oid);
     } catch (error) {
       console.error('Failed to cancel order:', error);
     }
-  };
+  }, [cancelOrder]);
 
-  const handleClosePosition = async (symbol: string, e: React.MouseEvent) => {
+  const handleClosePosition = useCallback(async (symbol: string, e: React.MouseEvent) => {
     e.stopPropagation();
     try {
       await closePosition({ symbol, percentage: 100 });
     } catch (error) {
       console.error('Failed to close position:', error);
     }
-  };
+  }, [closePosition]);
 
-  const renderOrder = (order: Order, symbol: string, isClickable: boolean = false) => {
+  const renderOrder = useCallback((order: Order, symbol: string, isClickable: boolean = false) => {
     const decimals = getDecimals(order.coin);
     const isBuy = order.side === 'buy';
     const bgColor = isBuy ? 'bg-bullish/10' : 'bg-bearish/10';
@@ -156,9 +156,9 @@ export default function OpenOrdersList({ currentSymbol }: OpenOrdersListProps) {
         </div>
       </div>
     );
-  };
+  }, [getDecimals, handleCancelOrder, handleOrderClick]);
 
-  const renderPosition = (position: Position, symbol: string, isClickable: boolean = false) => {
+  const renderPosition = useCallback((position: Position, symbol: string, isClickable: boolean = false) => {
     const decimals = getDecimals(symbol);
     const isLong = position.side === 'long';
     const bgColor = isLong ? 'bg-bullish/20' : 'bg-bearish/20';
@@ -201,15 +201,15 @@ export default function OpenOrdersList({ currentSymbol }: OpenOrdersListProps) {
         </div>
       </div>
     );
-  };
+  }, [getDecimals, handleClosePosition, handleOrderClick, schmecklesMode]);
 
-  const renderItem = (item: OrderOrPosition, symbol: string, isClickable: boolean = false) => {
+  const renderItem = useCallback((item: OrderOrPosition, symbol: string, isClickable: boolean = false) => {
     if (item.type === 'order') {
       return renderOrder(item.data, symbol, isClickable);
     } else {
       return renderPosition(item.data, symbol, isClickable);
     }
-  };
+  }, [renderOrder, renderPosition]);
 
   return (
     <div className="w-full md:w-[200px] md:border-l-2 border-border-frame flex flex-col h-full">
@@ -219,7 +219,7 @@ export default function OpenOrdersList({ currentSymbol }: OpenOrdersListProps) {
           <div className="text-xs text-primary-muted mb-2 uppercase tracking-wider">
             {currentSymbol}
           </div>
-          <div className="space-y-1.5">
+          <div className="flex flex-col gap-[1px]">
             {currentItems.length === 0 ? (
               <div className="text-xs text-primary-muted/50">No orders or positions</div>
             ) : (
@@ -236,13 +236,13 @@ export default function OpenOrdersList({ currentSymbol }: OpenOrdersListProps) {
           <div className="text-xs text-primary-muted mb-2 uppercase tracking-wider">
             ALL SYMBOLS
           </div>
-          <div className="space-y-2">
+          <div className="flex flex-col gap-2">
             {globalItems.length === 0 ? (
               <div className="text-xs text-primary-muted/50">No orders or positions</div>
             ) : (
               globalItems.map(({ symbol, items }) => (
-                <div key={symbol} className="space-y-1.5">
-                  <div className="text-[11px] text-primary-muted/70 uppercase tracking-wider font-bold">
+                <div key={symbol} className="flex flex-col gap-[1px]">
+                  <div className="text-[11px] text-primary-muted/70 uppercase tracking-wider font-bold mb-1">
                     {symbol}
                   </div>
                   {items.map(item => renderItem(item, symbol, true))}

@@ -73,7 +73,7 @@ export default function TerminalHeader({ coin, onRefreshCharts, onAutoZoom, onZo
   };
 
   return (
-    <div className="terminal-border p-1.5 mb-2">
+    <div className="terminal-border p-1.5">
       <div className="flex justify-between items-center">
         <div className="terminal-text">
           <span className="text-primary text-sm font-bold tracking-wider">█ {coin}/USD</span>

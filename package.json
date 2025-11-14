@@ -11,6 +11,7 @@
   "dependencies": {
     "@formkit/auto-animate": "^0.9.0",
     "@nktkas/hyperliquid": "^0.16.0",
+    "@tanstack/react-virtual": "^3.13.12",
     "@vercel/analytics": "^1.5.0",
     "chart.js": "^4.5.1",
     "lightweight-charts": "^4.2.0",

@@ -3,7 +3,7 @@
 import React, { memo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useMemo, useRef } from 'react';
-import { useAutoAnimate } from '@formkit/auto-animate/react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { useScannerStore } from '@/stores/useScannerStore';
 import { useSettingsStore } from '@/stores/useSettingsStore';
 import { useTopSymbolsStore } from '@/stores/useTopSymbolsStore';
@@ -19,6 +19,7 @@ import { useAddressFromUrl } from '@/lib/hooks/use-address-from-url';
 import { usePriceVolumeAnimation } from '@/hooks/usePriceVolumeAnimation';
 import MiniPriceChart from '@/components/scanner/MiniPriceChart';
 import SymbolItem from '@/components/sidepanel/SymbolItem';
+import ScannerResultItem from '@/components/scanner/ScannerResultItem';
 import {
   getInvertedColorClass,
   getInvertedAnimationClass,
@@ -296,6 +297,156 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect, mobileView =
     return symbols;
   }, [allSymbolsToShow]);
 
+  const parentRef = useRef<HTMLDivElement>(null);
+
+  const rowVirtualizer = useVirtualizer({
+    count: sortedSymbols.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 62,
+    overscan: 5,
+  });
+
+  const groupedScannerResults = useMemo(() => {
+    return results.reduce((acc, result) => {
+      if (!acc[result.symbol]) {
+        acc[result.symbol] = [];
+      }
+      acc[result.symbol].push(result);
+      return acc;
+    }, {} as Record<string, typeof results>);
+  }, [results]);
+
+  const scannerParentRef = useRef<HTMLDivElement>(null);
+
+  const scannerVirtualizer = useVirtualizer({
+    count: results.length > 0 ? Object.keys(groupedScannerResults).length : 0,
+    getScrollElement: () => scannerParentRef.current,
+    estimateSize: () => 83,
+    overscan: 3,
+  });
+
+  const processedScannerResults = useMemo(() => {
+    return Object.entries(groupedScannerResults).map(([symbol, symbolResults]) => {
+      const timeframeOrder: TimeInterval[] = ['1m', '5m'];
+
+      const timeframeSignals = new Map<string, {
+        stoch: boolean;
+        ema: boolean;
+        macd: boolean;
+        rsi: boolean;
+        vol: boolean;
+        channel: string | null;
+        sr: 'support' | 'resistance' | null;
+        srDistance: number | null;
+        srTouches: number | null;
+        srPrice: number | null;
+        signalType: 'bullish' | 'bearish';
+      }>();
+
+      const divergenceSignals: { variant: string; isHidden: boolean; signalType: 'bullish' | 'bearish' }[] = [];
+
+      symbolResults.forEach((result) => {
+        if (result.scanType === 'divergence' && result.divergences) {
+          result.divergences.forEach(div => {
+            const strength = div.strength ?? 0;
+            const strengthLabel =
+              strength >= 60 ? 'S+' :
+              strength >= 40 ? 'S' :
+              strength >= 30 ? 'M' : 'W';
+            divergenceSignals.push({
+              variant: strengthLabel,
+              isHidden: div.type.includes('hidden'),
+              signalType: result.signalType
+            });
+          });
+          return;
+        }
+
+        const timeframes: string[] = [];
+        if (result.stochastics) timeframes.push(...result.stochastics.map(s => s.timeframe));
+        if (result.emaAlignments) timeframes.push(...result.emaAlignments.map(e => e.timeframe));
+        if (result.macdReversals) timeframes.push(...result.macdReversals.map(m => m.timeframe));
+        if (result.rsiReversals) timeframes.push(...result.rsiReversals.map(r => r.timeframe));
+        if (result.volumeSpikes) timeframes.push(...result.volumeSpikes.map(v => v.timeframe));
+        if (result.channels) timeframes.push(...result.channels.map(c => c.timeframe));
+        if (result.supportResistanceLevels) timeframes.push(...result.supportResistanceLevels.map(sr => sr.timeframe));
+
+        const uniqueTimeframes = [...new Set(timeframes)];
+
+        uniqueTimeframes.forEach(tf => {
+          if (!timeframeSignals.has(tf)) {
+            timeframeSignals.set(tf, {
+              stoch: false,
+              ema: false,
+              macd: false,
+              rsi: false,
+              vol: false,
+              channel: null,
+              sr: null,
+              srDistance: null,
+              srTouches: null,
+              srPrice: null,
+              signalType: result.signalType
+            });
+          }
+
+          const tfData = timeframeSignals.get(tf)!;
+
+          if (result.scanType === 'stochastic' && result.stochastics?.some(s => s.timeframe === tf)) {
+            tfData.stoch = true;
+          }
+          if (result.scanType === 'emaAlignment' && result.emaAlignments?.some(e => e.timeframe === tf)) {
+            tfData.ema = true;
+          }
+          if (result.scanType === 'macdReversal' && result.macdReversals?.some(m => m.timeframe === tf)) {
+            tfData.macd = true;
+          }
+          if (result.scanType === 'rsiReversal' && result.rsiReversals?.some(r => r.timeframe === tf)) {
+            tfData.rsi = true;
+          }
+          if (result.scanType === 'volumeSpike' && result.volumeSpikes?.some(v => v.timeframe === tf)) {
+            tfData.vol = true;
+          }
+          if (result.scanType === 'channel' && result.channels) {
+            const channel = result.channels.find(c => c.timeframe === tf);
+            if (channel) {
+              tfData.channel = channel.type === 'ascending' ? '↗' : channel.type === 'descending' ? '↘' : '→';
+            }
+          }
+          if (result.scanType === 'supportResistance' && result.supportResistanceLevels) {
+            const srLevel = result.supportResistanceLevels.find(sr => sr.timeframe === tf);
+            if (srLevel) {
+              tfData.sr = srLevel.nearLevel;
+              const distance = srLevel.nearLevel === 'support'
+                ? Math.abs(srLevel.distanceToSupport)
+                : Math.abs(srLevel.distanceToResistance);
+              const touches = srLevel.nearLevel === 'support'
+                ? srLevel.supportTouches
+                : srLevel.resistanceTouches;
+              const price = srLevel.nearLevel === 'support'
+                ? srLevel.supportLevel
+                : srLevel.resistanceLevel;
+              tfData.srDistance = distance;
+              tfData.srTouches = touches;
+              tfData.srPrice = price;
+            }
+          }
+        });
+      });
+
+      const sortedTimeframes = Array.from(timeframeSignals.entries())
+        .sort(([a], [b]) => timeframeOrder.indexOf(a as TimeInterval) - timeframeOrder.indexOf(b as TimeInterval));
+
+      return {
+        symbol,
+        sortedTimeframes,
+        divergenceSignals,
+        closePrices: symbolResults[0]?.closePrices,
+        signalType: symbolResults[0]?.signalType || 'bullish',
+      };
+    });
+  }, [groupedScannerResults]);
+
   return (
     <div className="p-2 h-full flex gap-2 overflow-hidden">
       {/* Left Column - Scanner */}
@@ -331,248 +482,49 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect, mobileView =
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto">
-            {results.length > 0 && (() => {
-              const groupedBySymbol = results.reduce((acc, result) => {
-                if (!acc[result.symbol]) {
-                  acc[result.symbol] = [];
-                }
-                acc[result.symbol].push(result);
-                return acc;
-              }, {} as Record<string, typeof results>);
-
-              return (
-                <div className="space-y-1">
-                <div className="text-xs text-primary-muted font-mono px-1">
-                  {Object.keys(groupedBySymbol).length} symbol{Object.keys(groupedBySymbol).length !== 1 ? 's' : ''} ({results.length} signal{results.length !== 1 ? 's' : ''})
+          <div ref={scannerParentRef} className="flex-1 overflow-y-auto">
+            {results.length > 0 && (
+              <>
+                <div className="text-xs text-primary-muted font-mono px-1 mb-1">
+                  {Object.keys(groupedScannerResults).length} symbol{Object.keys(groupedScannerResults).length !== 1 ? 's' : ''} ({results.length} signal{results.length !== 1 ? 's' : ''})
                 </div>
-                {Object.entries(groupedBySymbol).map(([symbol, symbolResults]) => {
-                  const timeframeOrder: TimeInterval[] = ['1m', '5m'];
-
-                  const timeframeSignals = new Map<string, {
-                    stoch: boolean;
-                    ema: boolean;
-                    macd: boolean;
-                    rsi: boolean;
-                    vol: boolean;
-                    channel: string | null;
-                    sr: 'support' | 'resistance' | null;
-                    srDistance: number | null;
-                    srTouches: number | null;
-                    srPrice: number | null;
-                    signalType: 'bullish' | 'bearish';
-                  }>();
-
-                  const divergenceSignals: { variant: string; isHidden: boolean; signalType: 'bullish' | 'bearish' }[] = [];
-
-                  symbolResults.forEach((result) => {
-                    if (result.scanType === 'divergence' && result.divergences) {
-                      result.divergences.forEach(div => {
-                        const strength = div.strength ?? 0;
-                        const strengthLabel =
-                          strength >= 60 ? 'S+' :
-                          strength >= 40 ? 'S' :
-                          strength >= 30 ? 'M' : 'W';
-                        divergenceSignals.push({
-                          variant: strengthLabel,
-                          isHidden: div.type.includes('hidden'),
-                          signalType: result.signalType
-                        });
-                      });
-                      return;
-                    }
-
-                    const timeframes: string[] = [];
-                    if (result.stochastics) timeframes.push(...result.stochastics.map(s => s.timeframe));
-                    if (result.emaAlignments) timeframes.push(...result.emaAlignments.map(e => e.timeframe));
-                    if (result.macdReversals) timeframes.push(...result.macdReversals.map(m => m.timeframe));
-                    if (result.rsiReversals) timeframes.push(...result.rsiReversals.map(r => r.timeframe));
-                    if (result.volumeSpikes) timeframes.push(...result.volumeSpikes.map(v => v.timeframe));
-                    if (result.channels) timeframes.push(...result.channels.map(c => c.timeframe));
-                    if (result.supportResistanceLevels) timeframes.push(...result.supportResistanceLevels.map(sr => sr.timeframe));
-
-                    const uniqueTimeframes = [...new Set(timeframes)];
-
-                    uniqueTimeframes.forEach(tf => {
-                      if (!timeframeSignals.has(tf)) {
-                        timeframeSignals.set(tf, {
-                          stoch: false,
-                          ema: false,
-                          macd: false,
-                          rsi: false,
-                          vol: false,
-                          channel: null,
-                          sr: null,
-                          srDistance: null,
-                          srTouches: null,
-                          srPrice: null,
-                          signalType: result.signalType
-                        });
-                      }
-
-                      const tfData = timeframeSignals.get(tf)!;
-
-                      if (result.scanType === 'stochastic' && result.stochastics?.some(s => s.timeframe === tf)) {
-                        tfData.stoch = true;
-                      }
-                      if (result.scanType === 'emaAlignment' && result.emaAlignments?.some(e => e.timeframe === tf)) {
-                        tfData.ema = true;
-                      }
-                      if (result.scanType === 'macdReversal' && result.macdReversals?.some(m => m.timeframe === tf)) {
-                        tfData.macd = true;
-                      }
-                      if (result.scanType === 'rsiReversal' && result.rsiReversals?.some(r => r.timeframe === tf)) {
-                        tfData.rsi = true;
-                      }
-                      if (result.scanType === 'volumeSpike' && result.volumeSpikes?.some(v => v.timeframe === tf)) {
-                        tfData.vol = true;
-                      }
-                      if (result.scanType === 'channel' && result.channels) {
-                        const channel = result.channels.find(c => c.timeframe === tf);
-                        if (channel) {
-                          tfData.channel = channel.type === 'ascending' ? '↗' : channel.type === 'descending' ? '↘' : '→';
-                        }
-                      }
-                      if (result.scanType === 'supportResistance' && result.supportResistanceLevels) {
-                        const srLevel = result.supportResistanceLevels.find(sr => sr.timeframe === tf);
-                        if (srLevel) {
-                          tfData.sr = srLevel.nearLevel;
-                          const distance = srLevel.nearLevel === 'support'
-                            ? Math.abs(srLevel.distanceToSupport)
-                            : Math.abs(srLevel.distanceToResistance);
-                          const touches = srLevel.nearLevel === 'support'
-                            ? srLevel.supportTouches
-                            : srLevel.resistanceTouches;
-                          const price = srLevel.nearLevel === 'support'
-                            ? srLevel.supportLevel
-                            : srLevel.resistanceLevel;
-                          tfData.srDistance = distance;
-                          tfData.srTouches = touches;
-                          tfData.srPrice = price;
-                        }
-                      }
-                    });
-                  });
-
-                  const sortedTimeframes = Array.from(timeframeSignals.entries())
-                    .sort(([a], [b]) => timeframeOrder.indexOf(a as TimeInterval) - timeframeOrder.indexOf(b as TimeInterval));
-
-                  return (
-                    <div
-                      key={symbol}
-                      onClick={() => {
-                        if (onSymbolSelect) {
-                          onSymbolSelect(symbol);
-                        } else {
-                          router.push(`/${address}/${symbol}`);
-                        }
-                      }}
-                      className={`${
-                        selectedSymbol === symbol
-                          ? 'border-2 border-primary'
-                          : 'terminal-border hover:bg-primary/10'
-                      } cursor-pointer active:scale-[0.98] transition-all duration-150`}
-                    >
-                      <div className="flex items-start">
-                        <div className="flex flex-col flex-1 relative">
-                          {symbolResults[0]?.closePrices && symbolResults[0].closePrices.length > 0 && (
-                            <div className="absolute inset-0 opacity-50 pointer-events-none">
-                              <MiniPriceChart
-                                closePrices={symbolResults[0].closePrices}
-                                signalType={symbolResults[0].signalType}
-                                invertedMode={invertedMode}
-                              />
-                            </div>
-                          )}
-                          <div className="p-2 pb-1 relative z-10">
-                            <span className="text-primary font-bold text-xs">{symbol}/USD</span>
-                          </div>
-
-                          <div className="px-2 pb-2 space-y-1 relative z-10">
-                            {sortedTimeframes.map(([timeframe, signals]) => {
-                              const baseArrow = signals.signalType === 'bullish' ? '▲' : '▼';
-                              const arrow = getInvertedArrow(baseArrow as '▲' | '▼', invertedMode);
-                              const baseArrowColor = signals.signalType === 'bullish' ? 'text-bullish' : 'text-bearish';
-                              const arrowColor = getInvertedColorClass(baseArrowColor, invertedMode);
-                              const baseBadgeBg = signals.signalType === 'bullish' ? 'bg-bullish' : 'bg-bearish';
-                              const badgeBg = getInvertedColorClass(baseBadgeBg, invertedMode);
-
-                              return (
-                                <div key={timeframe} className="flex items-center gap-1 text-[10px]">
-                                  <span className={`${arrowColor} font-bold`}>{arrow}</span>
-                                  <span className="text-primary-muted font-mono w-8">{timeframe}:</span>
-                                  <div className="flex gap-1 flex-wrap">
-                                    {signals.stoch && (
-                                      <span className={`${badgeBg} text-bg-primary px-1.5 py-0.5 rounded font-bold`}>STOCH</span>
-                                    )}
-                                    {signals.ema && (
-                                      <span className={`${badgeBg} text-bg-primary px-1.5 py-0.5 rounded font-bold`}>EMA</span>
-                                    )}
-                                    {signals.macd && (
-                                      <span className={`${badgeBg} text-bg-primary px-1.5 py-0.5 rounded font-bold`}>MACD</span>
-                                    )}
-                                    {signals.rsi && (
-                                      <span className={`${badgeBg} text-bg-primary px-1.5 py-0.5 rounded font-bold`}>RSI</span>
-                                    )}
-                                    {signals.vol && (
-                                      <span className={`${badgeBg} text-bg-primary px-1.5 py-0.5 rounded font-bold`}>VOL</span>
-                                    )}
-                                    {signals.channel && (
-                                      <span className={`${badgeBg} text-bg-primary px-1.5 py-0.5 rounded font-bold`}>{signals.channel}CH</span>
-                                    )}
-                                    {signals.sr && (() => {
-                                      const baseSrBg = signals.sr === 'support' ? 'bg-bullish' : 'bg-bearish';
-                                      const srBg = getInvertedColorClass(baseSrBg, invertedMode);
-                                      const displaySrType = invertedMode
-                                        ? (signals.sr === 'support' ? 'resistance' : 'support')
-                                        : signals.sr;
-                                      const displayLabel = displaySrType === 'support' ? 'S' : 'R';
-                                      return (
-                                        <span className={`${srBg} text-bg-primary px-1.5 py-0.5 rounded font-bold`} title={`${displaySrType === 'support' ? 'Support' : 'Resistance'} level at $${signals.srPrice?.toFixed(2)}: ${signals.srDistance?.toFixed(2)}% away, ${signals.srTouches} touches`}>
-                                          {displayLabel} ${signals.srPrice?.toFixed(2)} {signals.srDistance?.toFixed(1)}% ({signals.srTouches})
-                                        </span>
-                                      );
-                                    })()}
-                                  </div>
-                                </div>
-                              );
-                            })}
-
-                            {divergenceSignals.length > 0 && (
-                              <div className="flex items-center gap-1 text-[10px]">
-                                <span className="text-primary-muted font-mono">DIV:</span>
-                                <div className="flex gap-1 flex-wrap">
-                                  {divergenceSignals.map((div, idx) => {
-                                    const baseBadgeBg = div.signalType === 'bullish' ? 'bg-bullish' : 'bg-bearish';
-                                    const badgeBg = getInvertedColorClass(baseBadgeBg, invertedMode);
-                                    return (
-                                      <span key={idx} className={`${badgeBg} text-bg-primary px-1.5 py-0.5 rounded font-bold`}>
-                                        {div.isHidden ? 'H-' : ''}{div.variant}
-                                      </span>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            window.open(`/${address}/chart-popup/${symbol}`, '_blank', 'width=1200,height=800');
-                          }}
-                          className="p-2 text-primary-muted hover:text-primary cursor-pointer transition-colors"
-                          title="Open in new window"
-                        >
-                          <span className="text-lg">⧉</span>
-                        </button>
+                <div
+                  style={{
+                    height: `${scannerVirtualizer.getTotalSize()}px`,
+                    width: '100%',
+                    position: 'relative',
+                  }}
+                >
+                  {scannerVirtualizer.getVirtualItems().map((virtualRow) => {
+                    const result = processedScannerResults[virtualRow.index];
+                    return (
+                      <div
+                        key={virtualRow.key}
+                        style={{
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          width: '100%',
+                          transform: `translateY(${virtualRow.start}px)`,
+                        }}
+                      >
+                        <ScannerResultItem
+                          symbol={result.symbol}
+                          selectedSymbol={selectedSymbol}
+                          onSymbolSelect={onSymbolSelect}
+                          address={address || ''}
+                          sortedTimeframes={result.sortedTimeframes}
+                          divergenceSignals={result.divergenceSignals}
+                          closePrices={result.closePrices}
+                          signalType={result.signalType}
+                          invertedMode={invertedMode}
+                        />
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-              );
-            })()}
+                    );
+                  })}
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -665,7 +617,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect, mobileView =
             )}
             </div>
 
-            <div className="flex-1 flex flex-col gap-1 overflow-y-auto">
+            <div ref={parentRef} className="flex-1 overflow-y-auto">
               {isLoadingTopSymbols && topSymbols.length === 0 ? (
                 <>
                   <SymbolItemSkeleton />
@@ -673,31 +625,50 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect, mobileView =
                   <SymbolItemSkeleton />
                 </>
               ) : (
-                sortedSymbols.map((symbol) => {
-                  const isPinned = pinnedSymbols.includes(symbol);
-                  const top20Data = topSymbols.find(s => s.name === symbol);
-                  const isTop20 = !!top20Data;
-                  const volumeInMillions = top20Data ? (top20Data.volume / 1000000).toFixed(1) : null;
-                  const symbolClosePrices = getClosePrices(symbol);
+                <div
+                  style={{
+                    height: `${rowVirtualizer.getTotalSize()}px`,
+                    width: '100%',
+                    position: 'relative',
+                  }}
+                >
+                  {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                    const symbol = sortedSymbols[virtualRow.index];
+                    const isPinned = pinnedSymbols.includes(symbol);
+                    const top20Data = topSymbols.find(s => s.name === symbol);
+                    const isTop20 = !!top20Data;
+                    const volumeInMillions = top20Data ? (top20Data.volume / 1000000).toFixed(1) : null;
+                    const symbolClosePrices = getClosePrices(symbol);
 
-                  return (
-                    <SymbolItem
-                      key={symbol}
-                      symbol={symbol}
-                      selectedSymbol={selectedSymbol}
-                      onSymbolSelect={onSymbolSelect}
-                      address={address || ''}
-                      isPinned={isPinned}
-                      isTop20={isTop20}
-                      volumeInMillions={volumeInMillions}
-                      closePrices={symbolClosePrices || undefined}
-                      unpinSymbol={unpinSymbol}
-                      SymbolPrice={SymbolPrice}
-                      SymbolVolume={SymbolVolume}
-                      invertedMode={invertedMode}
-                    />
-                  );
-                })
+                    return (
+                      <div
+                        key={virtualRow.key}
+                        style={{
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          width: '100%',
+                          transform: `translateY(${virtualRow.start}px)`,
+                        }}
+                      >
+                        <SymbolItem
+                          symbol={symbol}
+                          selectedSymbol={selectedSymbol}
+                          onSymbolSelect={onSymbolSelect}
+                          address={address || ''}
+                          isPinned={isPinned}
+                          isTop20={isTop20}
+                          volumeInMillions={volumeInMillions}
+                          closePrices={symbolClosePrices || undefined}
+                          unpinSymbol={unpinSymbol}
+                          SymbolPrice={SymbolPrice}
+                          SymbolVolume={SymbolVolume}
+                          invertedMode={invertedMode}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
               )}
             </div>
           </div>

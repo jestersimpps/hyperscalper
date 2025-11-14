@@ -20,7 +20,7 @@ function MultiTimeframeChart({ coin }: MultiTimeframeChartProps) {
     <div className="h-full w-full grid grid-cols-2 gap-2" style={{ gridTemplateRows: '1fr 1fr' }}>
       {TIMEFRAMES.map((interval) => (
         <div key={interval} className="terminal-border p-1.5 flex flex-col min-h-0">
-          <div className="text-[10px] text-primary-muted mb-1 uppercase tracking-wider">
+          <div className="text-[10px] text-primary-muted mb-0.5 uppercase tracking-wider">
             █ {interval.toUpperCase()} CHART
           </div>
           <div className="flex-1 min-h-0">

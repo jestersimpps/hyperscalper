@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, useMemo } from 'react';
+import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import type { CandleData, TimeInterval } from '@/types';
 import type { Position } from '@/models/Position';
 import type { Order } from '@/models/Order';
@@ -9,6 +9,7 @@ import { useSettingsStore } from '@/stores/useSettingsStore';
 import { useSymbolMetaStore } from '@/stores/useSymbolMetaStore';
 import { useChartSyncStore } from '@/stores/useChartSyncStore';
 import { getThemeColors } from '@/lib/theme-utils';
+import { useDebouncedCallback, useThrottledCallback } from '@/lib/performance-utils';
 import ChartLegend from '@/components/ChartLegend';
 import {
   calculateEMA,
@@ -827,6 +828,108 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
     return calculateStochasticMemoized(displayCandles, 14, 3, 3);
   }, [displayCandles, simplifiedView]);
 
+  const pivotMarkers = useMemo(() => {
+    return chartSettings?.showPivotMarkers ? createPivotMarkers(displayCandles) : [];
+  }, [displayCandles, chartSettings?.showPivotMarkers]);
+
+  const divergenceMarkers = useMemo(() => {
+    return stochasticSettings.showDivergence && divergencePoints.length > 0
+      ? createDivergenceMarkers(divergencePoints)
+      : [];
+  }, [divergencePoints, stochasticSettings.showDivergence]);
+
+  const macdReversalMarkers = useMemo(() => {
+    return macdResult.macd.length > 0
+      ? detectMacdReversals(macdResult, displayCandles).map(r => ({
+          time: r.time / 1000,
+          position: r.position,
+          color: SIGNAL_COLORS.macd,
+          shape: 'circle' as const,
+          text: '',
+        }))
+      : [];
+  }, [macdResult, displayCandles]);
+
+  const rsiReversalMarkers = useMemo(() => {
+    return rsi.length > 0
+      ? detectRsiReversals(rsi, displayCandles, 30, 70).map(r => ({
+          time: r.time / 1000,
+          position: r.position,
+          color: SIGNAL_COLORS.rsi,
+          shape: 'circle' as const,
+          text: '',
+        }))
+      : [];
+  }, [rsi, displayCandles]);
+
+  const crossoverMarkers = useMemo(() => {
+    if (emaSettings.ema1.enabled && emaSettings.ema2.enabled && ema1.length > 0 && ema2.length > 0) {
+      const ema3ForDetection = emaSettings.ema3.enabled && ema3.length > 0 ? ema3 : null;
+      return detectCrossovers(ema1, ema2, ema3ForDetection, displayCandles);
+    }
+    return [];
+  }, [emaSettings.ema1.enabled, emaSettings.ema2.enabled, emaSettings.ema3.enabled, ema1, ema2, ema3, displayCandles]);
+
+  const rafRef = useRef<number | null>(null);
+  const pendingUpdateRef = useRef(false);
+
+  const updateChartWithRAF = useCallback((updateFn: () => void) => {
+    if (pendingUpdateRef.current) return;
+
+    pendingUpdateRef.current = true;
+
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current);
+    }
+
+    rafRef.current = requestAnimationFrame(() => {
+      updateFn();
+      pendingUpdateRef.current = false;
+      rafRef.current = null;
+    });
+  }, []);
+
+  const detectDivergencesDebounced = useDebouncedCallback(() => {
+    if (!simplifiedView && stochasticSettings.showMultiVariant && stochasticSettings.showDivergence && displayCandles.length >= 50) {
+      const stochCandles = interval === '1m' ? candles : (isExternalData ? allMacdCandles['1m'] : useCandleStore.getState().candles[`${coin}-1m`]);
+      const displayStochCandles = invertCandles(stochCandles, chartSettings?.invertedMode ?? false);
+
+      if (displayStochCandles && displayStochCandles.length >= 50) {
+        let currentDivergences: DivergencePoint[] = [];
+
+        Object.entries(stochasticSettings.variants).forEach(([variantName, variantConfig]) => {
+          if (!variantConfig.enabled) return;
+
+          const stochData = calculateStochasticMemoized(displayStochCandles, variantConfig.period, variantConfig.smoothK, variantConfig.smoothD);
+          if (stochData.length === 0) return;
+
+          const offset = displayStochCandles.length - stochData.length;
+          const alignedCandles = displayStochCandles.slice(offset);
+
+          const pricePivots = detectPivots(alignedCandles, 3);
+          const stochPivots = detectStochasticPivots(stochData, alignedCandles, 3);
+          const divergences = detectDivergence(pricePivots, stochPivots, alignedCandles);
+
+          currentDivergences.push(...divergences);
+        });
+
+        setDivergencePoints(currentDivergences);
+      }
+    }
+  }, 1000);
+
+  useEffect(() => {
+    return () => {
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    detectDivergencesDebounced();
+  }, [displayCandles, simplifiedView, stochasticSettings.showMultiVariant, stochasticSettings.showDivergence, stochasticSettings.variants, interval, candles, isExternalData, allMacdCandles, coin, chartSettings]);
+
   useEffect(() => {
     if (!chartReady || !candleSeriesRef.current || displayCandles.length === 0) return;
 
@@ -851,101 +954,46 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
     const isNewCandle = lastCandleTimeRef.current !== null && lastCandle.time !== lastCandleTimeRef.current;
 
     if (isNewCandle || lastCandleTimeRef.current === null) {
-      candleSeriesRef.current.setData(candleData);
-      volumeSeriesRef.current.setData(volumeData);
+      updateChartWithRAF(() => {
+        candleSeriesRef.current?.setData(candleData);
+        volumeSeriesRef.current?.setData(volumeData);
 
-      if (emaSettings.ema1.enabled && ema1.length > 0) {
-        const ema1Data = ema1.map((value, i) => ({
-          time: (displayCandles[i].time / 1000) as any,
-          value,
-        }));
-        ema1SeriesRef.current.setData(ema1Data);
-      } else {
-        ema1SeriesRef.current.setData([]);
-      }
-
-      if (emaSettings.ema2.enabled && ema2.length > 0) {
-        const ema2Data = ema2.map((value, i) => ({
-          time: (displayCandles[i].time / 1000) as any,
-          value,
-        }));
-        ema2SeriesRef.current.setData(ema2Data);
-      } else {
-        ema2SeriesRef.current.setData([]);
-      }
-
-      if (emaSettings.ema3.enabled && ema3.length > 0) {
-        const ema3Data = ema3.map((value, i) => ({
-          time: (displayCandles[i].time / 1000) as any,
-          value,
-        }));
-        ema3SeriesRef.current.setData(ema3Data);
-      } else {
-        ema3SeriesRef.current.setData([]);
-      }
-
-
-      // Detect divergences on new candle
-      let currentDivergences: DivergencePoint[] = [];
-      if (!simplifiedView && stochasticSettings.showMultiVariant && stochasticSettings.showDivergence) {
-        const stochCandles = interval === '1m' ? candles : (isExternalData ? allMacdCandles['1m'] : useCandleStore.getState().candles[`${coin}-1m`]);
-        const displayStochCandles = invertCandles(stochCandles, chartSettings?.invertedMode ?? false);
-
-        if (displayStochCandles && displayStochCandles.length >= 50) {
-          // Check all enabled stochastic variants
-          Object.entries(stochasticSettings.variants).forEach(([variantName, variantConfig]) => {
-            if (!variantConfig.enabled) return;
-
-            const stochData = calculateStochasticMemoized(displayStochCandles, variantConfig.period, variantConfig.smoothK, variantConfig.smoothD);
-            if (stochData.length === 0) return;
-
-            const offset = displayStochCandles.length - stochData.length;
-            const alignedCandles = displayStochCandles.slice(offset);
-
-            const pricePivots = detectPivots(alignedCandles, 3);
-            const stochPivots = detectStochasticPivots(stochData, alignedCandles, 3);
-            const divergences = detectDivergence(pricePivots, stochPivots, alignedCandles);
-
-            currentDivergences.push(...divergences);
-          });
-
+        if (emaSettings.ema1.enabled && ema1.length > 0) {
+          const ema1Data = ema1.map((value, i) => ({
+            time: (displayCandles[i].time / 1000) as any,
+            value,
+          }));
+          ema1SeriesRef.current?.setData(ema1Data);
+        } else {
+          ema1SeriesRef.current?.setData([]);
         }
-      }
 
-      setDivergencePoints(currentDivergences);
+        if (emaSettings.ema2.enabled && ema2.length > 0) {
+          const ema2Data = ema2.map((value, i) => ({
+            time: (displayCandles[i].time / 1000) as any,
+            value,
+          }));
+          ema2SeriesRef.current?.setData(ema2Data);
+        } else {
+          ema2SeriesRef.current?.setData([]);
+        }
 
-      const pivotMarkers = chartSettings?.showPivotMarkers ? createPivotMarkers(displayCandles) : [];
-      const divergenceMarkers = stochasticSettings.showDivergence && currentDivergences.length > 0 ? createDivergenceMarkers(currentDivergences) : [];
+        if (emaSettings.ema3.enabled && ema3.length > 0) {
+          const ema3Data = ema3.map((value, i) => ({
+            time: (displayCandles[i].time / 1000) as any,
+            value,
+          }));
+          ema3SeriesRef.current?.setData(ema3Data);
+        } else {
+          ema3SeriesRef.current?.setData([]);
+        }
 
-      const macdReversalMarkers = macdResult.macd.length > 0
-        ? detectMacdReversals(macdResult, displayCandles).map(r => ({
-            time: r.time / 1000,
-            position: r.position,
-            color: SIGNAL_COLORS.macd,
-            shape: 'circle' as const,
-            text: '',
-          }))
-        : [];
+        const allMarkers = crossoverMarkers.length > 0
+          ? [...pivotMarkers, ...divergenceMarkers, ...crossoverMarkers, ...macdReversalMarkers, ...rsiReversalMarkers]
+          : [...pivotMarkers, ...divergenceMarkers, ...macdReversalMarkers, ...rsiReversalMarkers];
 
-      const rsiReversalMarkers = rsi.length > 0
-        ? detectRsiReversals(rsi, displayCandles, 30, 70).map(r => ({
-            time: r.time / 1000,
-            position: r.position,
-            color: SIGNAL_COLORS.rsi,
-            shape: 'circle' as const,
-            text: '',
-          }))
-        : [];
-
-      if (emaSettings.ema1.enabled && emaSettings.ema2.enabled && ema1.length > 0 && ema2.length > 0) {
-        const ema3ForDetection = emaSettings.ema3.enabled && ema3.length > 0 ? ema3 : null;
-        const crossoverMarkers = detectCrossovers(ema1, ema2, ema3ForDetection, displayCandles);
-        const allMarkers = [...pivotMarkers, ...divergenceMarkers, ...crossoverMarkers, ...macdReversalMarkers, ...rsiReversalMarkers].sort((a, b) => a.time - b.time);
-        candleSeriesRef.current.setMarkers(allMarkers);
-      } else {
-        const allMarkers = [...pivotMarkers, ...divergenceMarkers, ...macdReversalMarkers, ...rsiReversalMarkers].sort((a, b) => a.time - b.time);
-        candleSeriesRef.current.setMarkers(allMarkers);
-      }
+        candleSeriesRef.current?.setMarkers(allMarkers.sort((a, b) => a.time - b.time));
+      });
     } else {
       candleSeriesRef.current.update(candleData[candleData.length - 1]);
       volumeSeriesRef.current.update(volumeData[volumeData.length - 1]);

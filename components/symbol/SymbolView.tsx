@@ -547,7 +547,7 @@ function SymbolView({ coin }: SymbolViewProps) {
           </div>
         ) : (
           <div className="terminal-border p-1.5 flex flex-col flex-1 min-h-0">
-            <div className="text-[10px] text-primary-muted mb-1 uppercase tracking-wider">█ SCALPING CHART</div>
+            <div className="text-[10px] text-primary-muted mb-0.5 uppercase tracking-wider">█ SCALPING CHART</div>
             <div className={`flex-1 min-h-0 ${crosshairActive ? 'cursor-crosshair' : ''}`}>
               <ScalpingChart
                 coin={coin}

@@ -19,7 +19,7 @@ interface SymbolItemProps {
   invertedMode: boolean;
 }
 
-const SymbolItem = memo(({
+const SymbolItem = ({
   symbol,
   selectedSymbol,
   onSymbolSelect,
@@ -110,8 +110,27 @@ const SymbolItem = memo(({
       </div>
     </div>
   );
-});
+};
 
 SymbolItem.displayName = 'SymbolItem';
 
-export default SymbolItem;
+function areEqual(prevProps: SymbolItemProps, nextProps: SymbolItemProps) {
+  if (prevProps.symbol !== nextProps.symbol) return false;
+  if (prevProps.selectedSymbol !== nextProps.selectedSymbol) return false;
+  if (prevProps.isPinned !== nextProps.isPinned) return false;
+  if (prevProps.isTop20 !== nextProps.isTop20) return false;
+  if (prevProps.volumeInMillions !== nextProps.volumeInMillions) return false;
+  if (prevProps.invertedMode !== nextProps.invertedMode) return false;
+  if (prevProps.address !== nextProps.address) return false;
+
+  if (prevProps.closePrices?.length !== nextProps.closePrices?.length) return false;
+  if (prevProps.closePrices && nextProps.closePrices) {
+    const prevLast = prevProps.closePrices[prevProps.closePrices.length - 1];
+    const nextLast = nextProps.closePrices[nextProps.closePrices.length - 1];
+    if (prevLast !== nextLast) return false;
+  }
+
+  return true;
+}
+
+export default memo(SymbolItem, areEqual);

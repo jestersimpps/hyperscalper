@@ -192,7 +192,7 @@ export const useGlobalPollingStore = create<GlobalPollingStore>((set, get) => ({
 
     const fastIntervalId = setInterval(() => {
       fetchFastData();
-    }, 3000);
+    }, 5000);
 
     const slowIntervalId = setInterval(() => {
       fetchSlowData();
