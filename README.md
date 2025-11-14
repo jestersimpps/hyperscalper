@@ -1,5 +1,7 @@
 # HyperScalper
 
+![HyperScalper Hero](public/landing/hero.png)
+
 A professional real-time cryptocurrency trading terminal for Hyperliquid DEX with advanced technical analysis, multi-timeframe charting, and automated signal detection.
 
 ## Features
@@ -69,16 +71,6 @@ A professional real-time cryptocurrency trading terminal for Hyperliquid DEX wit
 
 ```bash
 npm install
-```
-
-### Environment Variables
-
-Create `.env.local`:
-
-```env
-HYPERLIQUID_WALLET_ADDRESS=your_wallet_address
-HYPERLIQUID_PRIVATE_KEY=your_private_key  # Optional, for trading
-HYPERLIQUID_TESTNET=false
 ```
 
 ### Development
