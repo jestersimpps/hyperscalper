@@ -49,7 +49,7 @@ export function useThrottledCallback<T extends (...args: any[]) => any>(
   delay: number
 ): (...args: Parameters<T>) => void {
   const callbackRef = useRef(callback);
-  const throttledRef = useRef<ReturnType<typeof throttle>>();
+  const throttledRef = useRef<ReturnType<typeof throttle> | null>(null);
 
   useEffect(() => {
     callbackRef.current = callback;
@@ -69,7 +69,7 @@ export function useDebouncedCallback<T extends (...args: any[]) => any>(
   delay: number
 ): (...args: Parameters<T>) => void {
   const callbackRef = useRef(callback);
-  const debouncedRef = useRef<ReturnType<typeof debounce>>();
+  const debouncedRef = useRef<ReturnType<typeof debounce> | null>(null);
 
   useEffect(() => {
     callbackRef.current = callback;
