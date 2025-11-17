@@ -12,6 +12,7 @@ import type {
   SuccessResponse
 } from '@nktkas/hyperliquid';
 import type { CandleData, TimeInterval } from '@/types';
+import type { SymbolMetadata } from './metadata-cache.service';
 
 export interface TransformedCandle {
   time: number;
@@ -101,35 +102,35 @@ export interface MetaAndAssetCtxs {
 
 export interface IHyperliquidService {
   getCandles(params: CandleParams): Promise<TransformedCandle[]>;
-  getRecentTrades(params: TradesParams): Promise<any[]>;
+  getRecentTrades(params: TradesParams): Promise<WsTrade[]>;
 
   subscribeToCandles(params: CandleParams, callback: (data: TransformedCandle) => void): Promise<() => void>;
   subscribeToTrades(params: TradesParams, callback: (data: WsTrade[]) => void): Promise<() => void>;
 
-  placeMarketBuy(coin: string, size: string): Promise<OrderResponse>;
-  placeMarketSell(coin: string, size: string): Promise<OrderResponse>;
-  placeLimitOrder(params: OrderParams): Promise<OrderResponse>;
-  placeBatchLimitOrders(orders: OrderParams[]): Promise<OrderResponse>;
-  placeStopLoss(params: StopLossParams): Promise<OrderResponse>;
-  placeTakeProfit(params: TakeProfitParams): Promise<OrderResponse>;
-  placeTriggerMarketOrder(params: TriggerMarketOrderParams): Promise<OrderResponse>;
+  placeMarketBuy(coin: string, size: string, price: string, metadata: SymbolMetadata): Promise<OrderResponse>;
+  placeMarketSell(coin: string, size: string, price: string, metadata: SymbolMetadata): Promise<OrderResponse>;
+  placeLimitOrder(params: OrderParams, metadata: SymbolMetadata): Promise<OrderResponse>;
+  placeBatchLimitOrders(orders: OrderParams[], metadata: SymbolMetadata): Promise<OrderResponse>;
+  placeStopLoss(params: StopLossParams, metadata: SymbolMetadata): Promise<OrderResponse>;
+  placeTakeProfit(params: TakeProfitParams, metadata: SymbolMetadata): Promise<OrderResponse>;
+  placeTriggerMarketOrder(params: TriggerMarketOrderParams, metadata: SymbolMetadata): Promise<OrderResponse>;
 
   getAccountState(user?: string): Promise<PerpsClearinghouseState>;
   getOpenPositions(user?: string): Promise<AssetPosition[]>;
   getAccountBalance(user?: string): Promise<AccountBalance>;
   getOpenOrders(user?: string): Promise<FrontendOrder[]>;
-  cancelOrder(coin: string, orderId: number): Promise<CancelResponse>;
-  cancelAllOrders(coin: string): Promise<CancelResponse>;
-  cancelEntryOrders(coin: string): Promise<CancelResponse>;
-  cancelExitOrders(coin: string): Promise<CancelResponse>;
-  cancelTPOrders(coin: string): Promise<CancelResponse>;
-  cancelSLOrders(coin: string): Promise<CancelResponse>;
+  cancelOrder(coin: string, orderId: number, metadata: SymbolMetadata): Promise<CancelResponse>;
+  cancelAllOrders(coin: string, metadata: SymbolMetadata): Promise<CancelResponse>;
+  cancelEntryOrders(coin: string, metadata: SymbolMetadata): Promise<CancelResponse>;
+  cancelExitOrders(coin: string, metadata: SymbolMetadata): Promise<CancelResponse>;
+  cancelTPOrders(coin: string, metadata: SymbolMetadata): Promise<CancelResponse>;
+  cancelSLOrders(coin: string, metadata: SymbolMetadata): Promise<CancelResponse>;
 
-  openLong(params: LongParams): Promise<OrderResponse>;
-  openShort(params: ShortParams): Promise<OrderResponse>;
-  closePosition(params: ClosePositionParams): Promise<OrderResponse>;
+  openLong(params: LongParams, metadata: SymbolMetadata): Promise<OrderResponse>;
+  openShort(params: ShortParams, metadata: SymbolMetadata): Promise<OrderResponse>;
+  closePosition(params: ClosePositionParams, price: string, metadata: SymbolMetadata, positionData: AssetPosition): Promise<OrderResponse>;
 
-  setLeverage(coin: string, leverage: number, isCross?: boolean): Promise<SuccessResponse | null>;
+  setLeverage(coin: string, leverage: number, metadata: SymbolMetadata, isCross?: boolean): Promise<SuccessResponse | null>;
 
   getCoinIndex(coin: string): Promise<number>;
   formatPrice(price: number, coin: string): Promise<string>;
@@ -137,4 +138,9 @@ export interface IHyperliquidService {
   getMeta(): Promise<PerpsMeta>;
   getAllMids(): Promise<AllMids>;
   getMetaAndAssetCtxs(): Promise<MetaAndAssetCtxs>;
+  getMetadataCache(coin: string): Promise<SymbolMetadata>;
+  formatPriceCached(price: number, metadata: SymbolMetadata): string;
+  formatSizeCached(size: number, metadata: SymbolMetadata): string;
+  getAccountBalanceCached(user?: string): Promise<AccountBalance>;
+  invalidateAccountCache(): void;
 }

@@ -25,7 +25,26 @@ export default function QuickCloseButtons() {
       return;
     }
     try {
-      await service.closePosition({ coin: symbol });
+      const [positions, allMids, metadata] = await Promise.all([
+        service.getOpenPositions(),
+        service.getAllMids(),
+        service.getMetadataCache(symbol)
+      ]);
+
+      const position = positions.find(p => p.position.coin === symbol);
+      if (!position) {
+        alert(`No position found for ${symbol}`);
+        return;
+      }
+
+      const currentPrice = parseFloat(allMids[symbol] || '0');
+      const isLong = parseFloat(position.position.szi) > 0;
+      const slippage = 0.005;
+      const closePrice = isLong
+        ? service.formatPriceCached(currentPrice * (1 - slippage), metadata)
+        : service.formatPriceCached(currentPrice * (1 + slippage), metadata);
+
+      await service.closePosition({ coin: symbol }, closePrice, metadata, position);
     } catch (error) {
       alert(`Error closing ${symbol}: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }

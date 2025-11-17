@@ -35,7 +35,7 @@ import type {
   TransformedCandle,
   MetaAndAssetCtxs
 } from './types';
-import { metadataCache } from './metadata-cache.service';
+import { metadataCache, type SymbolMetadata } from './metadata-cache.service';
 import { accountCache } from './account-cache.service';
 
 export class HyperliquidService implements IHyperliquidService {
@@ -109,7 +109,7 @@ export class HyperliquidService implements IHyperliquidService {
     return transformed;
   }
 
-  async getRecentTrades(params: TradesParams): Promise<any[]> {
+  async getRecentTrades(params: TradesParams): Promise<WsTrade[]> {
     return await (this.publicClient as any).recentTrades?.({ coin: params.coin }) || [];
   }
 
@@ -135,17 +135,20 @@ export class HyperliquidService implements IHyperliquidService {
     return () => subscription.unsubscribe();
   }
 
-  async placeMarketBuy(coin: string, size: string): Promise<OrderResponse> {
+  async placeMarketBuy(coin: string, size: string, price: string, metadata: SymbolMetadata): Promise<OrderResponse> {
     this.ensureWalletClient();
-    const coinIndex = await this.getCoinIndex(coin);
-    const price = await this.getMarketPrice(coin, true);
+    if (!price || !metadata) {
+      throw new Error('Price and metadata are required parameters');
+    }
+
+    const formattedSize = this.formatSizeCached(parseFloat(size), metadata);
 
     return await this.walletClient!.order({
       orders: [{
-        a: coinIndex,
+        a: metadata.coinIndex,
         b: true,
         p: price,
-        s: size,
+        s: formattedSize,
         r: false,
         t: { limit: { tif: 'Ioc' } }
       }],
@@ -153,17 +156,20 @@ export class HyperliquidService implements IHyperliquidService {
     });
   }
 
-  async placeMarketSell(coin: string, size: string): Promise<OrderResponse> {
+  async placeMarketSell(coin: string, size: string, price: string, metadata: SymbolMetadata): Promise<OrderResponse> {
     this.ensureWalletClient();
-    const coinIndex = await this.getCoinIndex(coin);
-    const price = await this.getMarketPrice(coin, false);
+    if (!price || !metadata) {
+      throw new Error('Price and metadata are required parameters');
+    }
+
+    const formattedSize = this.formatSizeCached(parseFloat(size), metadata);
 
     return await this.walletClient!.order({
       orders: [{
-        a: coinIndex,
+        a: metadata.coinIndex,
         b: false,
         p: price,
-        s: size,
+        s: formattedSize,
         r: false,
         t: { limit: { tif: 'Ioc' } }
       }],
@@ -171,13 +177,15 @@ export class HyperliquidService implements IHyperliquidService {
     });
   }
 
-  async placeLimitOrder(params: OrderParams): Promise<OrderResponse> {
+  async placeLimitOrder(params: OrderParams, metadata: SymbolMetadata): Promise<OrderResponse> {
     this.ensureWalletClient();
-    const coinIndex = await this.getCoinIndex(params.coin);
+    if (!metadata) {
+      throw new Error('Metadata is a required parameter');
+    }
 
     return await this.walletClient!.order({
       orders: [{
-        a: coinIndex,
+        a: metadata.coinIndex,
         b: params.isBuy,
         p: params.price,
         s: params.size,
@@ -188,17 +196,19 @@ export class HyperliquidService implements IHyperliquidService {
     });
   }
 
-  async placeBatchLimitOrders(orders: OrderParams[]): Promise<OrderResponse> {
+  async placeBatchLimitOrders(orders: OrderParams[], metadata: SymbolMetadata): Promise<OrderResponse> {
     this.ensureWalletClient();
 
     if (orders.length === 0) {
       throw new Error('No orders provided for batch placement');
     }
 
-    const coinIndex = await this.getCoinIndex(orders[0].coin);
+    if (!metadata) {
+      throw new Error('Metadata is a required parameter');
+    }
 
     const formattedOrders = orders.map(order => ({
-      a: coinIndex,
+      a: metadata.coinIndex,
       b: order.isBuy,
       p: order.price,
       s: order.size,
@@ -212,15 +222,18 @@ export class HyperliquidService implements IHyperliquidService {
     });
   }
 
-  async placeStopLoss(params: StopLossParams): Promise<OrderResponse> {
+  async placeStopLoss(params: StopLossParams, metadata: SymbolMetadata): Promise<OrderResponse> {
     this.ensureWalletClient();
-    const triggerPrice = await this.formatPrice(parseFloat(params.triggerPrice), params.coin);
-    const size = await this.formatSize(parseFloat(params.size), params.coin);
-    const coinIndex = await this.getCoinIndex(params.coin);
+    if (!metadata) {
+      throw new Error('Metadata is a required parameter');
+    }
+
+    const triggerPrice = this.formatPriceCached(parseFloat(params.triggerPrice), metadata);
+    const size = this.formatSizeCached(parseFloat(params.size), metadata);
 
     return await this.walletClient!.order({
       orders: [{
-        a: coinIndex,
+        a: metadata.coinIndex,
         b: params.isBuy,
         p: triggerPrice,
         s: size,
@@ -237,15 +250,18 @@ export class HyperliquidService implements IHyperliquidService {
     });
   }
 
-  async placeTakeProfit(params: TakeProfitParams): Promise<OrderResponse> {
+  async placeTakeProfit(params: TakeProfitParams, metadata: SymbolMetadata): Promise<OrderResponse> {
     this.ensureWalletClient();
-    const triggerPrice = await this.formatPrice(parseFloat(params.triggerPrice), params.coin);
-    const size = await this.formatSize(parseFloat(params.size), params.coin);
-    const coinIndex = await this.getCoinIndex(params.coin);
+    if (!metadata) {
+      throw new Error('Metadata is a required parameter');
+    }
+
+    const triggerPrice = this.formatPriceCached(parseFloat(params.triggerPrice), metadata);
+    const size = this.formatSizeCached(parseFloat(params.size), metadata);
 
     return await this.walletClient!.order({
       orders: [{
-        a: coinIndex,
+        a: metadata.coinIndex,
         b: params.isBuy,
         p: triggerPrice,
         s: size,
@@ -262,22 +278,25 @@ export class HyperliquidService implements IHyperliquidService {
     });
   }
 
-  async placeTriggerMarketOrder(params: TriggerMarketOrderParams): Promise<OrderResponse> {
+  async placeTriggerMarketOrder(params: TriggerMarketOrderParams, metadata: SymbolMetadata): Promise<OrderResponse> {
     this.ensureWalletClient();
+    if (!metadata) {
+      throw new Error('Metadata is a required parameter');
+    }
+
     const triggerPriceNum = parseFloat(params.triggerPrice);
     const slippagePercent = 0.08;
     const executionPriceNum = params.isBuy
       ? triggerPriceNum * (1 + slippagePercent)
       : triggerPriceNum * (1 - slippagePercent);
 
-    const triggerPrice = await this.formatPrice(triggerPriceNum, params.coin);
-    const executionPrice = await this.formatPrice(executionPriceNum, params.coin);
-    const size = await this.formatSize(parseFloat(params.size), params.coin);
-    const coinIndex = await this.getCoinIndex(params.coin);
+    const triggerPrice = this.formatPriceCached(triggerPriceNum, metadata);
+    const executionPrice = this.formatPriceCached(executionPriceNum, metadata);
+    const size = this.formatSizeCached(parseFloat(params.size), metadata);
 
     return await this.walletClient!.order({
       orders: [{
-        a: coinIndex,
+        a: metadata.coinIndex,
         b: params.isBuy,
         p: executionPrice,
         s: size,
@@ -313,11 +332,11 @@ export class HyperliquidService implements IHyperliquidService {
     return await metadataCache.getMetadata(coin, this);
   }
 
-  formatPriceCached(price: number, metadata: any): string {
+  formatPriceCached(price: number, metadata: SymbolMetadata): string {
     return metadataCache.formatPrice(price, metadata);
   }
 
-  formatSizeCached(size: number, metadata: any): string {
+  formatSizeCached(size: number, metadata: SymbolMetadata): string {
     return metadataCache.formatSize(size, metadata);
   }
 
@@ -498,19 +517,25 @@ export class HyperliquidService implements IHyperliquidService {
     }
   }
 
-  async cancelOrder(coin: string, orderId: number): Promise<CancelResponse> {
+  async cancelOrder(coin: string, orderId: number, metadata: SymbolMetadata): Promise<CancelResponse> {
     this.ensureWalletClient();
-    const coinIndex = await this.getCoinIndex(coin);
+    if (!metadata) {
+      throw new Error('Metadata is a required parameter');
+    }
     return await this.walletClient!.cancel({
       cancels: [{
-        a: coinIndex,
+        a: metadata.coinIndex,
         o: orderId
       }]
     });
   }
 
-  async cancelAllOrders(coin: string): Promise<CancelResponse> {
+  async cancelAllOrders(coin: string, metadata: SymbolMetadata): Promise<CancelResponse> {
     this.ensureWalletClient();
+    if (!metadata) {
+      throw new Error('Metadata is a required parameter');
+    }
+
     const orders = await this.getOpenOrders();
     const coinOrders = orders.filter(order => order.coin === coin);
 
@@ -518,17 +543,20 @@ export class HyperliquidService implements IHyperliquidService {
       return { status: 'ok', response: { type: 'cancel', data: { statuses: [] } } } as CancelResponse;
     }
 
-    const coinIndex = await this.getCoinIndex(coin);
     const cancels = coinOrders.map(order => ({
-      a: coinIndex,
+      a: metadata.coinIndex,
       o: order.oid
     }));
 
     return await this.walletClient!.cancel({ cancels });
   }
 
-  async cancelEntryOrders(coin: string): Promise<CancelResponse> {
+  async cancelEntryOrders(coin: string, metadata: SymbolMetadata): Promise<CancelResponse> {
     this.ensureWalletClient();
+    if (!metadata) {
+      throw new Error('Metadata is a required parameter');
+    }
+
     const orders = await this.getOpenOrders();
     const coinOrders = orders.filter(order => order.coin === coin);
 
@@ -551,17 +579,20 @@ export class HyperliquidService implements IHyperliquidService {
       return { status: 'ok', response: { type: 'cancel', data: { statuses: [] } } } as CancelResponse;
     }
 
-    const coinIndex = await this.getCoinIndex(coin);
     const cancels = entryOrders.map(order => ({
-      a: coinIndex,
+      a: metadata.coinIndex,
       o: order.oid
     }));
 
     return await this.walletClient!.cancel({ cancels });
   }
 
-  async cancelExitOrders(coin: string): Promise<CancelResponse> {
+  async cancelExitOrders(coin: string, metadata: SymbolMetadata): Promise<CancelResponse> {
     this.ensureWalletClient();
+    if (!metadata) {
+      throw new Error('Metadata is a required parameter');
+    }
+
     const orders = await this.getOpenOrders();
     const coinOrders = orders.filter(order => order.coin === coin);
 
@@ -584,17 +615,20 @@ export class HyperliquidService implements IHyperliquidService {
       return { status: 'ok', response: { type: 'cancel', data: { statuses: [] } } } as CancelResponse;
     }
 
-    const coinIndex = await this.getCoinIndex(coin);
     const cancels = exitOrders.map(order => ({
-      a: coinIndex,
+      a: metadata.coinIndex,
       o: order.oid
     }));
 
     return await this.walletClient!.cancel({ cancels });
   }
 
-  async cancelTPOrders(coin: string): Promise<CancelResponse> {
+  async cancelTPOrders(coin: string, metadata: SymbolMetadata): Promise<CancelResponse> {
     this.ensureWalletClient();
+    if (!metadata) {
+      throw new Error('Metadata is a required parameter');
+    }
+
     const [orders, positions] = await Promise.all([
       this.getOpenOrders(),
       this.getOpenPositions()
@@ -625,17 +659,20 @@ export class HyperliquidService implements IHyperliquidService {
       return { status: 'ok', response: { type: 'cancel', data: { statuses: [] } } } as CancelResponse;
     }
 
-    const coinIndex = await this.getCoinIndex(coin);
     const cancels = tpOrders.map(order => ({
-      a: coinIndex,
+      a: metadata.coinIndex,
       o: order.oid
     }));
 
     return await this.walletClient!.cancel({ cancels });
   }
 
-  async cancelSLOrders(coin: string): Promise<CancelResponse> {
+  async cancelSLOrders(coin: string, metadata: SymbolMetadata): Promise<CancelResponse> {
     this.ensureWalletClient();
+    if (!metadata) {
+      throw new Error('Metadata is a required parameter');
+    }
+
     const [orders, positions] = await Promise.all([
       this.getOpenOrders(),
       this.getOpenPositions()
@@ -666,59 +703,64 @@ export class HyperliquidService implements IHyperliquidService {
       return { status: 'ok', response: { type: 'cancel', data: { statuses: [] } } } as CancelResponse;
     }
 
-    const coinIndex = await this.getCoinIndex(coin);
     const cancels = slOrders.map(order => ({
-      a: coinIndex,
+      a: metadata.coinIndex,
       o: order.oid
     }));
 
     return await this.walletClient!.cancel({ cancels });
   }
 
-  async openLong(params: LongParams): Promise<OrderResponse> {
+  async openLong(params: LongParams, metadata: SymbolMetadata): Promise<OrderResponse> {
     this.ensureWalletClient();
-    const price = params.price || await this.getMarketPrice(params.coin, true);
-    const size = await this.formatSize(parseFloat(params.size), params.coin);
-    const coinIndex = await this.getCoinIndex(params.coin);
+    if (!params.price || !metadata) {
+      throw new Error('Price and metadata are required parameters');
+    }
+
+    const formattedSize = this.formatSizeCached(parseFloat(params.size), metadata);
 
     return await this.walletClient!.order({
       orders: [{
-        a: coinIndex,
+        a: metadata.coinIndex,
         b: true,
-        p: price,
-        s: size,
+        p: params.price,
+        s: formattedSize,
         r: false,
-        t: params.price ? { limit: { tif: 'Gtc' } } : { limit: { tif: 'Ioc' } }
+        t: { limit: { tif: 'Gtc' } }
       }],
       grouping: 'na'
     });
   }
 
-  async openShort(params: ShortParams): Promise<OrderResponse> {
+  async openShort(params: ShortParams, metadata: SymbolMetadata): Promise<OrderResponse> {
     this.ensureWalletClient();
-    const price = params.price || await this.getMarketPrice(params.coin, false);
-    const size = await this.formatSize(parseFloat(params.size), params.coin);
-    const coinIndex = await this.getCoinIndex(params.coin);
+    if (!params.price || !metadata) {
+      throw new Error('Price and metadata are required parameters');
+    }
+
+    const formattedSize = this.formatSizeCached(parseFloat(params.size), metadata);
 
     return await this.walletClient!.order({
       orders: [{
-        a: coinIndex,
+        a: metadata.coinIndex,
         b: false,
-        p: price,
-        s: size,
+        p: params.price,
+        s: formattedSize,
         r: false,
-        t: params.price ? { limit: { tif: 'Gtc' } } : { limit: { tif: 'Ioc' } }
+        t: { limit: { tif: 'Gtc' } }
       }],
       grouping: 'na'
     });
   }
 
-  async setLeverage(coin: string, leverage: number, isCross: boolean = true): Promise<SuccessResponse | null> {
+  async setLeverage(coin: string, leverage: number, metadata: SymbolMetadata, isCross: boolean = true): Promise<SuccessResponse | null> {
     this.ensureWalletClient();
-    const coinIndex = await this.getCoinIndex(coin);
+    if (!metadata) {
+      throw new Error('Metadata is a required parameter');
+    }
     try {
       return await (this.walletClient as any).updateLeverage({
-        asset: coinIndex,
+        asset: metadata.coinIndex,
         isCross,
         leverage
       });
@@ -727,40 +769,20 @@ export class HyperliquidService implements IHyperliquidService {
     }
   }
 
-  async closePosition(params: ClosePositionParams): Promise<OrderResponse> {
+  async closePosition(params: ClosePositionParams, price: string, metadata: SymbolMetadata, positionData: AssetPosition): Promise<OrderResponse> {
     this.ensureWalletClient();
-    const positions = await this.getOpenPositions();
-    const position = positions.find(p => p.position.coin === params.coin);
-
-    if (!position) {
-      throw new Error(`No open position for ${params.coin}`);
+    if (!price || !metadata || !positionData) {
+      throw new Error('Price, metadata, and positionData are required parameters');
     }
 
-    const size = params.size || Math.abs(parseFloat(position.position.szi)).toString();
-    const isLong = parseFloat(position.position.szi) > 0;
+    const size = params.size || Math.abs(parseFloat(positionData.position.szi)).toString();
+    const isLong = parseFloat(positionData.position.szi) > 0;
 
-    const book = await this.publicClient.l2Book({ coin: params.coin });
-    const bids = book.levels[0];
-    const asks = book.levels[1];
-
-    if (bids.length === 0 || asks.length === 0) {
-      throw new Error(`No liquidity available for ${params.coin}`);
-    }
-
-    const topBid = parseFloat(bids[0].px);
-    const topAsk = parseFloat(asks[0].px);
-    const slippage = 0.005;
-
-    const price = isLong
-      ? await this.formatPrice(topBid * (1 - slippage), params.coin)
-      : await this.formatPrice(topAsk * (1 + slippage), params.coin);
-
-    const formattedSize = await this.formatSize(parseFloat(size), params.coin);
-    const coinIndex = await this.getCoinIndex(params.coin);
+    const formattedSize = this.formatSizeCached(parseFloat(size), metadata);
 
     return await this.walletClient!.order({
       orders: [{
-        a: coinIndex,
+        a: metadata.coinIndex,
         b: !isLong,
         p: price,
         s: formattedSize,

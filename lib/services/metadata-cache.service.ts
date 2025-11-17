@@ -1,6 +1,6 @@
 import type { HyperliquidService } from './hyperliquid.service';
 
-interface SymbolMetadata {
+export interface SymbolMetadata {
   coinIndex: number;
   tickSize: number;
   sizeDecimals: number;

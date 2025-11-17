@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { useCredentials } from '@/lib/context/credentials-context';
-import { privateKeyToAccount } from 'viem/accounts';
 
 interface CredentialsSettingsProps {
   initialWalletAddress?: string | null;
@@ -41,18 +40,15 @@ export function CredentialsSettings({ initialWalletAddress }: CredentialsSetting
         throw new Error('Private key must start with 0x');
       }
 
-      let address = walletAddress;
-      if (!address) {
-        const account = privateKeyToAccount(privateKey as `0x${string}`);
-        address = account.address;
-        setWalletAddress(address);
+      if (!walletAddress) {
+        throw new Error('Wallet address is required');
       }
 
-      if (address.startsWith('0x') && address.length === 66) {
-        throw new Error('Wallet address cannot be a private key. Please use the Derive button or enter a valid wallet address.');
+      if (walletAddress.startsWith('0x') && walletAddress.length === 66) {
+        throw new Error('Wallet address cannot be a private key. Please enter a valid wallet address.');
       }
 
-      await saveCredentials(privateKey, address, isTestnet);
+      await saveCredentials(privateKey, walletAddress, isTestnet);
       setStatus('success');
       setTimeout(() => setStatus('idle'), 2000);
     } catch (error) {
@@ -96,21 +92,6 @@ export function CredentialsSettings({ initialWalletAddress }: CredentialsSetting
     setWalletAddress(value);
   };
 
-  const deriveAddress = () => {
-    try {
-      if (!privateKey || !privateKey.startsWith('0x')) {
-        throw new Error('Invalid private key format');
-      }
-      const account = privateKeyToAccount(privateKey as `0x${string}`);
-      setWalletAddress(account.address);
-      setWalletAddressError('');
-      setStatus('success');
-      setTimeout(() => setStatus('idle'), 1000);
-    } catch (error) {
-      setStatus('error');
-      setErrorMessage('Failed to derive address from private key');
-    }
-  };
 
   return (
     <div className="space-y-6 p-6 bg-gray-900 rounded-lg">
@@ -194,28 +175,18 @@ export function CredentialsSettings({ initialWalletAddress }: CredentialsSetting
           <label htmlFor="walletAddress" className="block text-sm font-medium text-gray-300 mb-2">
             Wallet Address
           </label>
-          <div className="flex gap-2">
-            <input
-              id="walletAddress"
-              type="text"
-              value={walletAddress}
-              onChange={(e) => handleWalletAddressChange(e.target.value)}
-              placeholder="0x..."
-              className={`flex-1 px-4 py-2 bg-gray-800 border rounded-lg text-white focus:outline-none focus:ring-2 font-mono text-sm ${
-                walletAddressError
-                  ? 'border-red-500 focus:ring-red-500'
-                  : 'border-gray-700 focus:ring-blue-500'
-              }`}
-            />
-            <button
-              type="button"
-              onClick={deriveAddress}
-              disabled={!privateKey}
-              className="px-4 py-2 bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-600 text-white rounded-lg transition-colors text-sm"
-            >
-              Derive
-            </button>
-          </div>
+          <input
+            id="walletAddress"
+            type="text"
+            value={walletAddress}
+            onChange={(e) => handleWalletAddressChange(e.target.value)}
+            placeholder="0x..."
+            className={`w-full px-4 py-2 bg-gray-800 border rounded-lg text-white focus:outline-none focus:ring-2 font-mono text-sm ${
+              walletAddressError
+                ? 'border-red-500 focus:ring-red-500'
+                : 'border-gray-700 focus:ring-blue-500'
+            }`}
+          />
           {walletAddressError && (
             <div className="mt-2 bg-red-900/30 border border-red-700/50 rounded-lg p-3">
               <p className="text-sm text-red-400 font-medium">{walletAddressError}</p>
@@ -233,7 +204,7 @@ export function CredentialsSettings({ initialWalletAddress }: CredentialsSetting
       <div className="flex gap-3">
         <button
           onClick={handleSave}
-          disabled={status === 'saving' || !privateKey || !!walletAddressError}
+          disabled={status === 'saving' || !privateKey || !walletAddress || !!walletAddressError}
           className="flex-1 px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded-lg font-medium transition-colors"
         >
           {status === 'saving' ? 'Saving...' : status === 'success' ? 'Saved!' : 'Save Credentials'}
