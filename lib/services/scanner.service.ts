@@ -33,7 +33,9 @@ import {
   detectStochasticPivots,
   detectRSIPivots,
   detectDivergence,
-  calculateTrendlines
+  calculateTrendlines,
+  calculateATR,
+  type DivergenceOptions
 } from '@/lib/indicators';
 import { aggregate1mTo5m } from '@/lib/candle-aggregator';
 import { downsampleCandles } from '@/lib/candle-utils';
@@ -578,7 +580,21 @@ export class ScannerService {
         const rsiData = calculateRSI(closePricesForRsi, 14);
         const rsiPivots = detectRSIPivots(rsiData, candles as any, config.pivotStrength);
 
-        const divergences = detectDivergence(pricePivots, rsiPivots, candles as any);
+        let divergenceOptions: DivergenceOptions | undefined = undefined;
+
+        if (config.useDynamicThresholds) {
+          const atrPeriod = config.atrPeriod || 14;
+          const atrValues = calculateATR(candles as any, atrPeriod);
+
+          divergenceOptions = {
+            minPriceChangeATR: config.minPriceChangeATR,
+            minRsiChange: config.minRsiChange,
+            atrValues,
+            rsiValues: rsiData,
+          };
+        }
+
+        const divergences = detectDivergence(pricePivots, rsiPivots, candles as any, divergenceOptions);
 
         if (divergences.length > 0) {
           const recentDivergence = divergences[divergences.length - 1];

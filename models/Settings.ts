@@ -85,6 +85,10 @@ export interface DivergenceScannerConfig {
   pivotStrength: number;
   timeframes: ('1m' | '5m')[];
   minStrength: number;
+  useDynamicThresholds: boolean;
+  minPriceChangeATR: number;
+  minRsiChange: number;
+  atrPeriod: number;
 }
 
 export interface MacdReversalScannerConfig {
@@ -263,9 +267,13 @@ export const DEFAULT_SETTINGS: AppSettings = {
       scanBullish: true,
       scanBearish: true,
       scanHidden: false,
-      pivotStrength: 3,
+      pivotStrength: 15,
       timeframes: ['1m', '5m'],
       minStrength: 30,
+      useDynamicThresholds: true,
+      minPriceChangeATR: 1.5,
+      minRsiChange: 5,
+      atrPeriod: 14,
     },
     macdReversalScanner: {
       enabled: false,

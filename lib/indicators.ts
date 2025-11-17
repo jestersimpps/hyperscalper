@@ -152,6 +152,79 @@ export function calculateRSI(data: number[], period: number = 14): number[] {
   return rsi;
 }
 
+export interface ATRResult {
+  atr: number[];
+  trueRange: number[];
+}
+
+export function calculateTrueRange(candles: FullCandleData[]): number[] {
+  if (candles.length < 2) return [];
+
+  const trueRange: number[] = [];
+
+  trueRange.push(candles[0].high - candles[0].low);
+
+  for (let i = 1; i < candles.length; i++) {
+    const high = candles[i].high;
+    const low = candles[i].low;
+    const prevClose = candles[i - 1].close;
+
+    const tr = Math.max(
+      high - low,
+      Math.abs(high - prevClose),
+      Math.abs(low - prevClose)
+    );
+
+    trueRange.push(tr);
+  }
+
+  return trueRange;
+}
+
+export function calculateATR(candles: FullCandleData[], period: number = 14): number[] {
+  if (candles.length < period + 1) return [];
+
+  const trueRange = calculateTrueRange(candles);
+  const atr: number[] = [];
+
+  let initialSum = 0;
+  for (let i = 0; i < period; i++) {
+    initialSum += trueRange[i];
+    atr.push(0);
+  }
+
+  const initialATR = initialSum / period;
+  atr[period - 1] = initialATR;
+
+  for (let i = period; i < trueRange.length; i++) {
+    const smoothedATR = (atr[i - 1] * (period - 1) + trueRange[i]) / period;
+    atr.push(smoothedATR);
+  }
+
+  return atr;
+}
+
+export function calculateRSIVolatility(rsiValues: number[], period: number = 15): number {
+  if (rsiValues.length < period) return 5;
+
+  let totalRange = 0;
+  let windowCount = 0;
+
+  for (let i = period - 1; i < rsiValues.length; i++) {
+    const window = rsiValues.slice(i - period + 1, i + 1);
+    const high = Math.max(...window);
+    const low = Math.min(...window);
+    const range = high - low;
+
+    totalRange += range;
+    windowCount++;
+  }
+
+  const avgRange = windowCount > 0 ? totalRange / windowCount : 5;
+
+  return Math.max(avgRange * 0.3, 5);
+}
+
 export interface StochasticData {
   k: number;
   d: number;
@@ -756,12 +829,52 @@ export function calculateDivergenceStrength(
   return Math.round(strength);
 }
 
+export interface DivergenceOptions {
+  minPriceChangeATR?: number;
+  minRsiChange?: number;
+  atrValues?: number[];
+  rsiValues?: number[];
+}
+
 export function detectDivergence(
   pricePivots: Pivot[],
   rsiPivots: RSIPivot[],
-  candles: FullCandleData[]
+  candles: FullCandleData[],
+  options?: DivergenceOptions
 ): DivergencePoint[] {
   const divergences: DivergencePoint[] = [];
+
+  const useDynamicThresholds = options?.minPriceChangeATR !== undefined || options?.minRsiChange !== undefined;
+
+  const meetsThresholds = (
+    priceChange: number,
+    rsiChange: number,
+    pivotIndex: number
+  ): boolean => {
+    if (!useDynamicThresholds) return true;
+
+    let meetsPrice = true;
+    let meetsRsi = true;
+
+    if (options?.minPriceChangeATR !== undefined && options?.atrValues) {
+      const atr = options.atrValues[pivotIndex] || options.atrValues[options.atrValues.length - 1];
+      const requiredPriceChange = atr * options.minPriceChangeATR;
+      meetsPrice = Math.abs(priceChange) >= requiredPriceChange;
+    }
+
+    if (options?.minRsiChange !== undefined) {
+      let dynamicRsiThreshold = options.minRsiChange;
+
+      if (options?.rsiValues) {
+        const rsiVolatility = calculateRSIVolatility(options.rsiValues, 15);
+        dynamicRsiThreshold = Math.max(rsiVolatility, options.minRsiChange);
+      }
+
+      meetsRsi = Math.abs(rsiChange) >= dynamicRsiThreshold;
+    }
+
+    return meetsPrice && meetsRsi;
+  };
 
   const highs = pricePivots.filter(p => p.type === 'high').sort((a, b) => a.index - b.index);
   const lows = pricePivots.filter(p => p.type === 'low').sort((a, b) => a.index - b.index);
@@ -777,47 +890,57 @@ export function detectDivergence(
 
     if (prevRsiHigh && currRsiHigh) {
       if (currHigh.price > prevHigh.price && currRsiHigh.value < prevRsiHigh.value) {
-        const strength = calculateDivergenceStrength(
-          prevHigh.price,
-          currHigh.price,
-          prevRsiHigh.value,
-          currRsiHigh.value,
-          prevHigh.index,
-          currHigh.index,
-          'bearish'
-        );
-        divergences.push({
-          type: 'bearish',
-          startTime: prevHigh.time,
-          endTime: currHigh.time,
-          startPriceValue: prevHigh.price,
-          endPriceValue: currHigh.price,
-          startRsiValue: prevRsiHigh.value,
-          endRsiValue: currRsiHigh.value,
-          strength,
-        });
+        const priceChange = currHigh.price - prevHigh.price;
+        const rsiChange = currRsiHigh.value - prevRsiHigh.value;
+
+        if (meetsThresholds(priceChange, rsiChange, currHigh.index)) {
+          const strength = calculateDivergenceStrength(
+            prevHigh.price,
+            currHigh.price,
+            prevRsiHigh.value,
+            currRsiHigh.value,
+            prevHigh.index,
+            currHigh.index,
+            'bearish'
+          );
+          divergences.push({
+            type: 'bearish',
+            startTime: prevHigh.time,
+            endTime: currHigh.time,
+            startPriceValue: prevHigh.price,
+            endPriceValue: currHigh.price,
+            startRsiValue: prevRsiHigh.value,
+            endRsiValue: currRsiHigh.value,
+            strength,
+          });
+        }
       }
 
       if (currHigh.price < prevHigh.price && currRsiHigh.value > prevRsiHigh.value) {
-        const strength = calculateDivergenceStrength(
-          prevHigh.price,
-          currHigh.price,
-          prevRsiHigh.value,
-          currRsiHigh.value,
-          prevHigh.index,
-          currHigh.index,
-          'hidden-bearish'
-        );
-        divergences.push({
-          type: 'hidden-bearish',
-          startTime: prevHigh.time,
-          endTime: currHigh.time,
-          startPriceValue: prevHigh.price,
-          endPriceValue: currHigh.price,
-          startRsiValue: prevRsiHigh.value,
-          endRsiValue: currRsiHigh.value,
-          strength,
-        });
+        const priceChange = currHigh.price - prevHigh.price;
+        const rsiChange = currRsiHigh.value - prevRsiHigh.value;
+
+        if (meetsThresholds(priceChange, rsiChange, currHigh.index)) {
+          const strength = calculateDivergenceStrength(
+            prevHigh.price,
+            currHigh.price,
+            prevRsiHigh.value,
+            currRsiHigh.value,
+            prevHigh.index,
+            currHigh.index,
+            'hidden-bearish'
+          );
+          divergences.push({
+            type: 'hidden-bearish',
+            startTime: prevHigh.time,
+            endTime: currHigh.time,
+            startPriceValue: prevHigh.price,
+            endPriceValue: currHigh.price,
+            startRsiValue: prevRsiHigh.value,
+            endRsiValue: currRsiHigh.value,
+            strength,
+          });
+        }
       }
     }
   }
@@ -831,47 +954,57 @@ export function detectDivergence(
 
     if (prevRsiLow && currRsiLow) {
       if (currLow.price < prevLow.price && currRsiLow.value > prevRsiLow.value) {
-        const strength = calculateDivergenceStrength(
-          prevLow.price,
-          currLow.price,
-          prevRsiLow.value,
-          currRsiLow.value,
-          prevLow.index,
-          currLow.index,
-          'bullish'
-        );
-        divergences.push({
-          type: 'bullish',
-          startTime: prevLow.time,
-          endTime: currLow.time,
-          startPriceValue: prevLow.price,
-          endPriceValue: currLow.price,
-          startRsiValue: prevRsiLow.value,
-          endRsiValue: currRsiLow.value,
-          strength,
-        });
+        const priceChange = currLow.price - prevLow.price;
+        const rsiChange = currRsiLow.value - prevRsiLow.value;
+
+        if (meetsThresholds(priceChange, rsiChange, currLow.index)) {
+          const strength = calculateDivergenceStrength(
+            prevLow.price,
+            currLow.price,
+            prevRsiLow.value,
+            currRsiLow.value,
+            prevLow.index,
+            currLow.index,
+            'bullish'
+          );
+          divergences.push({
+            type: 'bullish',
+            startTime: prevLow.time,
+            endTime: currLow.time,
+            startPriceValue: prevLow.price,
+            endPriceValue: currLow.price,
+            startRsiValue: prevRsiLow.value,
+            endRsiValue: currRsiLow.value,
+            strength,
+          });
+        }
       }
 
       if (currLow.price > prevLow.price && currRsiLow.value < prevRsiLow.value) {
-        const strength = calculateDivergenceStrength(
-          prevLow.price,
-          currLow.price,
-          prevRsiLow.value,
-          currRsiLow.value,
-          prevLow.index,
-          currLow.index,
-          'hidden-bullish'
-        );
-        divergences.push({
-          type: 'hidden-bullish',
-          startTime: prevLow.time,
-          endTime: currLow.time,
-          startPriceValue: prevLow.price,
-          endPriceValue: currLow.price,
-          startRsiValue: prevRsiLow.value,
-          endRsiValue: currRsiLow.value,
-          strength,
-        });
+        const priceChange = currLow.price - prevLow.price;
+        const rsiChange = currRsiLow.value - prevRsiLow.value;
+
+        if (meetsThresholds(priceChange, rsiChange, currLow.index)) {
+          const strength = calculateDivergenceStrength(
+            prevLow.price,
+            currLow.price,
+            prevRsiLow.value,
+            currRsiLow.value,
+            prevLow.index,
+            currLow.index,
+            'hidden-bullish'
+          );
+          divergences.push({
+            type: 'hidden-bullish',
+            startTime: prevLow.time,
+            endTime: currLow.time,
+            startPriceValue: prevLow.price,
+            endPriceValue: currLow.price,
+            startRsiValue: prevRsiLow.value,
+            endRsiValue: currRsiLow.value,
+            strength,
+          });
+        }
       }
     }
   }
