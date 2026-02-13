@@ -340,6 +340,10 @@ export class HyperliquidService implements IHyperliquidService {
     return metadataCache.formatSize(size, metadata);
   }
 
+  getMinSizeForPrice(price: number, metadata: SymbolMetadata, minNotional: number = 10): string {
+    return metadataCache.getMinSizeForPrice(price, metadata, minNotional);
+  }
+
   async getAccountBalanceCached(user?: string): Promise<AccountBalance> {
     return await accountCache.getBalance(this, user);
   }

@@ -549,6 +549,15 @@ export default function LandingPage() {
                   </svg>
                   <span>Open Source on GitHub</span>
                 </a>
+                <span className="mx-2 text-white/20">·</span>
+                <a
+                  href="https://jovweb.dev"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-gray-400 hover:text-primary transition-colors font-mono text-xs md:text-sm"
+                >
+                  <span>Built by Jo Vinkenroye</span>
+                </a>
               </div>
             </div>
           </footer>

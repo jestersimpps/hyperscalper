@@ -1,0 +1,43 @@
+# HyperScalper
+
+> A professional real-time cryptocurrency trading terminal for [Hyperliquid DEX](https://hyperliquid.xyz) with advanced technical analysis, multi-timeframe charting, and automated signal detection.
+
+## What It Does
+
+HyperScalper is a self-hosted web-based trading terminal that connects to the Hyperliquid decentralized exchange. It provides real-time charting with TradingView lightweight-charts, a multi-symbol scanner with signal detection, position/order management, and WebSocket-driven live data feeds. It supports read-only mode (wallet address only) or full trading (with private key). 100% client-side — your keys never leave your browser.
+
+## Key Features
+
+- **Real-time Charts**: Candlestick charts with EMA, MACD, RSI, Stochastic, Donchian/Keltner channels, support/resistance detection, and divergence analysis
+- **Signal Scanner**: Scans all Hyperliquid perps for bullish/bearish signals across multiple timeframes (1m, 5m, 15m, 1h, 4h, 1d) with confidence scoring
+- **Multi-Timeframe View**: Synchronized multi-chart layout (1m, 5m, 15m, 1h) for comprehensive analysis
+- **Position & Order Management**: One-click trading with cloud orders, stop-loss, take-profit, and trigger market orders
+- **WebSocket Streams**: Live candles, trades, order book, and price tickers with automatic reconnection
+- **20+ Themes**: Terminal Green, Synthwave, Amber, Cyberpunk, Matrix, and more
+- **Inverted Mode**: Flip signal colors for short-focused trading
+- **Performance Optimized**: Virtual scrolling, RAF throttling, memoized calculations, efficient WebSocket pooling
+
+## Tech Stack
+
+- Next.js 16, React 19, TypeScript 5
+- TailwindCSS 4, TradingView lightweight-charts 4.2
+- Zustand 5 (state management, 20+ stores)
+- @nktkas/hyperliquid SDK (REST + WebSocket)
+- @tanstack/react-virtual (virtual scrolling)
+
+## Getting Started
+
+1. Install: `npm install`
+2. Dev: `npm run dev` (runs on port 3001)
+3. Build: `npm run build && npm start`
+4. Open `http://localhost:3001` and enter a Hyperliquid wallet address
+
+Requires Node.js 18+.
+
+## Author
+
+Built by [Jo Vinkenroye](https://jovweb.dev)
+
+## License
+
+Private use only.

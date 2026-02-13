@@ -1,0 +1,315 @@
+# HyperScalper — Full Technical Reference
+
+> A professional real-time cryptocurrency trading terminal for Hyperliquid DEX with advanced technical analysis, multi-timeframe charting, and automated signal detection.
+
+## Architecture Overview
+
+HyperScalper is a Next.js 16 application using the App Router. It connects to Hyperliquid's REST API and WebSocket endpoints via the `@nktkas/hyperliquid` SDK. State is managed through 20+ Zustand stores, each responsible for a specific domain (candles, positions, orders, scanner, settings, etc.). The UI renders TradingView lightweight-charts for all charting. The app is fully client-side; there is no backend server.
+
+### Data Flow
+
+```
+Hyperliquid API (REST + WebSocket)
+  └─> @nktkas/hyperliquid SDK
+       ├─> HyperliquidService (REST: candles, orders, positions, account)
+       └─> HyperliquidWebSocketService (WS: live candles, trades, allMids)
+            └─> Zustand Stores (20+)
+                 └─> React Components (charts, scanner, order panels)
+```
+
+### Key Layers
+
+1. **Transport**: `HttpTransport` for REST, `WebSocketTransport` for real-time streams
+2. **Service Layer**: `HyperliquidService` (REST operations), `HyperliquidWebSocketService` (subscriptions)
+3. **State Layer**: Zustand stores — each store is a single-concern slice
+4. **UI Layer**: React 19 components with TailwindCSS 4
+
+## API Integration
+
+### REST API (via HyperliquidService)
+
+The `HyperliquidService` class wraps `@nktkas/hyperliquid`'s `PublicClient` and `WalletClient`:
+
+- **PublicClient** (read-only, no auth needed):
+  - `candleSnapshot({coin, interval, startTime?, endTime?})` — historical candles
+  - `clearinghouseState({user})` — positions, margin, account value
+  - `openOrders({user})` — current open orders
+  - `allMids()` — mid prices for all assets
+  - `meta()` — perpetuals metadata (all coins, size decimals, price decimals)
+  - `userFills({user})` — recent fills/trades
+  - `l2Book({coin})` — order book depth
+
+- **WalletClient** (requires private key):
+  - `order({orders, grouping})` — place limit/market orders
+  - `cancel({cancels})` — cancel open orders
+  - `updateLeverage({coin, leverage, isCross})` — set leverage
+  - Supports `tpsl` grouping for stop-loss/take-profit orders
+  - Trigger orders via `triggerPx` parameter
+
+### Endpoints
+- Mainnet REST: `https://api.hyperliquid.xyz`
+- Mainnet WS: `wss://api.hyperliquid.xyz/ws`
+- Testnet REST: `https://api.hyperliquid-testnet.xyz`
+- Testnet WS: `wss://api.hyperliquid-testnet.xyz/ws`
+
+### WebSocket Subscriptions (via HyperliquidWebSocketService)
+
+Uses `EventClient` from the SDK:
+
+- **Candle subscriptions**: `eventClient.candle({coin, interval}, callback)` — real-time OHLCV updates
+- **Trade subscriptions**: `eventClient.trades({coin}, callback)` — live trade stream
+- **AllMids subscriptions**: `eventClient.allMids(callback)` — live mid-price updates for all assets
+
+Each subscription is tracked with a unique ID and stored in an internal `Map<string, Subscription>`. Supports unsubscribe by ID. Auto-reconnection is handled by the SDK transport layer.
+
+## Order Flow
+
+### Order Types
+
+1. **Market Order**: Executed via limit order at aggressive price (slippage-adjusted)
+2. **Limit Order**: Standard limit at specified price
+3. **Stop-Loss**: Trigger order with `triggerPx`, activates when price crosses threshold
+4. **Take-Profit**: Trigger order in opposite direction
+5. **Trigger Market Order**: Market order that fires at a trigger price
+6. **Cloud Orders**: Percentage-based order sizing (cloud/small/big percentages configurable)
+
+### Order Placement Flow
+
+```
+User Action → useTradingStore → HyperliquidService.placeOrder()
+  → WalletClient.order({orders: [{asset, isBuy, limitPx, sz, orderType, reduceOnly}], grouping})
+  → Hyperliquid API → OrderResponse (statuses array)
+  → Toast notification (success/error)
+```
+
+### Position Management
+
+- Positions fetched via `clearinghouseState` → stored in `usePositionStore`
+- Displays: entry price, size, unrealized PnL, margin, leverage, liquidation price
+- Close position: market order with `reduceOnly: true`
+- Breakeven calculation includes fees (utility in `breakeven-utils.ts`)
+
+### Order Size Calculation
+
+Orders use percentage-based sizing from settings:
+- `cloudPercentage` (default 5%) — small scalp orders
+- `smallPercentage` (default 10%) — standard orders  
+- `bigPercentage` (default 25%) — large conviction orders
+
+Size = (accountValue × percentage) / currentPrice, rounded to asset's size decimals.
+
+## Technical Analysis Engine
+
+### Indicators (`lib/indicators.ts`)
+
+- **EMA**: Configurable periods (default 5, 13, 21)
+- **MACD**: Multi-timeframe with configurable fast/slow/signal periods (default 5/13/5)
+- **RSI**: Standard 14-period with overbought/oversold levels
+- **Stochastic Oscillator**: 4 variants — Ultra Fast (9), Fast (14), Medium (40), Slow (60)
+- **Donchian Channel**: High/low range over N periods
+- **Keltner Channel**: EMA ± ATR multiplier
+- **Support/Resistance**: Automatic detection with touch counting and distance calculation
+- **Pivot Points**: High/low pivot detection for divergence analysis
+
+### Signal Scanner (`lib/services/scanner.service.ts`)
+
+Scans top N markets (configurable, default 20) for:
+- Stochastic crossovers at oversold/overbought levels
+- EMA alignment and crossovers
+- MACD histogram reversals and signal line crosses
+- RSI extremes and reversals
+- Volume spikes (configurable threshold)
+- Channel breakouts/bounces (Donchian/Keltner)
+- Support/resistance proximity
+- Regular and hidden divergences (MACD, RSI, Stochastic)
+
+Each signal gets a confidence score. Multi-timeframe aggregation across 1m and 5m (configurable).
+
+### Divergence Detection
+
+Detects regular and hidden divergences using pivot points:
+- **Regular bullish**: Price makes lower low, indicator makes higher low
+- **Regular bearish**: Price makes higher high, indicator makes lower high
+- **Hidden bullish**: Price makes higher low, indicator makes lower low
+- **Hidden bearish**: Price makes lower high, indicator makes higher high
+
+Supports dynamic thresholds using ATR for adaptive sensitivity.
+
+## Zustand Stores
+
+| Store | Purpose |
+|-------|---------|
+| `useCandleStore` | Current symbol's candle data |
+| `useSymbolCandlesStore` | Multi-symbol candle cache |
+| `usePositionStore` | Open positions |
+| `useOrderStore` | Open orders |
+| `useTradingStore` | Trading actions (place/cancel orders) |
+| `useSettingsStore` | App settings (persisted to localStorage) |
+| `useScannerStore` | Scanner results and state |
+| `useTradesStore` | Live trade stream |
+| `useUserFillsStore` | User's trade history |
+| `useSymbolMetaStore` | Asset metadata (decimals, min size) |
+| `useWebSocketStatusStore` | WebSocket connection status |
+| `useWatchlistStore` | User's watchlist |
+| `useSidebarPricesStore` | Sidebar price tickers |
+| `useTopSymbolsStore` | Top symbols by volume |
+| `useSymbolVolatilityStore` | Volatility calculations |
+| `useCrosshairStore` | Chart crosshair sync |
+| `useChartSyncStore` | Multi-chart synchronization |
+| `useGlobalPollingStore` | Polling interval management |
+
+## Configuration (Settings Model)
+
+All settings stored in `useSettingsStore` (persisted to localStorage):
+
+### Indicator Settings
+- **Stochastic**: 4 variants (ultraFast/fast/medium/slow), each with period/smoothK/smoothD, divergence variant selection
+- **EMA**: 3 configurable EMAs with period and enabled toggle
+- **MACD**: Per-timeframe config (1m/5m/15m/1h) with fast/slow/signal periods
+
+### Scanner Settings
+- `scanInterval` (minutes), `topMarkets` count, `candleCacheDuration`
+- Per-scanner toggles and parameters for: stochastic, EMA alignment, channel, divergence, MACD reversal, RSI reversal, volume spike, support/resistance
+
+### Order Settings
+- `cloudPercentage` (5%), `smallPercentage` (10%), `bigPercentage` (25%)
+
+### Theme Settings
+- 20 themes: dark, hyper, hyper-black, midnight, light, dark-blue, afternoon, psychedelic, nintendo, gameboy, sega, playstation, cyberpunk, vaporwave, matrix, synthwave, ocean, c64, amber, girly
+- Trade sound toggle
+
+### Chart Settings
+- `showPivotMarkers`, `schmecklesMode` (fun mode), `invertedMode`
+- `pinnedSymbols` array
+
+## Performance Architecture
+
+- **Virtual Scrolling** (`@tanstack/react-virtual`): Only renders visible items in symbol lists and scanner results (~5-10 vs 100+ DOM nodes)
+- **RAF Throttling** (`lib/performance-utils.ts`): Limits chart redraws to ~60fps using requestAnimationFrame
+- **Debounced Detection**: Divergence detection debounced at 1000ms
+- **Memoization** (`lib/memoization.ts`): Cached indicator calculations, memoized React components
+- **WebSocket Pooling**: Single WebSocket connection shared across all subscriptions via singleton pattern (`lib/websocket/websocket-singleton.ts`)
+- **Metadata Cache** (`lib/services/metadata-cache.service.ts`): Caches asset metadata (decimals, min sizes) to avoid repeated API calls
+- **Account Cache** (`lib/services/account-cache.service.ts`): Caches account state with TTL
+
+## File Structure
+
+```
+hyperscalper/
+├── app/                              # Next.js App Router pages
+│   ├── page.tsx                      # Landing page (enter wallet address)
+│   ├── layout.tsx                    # Root layout
+│   ├── sitemap.ts                    # SEO sitemap
+│   └── [address]/                    # Dynamic wallet address routes
+│       ├── layout.tsx                # Address layout (loads data)
+│       ├── [symbol]/                 # Single symbol trading view
+│       │   ├── page.tsx
+│       │   └── layout.tsx
+│       ├── multi-chart/[symbol]/     # Multi-timeframe view
+│       │   └── page.tsx
+│       ├── chart-popup/[symbol]/     # Popup chart window
+│       │   └── page.tsx
+│       ├── watchlist/page.tsx        # Watchlist management
+│       └── trades/                   # Trade history
+│           ├── page.tsx
+│           └── layout.tsx
+├── components/
+│   ├── ScalpingChart.tsx             # Main chart component (TradingView)
+│   ├── MultiTimeframeChart.tsx       # Multi-chart grid
+│   ├── PositionPriceIndicator.tsx    # Position overlay on chart
+│   ├── auth/
+│   │   └── RequireCredentials.tsx    # Auth gate for trading
+│   ├── layout/
+│   │   ├── Sidepanel.tsx             # Symbol list & scanner sidebar
+│   │   ├── TerminalHeader.tsx        # Top bar with controls
+│   │   ├── TerminalFooter.tsx        # Status bar
+│   │   ├── SettingsPanel.tsx         # Settings modal
+│   │   ├── QuickCloseButtons.tsx     # Quick position close
+│   │   └── MobileTabBar.tsx          # Mobile navigation
+│   ├── scanner/                      # Scanner result components
+│   ├── sidepanel/                    # Symbol list components
+│   ├── orders/                       # Order management UI
+│   └── symbol/                       # Symbol view components
+├── stores/                           # 18 Zustand stores (see table above)
+├── lib/
+│   ├── indicators.ts                 # Technical analysis calculations
+│   ├── constants.ts                  # App constants
+│   ├── format-utils.ts              # Number/price formatting
+│   ├── candle-utils.ts              # Candle data transforms
+│   ├── candle-aggregator.ts         # Timeframe aggregation
+│   ├── trading-utils.ts             # Trading helper functions
+│   ├── breakeven-utils.ts           # Breakeven price calculation
+│   ├── inverted-utils.ts            # Inverted mode logic
+│   ├── trade-grouping-utils.ts      # Trade stream grouping
+│   ├── performance-utils.ts         # RAF throttle, debounce
+│   ├── memoization.ts              # Memoization utilities
+│   ├── sound-utils.ts              # Audio notification helpers
+│   ├── keyboard-utils.ts           # Keyboard shortcut handlers
+│   ├── theme-utils.ts              # Theme definitions
+│   ├── theme-applier.ts            # Theme CSS application
+│   ├── time-utils.ts               # Time formatting
+│   ├── wallet-notifications.ts     # Wallet change alerts
+│   ├── exchange-provider.interface.ts  # Exchange abstraction
+│   ├── exchange-factory.ts         # Exchange provider factory
+│   ├── hyperliquid-provider.ts     # Hyperliquid implementation
+│   ├── context/
+│   │   └── credentials-context.tsx  # Auth context provider
+│   ├── hooks/
+│   │   ├── use-hyperliquid-service.ts  # Service hook
+│   │   ├── use-is-own-wallet.ts    # Own wallet detection
+│   │   └── use-address-from-url.ts # URL address extraction
+│   ├── services/
+│   │   ├── hyperliquid.service.ts  # Main REST service (PublicClient + WalletClient)
+│   │   ├── types.ts                # Service type definitions
+│   │   ├── metadata-cache.service.ts  # Asset metadata cache
+│   │   ├── account-cache.service.ts   # Account state cache
+│   │   └── scanner.service.ts      # Signal scanner logic
+│   ├── utils/
+│   │   ├── order-helpers.ts        # Order building utilities
+│   │   ├── order-mapper.ts         # Order type mapping
+│   │   └── crypto.ts               # Crypto utilities
+│   └── websocket/
+│       ├── hyperliquid-websocket.service.ts  # WebSocket implementation
+│       ├── websocket-singleton.ts   # Singleton WS manager
+│       ├── websocket-factory.ts     # WS factory
+│       ├── exchange-websocket.interface.ts  # WS abstraction
+│       └── index.ts                 # WS exports
+├── models/                          # TypeScript interfaces
+│   ├── Settings.ts                  # All settings types + defaults
+│   ├── Order.ts                     # Order model
+│   ├── Position.ts                  # Position model
+│   ├── Scanner.ts                   # Scanner result model
+│   ├── TradeRequest.ts             # Trade request model
+│   └── WatchedWallet.ts           # Watched wallet model
+├── types/                           # Additional type definitions
+├── hooks/                           # Shared React hooks
+└── public/                          # Static assets
+    └── landing/                     # Landing page images
+```
+
+## Routes
+
+| Route | Purpose |
+|-------|---------|
+| `/` | Landing page — enter Hyperliquid wallet address |
+| `/[address]/[symbol]` | Single symbol trading view with chart, orders, positions |
+| `/[address]/multi-chart/[symbol]` | Multi-timeframe grid (1m, 5m, 15m, 1h) |
+| `/[address]/chart-popup/[symbol]` | Detached chart window for multi-monitor |
+| `/[address]/watchlist` | Watchlist management |
+| `/[address]/trades` | Trade history and fills |
+
+## Authentication
+
+Two modes:
+1. **Read-only**: Enter only a wallet address — view charts, positions, orders (no trading)
+2. **Full trading**: Enter wallet address + private key — enables order placement, position management
+
+Private key is stored only in browser memory (React context via `credentials-context.tsx`), never persisted or sent to any server. The app is fully client-side; there is no backend server.
+
+## Author
+
+Built by [Jo Vinkenroye](https://jovweb.dev)
+
+## License
+
+Private use only.
