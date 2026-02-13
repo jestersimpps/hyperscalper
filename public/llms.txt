@@ -1,42 +1,43 @@
-# Hyperscalper
+# HyperScalper
 
-> Advanced scalping terminal for Hyperliquid DEX. 100% client-side — your keys never leave your browser.
+> A professional real-time cryptocurrency trading terminal for [Hyperliquid DEX](https://hyperliquid.xyz) with advanced technical analysis, multi-timeframe charting, and automated signal detection.
 
-Hyperscalper is a professional-grade cryptocurrency trading terminal built specifically for scalping on [Hyperliquid](https://hyperliquid.xyz), the leading on-chain perpetuals DEX. It runs entirely in the browser with zero backend servers — all API calls go directly from the client to Hyperliquid's API.
+## What It Does
+
+HyperScalper is a self-hosted web-based trading terminal that connects to the Hyperliquid decentralized exchange. It provides real-time charting with TradingView lightweight-charts, a multi-symbol scanner with signal detection, position/order management, and WebSocket-driven live data feeds. It supports read-only mode (wallet address only) or full trading (with private key). 100% client-side — your keys never leave your browser.
 
 ## Key Features
 
-- **Real-time charting** with TradingView lightweight-charts across multiple timeframes (1m, 5m, 15m, 1h)
-- **Market scanner** with divergence detection, signal scoring, and multi-symbol analysis
-- **Technical indicators**: EMA, MACD, RSI, Stochastic, Donchian/Keltner channels
-- **Advanced order execution**: cloud ladders, auto TP/SL, cursor-based chart ordering
-- **Performance tracking**: P&L, win rate, profit factor, daily/monthly overviews
-- **Wallet watching**: track any Hyperliquid address's positions and trades
-- **Multi-monitor support**: pop-out chart windows
-- **Keyboard shortcuts** for fast execution
-- **100% client-side**: no backend, no data collection, keys encrypted locally
+- **Real-time Charts**: Candlestick charts with EMA, MACD, RSI, Stochastic, Donchian/Keltner channels, support/resistance detection, and divergence analysis
+- **Signal Scanner**: Scans all Hyperliquid perps for bullish/bearish signals across multiple timeframes (1m, 5m, 15m, 1h, 4h, 1d) with confidence scoring
+- **Multi-Timeframe View**: Synchronized multi-chart layout (1m, 5m, 15m, 1h) for comprehensive analysis
+- **Position & Order Management**: One-click trading with cloud orders, stop-loss, take-profit, and trigger market orders
+- **WebSocket Streams**: Live candles, trades, order book, and price tickers with automatic reconnection
+- **20+ Themes**: Terminal Green, Synthwave, Amber, Cyberpunk, Matrix, and more
+- **Inverted Mode**: Flip signal colors for short-focused trading
+- **Performance Optimized**: Virtual scrolling, RAF throttling, memoized calculations, efficient WebSocket pooling
 
 ## Tech Stack
 
-- Next.js 16 / React 19 / TypeScript 5
-- TailwindCSS 4
-- TradingView lightweight-charts 4.2
-- Zustand 5 (state management)
-- @nktkas/hyperliquid SDK
-- Vercel Analytics
+- Next.js 16, React 19, TypeScript 5
+- TailwindCSS 4, TradingView lightweight-charts 4.2
+- Zustand 5 (state management, 20+ stores)
+- @nktkas/hyperliquid SDK (REST + WebSocket)
+- @tanstack/react-virtual (virtual scrolling)
 
 ## Getting Started
 
-```bash
-npm install
-npm run dev
-```
+1. Install: `npm install`
+2. Dev: `npm run dev` (runs on port 3001)
+3. Build: `npm run build && npm start`
+4. Open `http://localhost:3001` and enter a Hyperliquid wallet address
 
-Open [http://localhost:3001](http://localhost:3001), connect your Hyperliquid wallet address, and start trading.
+Requires Node.js 18+.
 
-## Links
+## Author
 
-- [README](https://github.com/jestersimpps/hyperscalper/blob/main/README.md)
-- [GitHub Repository](https://github.com/jestersimpps/hyperscalper)
-- [Live App](https://hyperscalper.dev)
-- [Author: Jo Vinkenroye](https://jovweb.dev)
+Built by [Jo Vinkenroye](https://jovweb.dev)
+
+## License
+
+Private use only.
