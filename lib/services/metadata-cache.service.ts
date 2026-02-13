@@ -97,7 +97,22 @@ export class MetadataCache {
   }
 
   formatSize(size: number, metadata: SymbolMetadata): string {
-    return size.toFixed(metadata.sizeDecimals);
+    const minSize = Math.pow(10, -metadata.sizeDecimals);
+    const clampedSize = Math.max(size, minSize);
+    return clampedSize.toFixed(metadata.sizeDecimals);
+  }
+
+  /**
+   * Check if an order size meets the minimum notional value ($10 on Hyperliquid).
+   * Returns the minimum coin size needed at the given price, or the formatted size if it already meets the requirement.
+   */
+  getMinSizeForPrice(price: number, metadata: SymbolMetadata, minNotional: number = 10): string {
+    const minCoinSize = minNotional / price;
+    const minLot = Math.pow(10, -metadata.sizeDecimals);
+    const size = Math.max(minCoinSize, minLot);
+    // Round up to nearest lot to ensure we meet the minimum
+    const rounded = Math.ceil(size / minLot) * minLot;
+    return rounded.toFixed(metadata.sizeDecimals);
   }
 
   private getDecimalsFromTickSize(tickSize: number): number {
