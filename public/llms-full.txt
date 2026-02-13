@@ -1,0 +1,226 @@
+# Hyperscalper — Full Technical Reference
+
+> Advanced scalping terminal for Hyperliquid DEX. 100% client-side — your keys never leave your browser.
+
+## Overview
+
+Hyperscalper is a Next.js 16 / React 19 web application that provides a professional trading terminal for the Hyperliquid decentralized perpetuals exchange. It has **zero backend** — the browser connects directly to Hyperliquid's REST API and WebSocket feeds. Private keys are encrypted with AES-GCM in the browser and never transmitted.
+
+- **Live app**: https://hyperscalper.dev
+- **Repository**: https://github.com/jestersimpps/hyperscalper
+- **Author**: [Jo Vinkenroye](https://jovweb.dev)
+- **License**: Private use only
+
+---
+
+## Architecture
+
+### Client-Side Only
+
+All trading logic, API communication, and data processing happens in the browser:
+
+1. **Hyperliquid REST API** — order placement, account info, metadata, fills history
+2. **Hyperliquid WebSocket** — real-time candles, trades, ticker data, user events
+3. **Local encryption** — wallet private keys encrypted via Web Crypto API (AES-GCM) and stored in localStorage
+
+There is no server, no database, no backend proxy. Vercel hosts the static Next.js build.
+
+### Project Structure
+
+```
+hyperscalper/
+├── app/                          # Next.js App Router
+│   ├── layout.tsx                # Root layout (metadata, fonts, providers)
+│   ├── page.tsx                  # Landing page (marketing + credential entry)
+│   ├── sitemap.ts                # Dynamic sitemap generation
+│   └── [address]/                # Dynamic route per wallet address
+│       ├── layout.tsx            # AppShell wrapper
+│       ├── [symbol]/             # Single symbol trading view
+│       ├── multi-chart/[symbol]/ # Multi-timeframe view (1m/5m/15m/1h)
+│       ├── chart-popup/[symbol]/ # Pop-out chart windows
+│       ├── watchlist/            # Wallet watchlist management
+│       └── trades/               # Trade history & performance
+├── components/
+│   ├── layout/                   # AppShell, Header, Footer, Sidepanel, MobileTabBar
+│   ├── scanner/                  # Market scanner UI (MiniPriceChart, ScannerResultItem)
+│   ├── orders/                   # Order management (OpenOrdersList)
+│   ├── watchlist/                # Wallet tracking (WalletCard, WalletDetailPanel)
+│   ├── settings/                 # Settings panels (CredentialsSettings, etc.)
+│   ├── providers/                # React context providers (Service, Theme, SymbolMeta)
+│   ├── auth/                     # RequireCredentials gate
+│   ├── ScalpingChart.tsx         # Main TradingView chart component
+│   └── MultiTimeframeChart.tsx   # Synchronized multi-chart view
+├── stores/                       # Zustand state stores (18 stores)
+│   ├── useCandleStore.ts         # Candle data per symbol/timeframe
+│   ├── usePositionStore.ts       # Open positions
+│   ├── useOrderStore.ts          # Open orders
+│   ├── useScannerStore.ts        # Scanner results and signals
+│   ├── useSettingsStore.ts       # User preferences (theme, indicators, etc.)
+│   ├── useTradingStore.ts        # Trading state (leverage, size, etc.)
+│   ├── useTradesStore.ts         # Trade stream
+│   ├── useUserFillsStore.ts      # User fill history
+│   ├── useSymbolMetaStore.ts     # Symbol metadata (tick sizes, lot sizes)
+│   ├── useWatchlistStore.ts      # Watched wallets
+│   ├── useWebSocketStatusStore.ts # Connection status
+│   └── ...                       # + 7 more specialized stores
+├── lib/
+│   ├── hyperliquid-provider.ts   # Hyperliquid API wrapper (implements exchange-provider interface)
+│   ├── exchange-provider.interface.ts # Exchange abstraction layer
+│   ├── exchange-factory.ts       # Factory for exchange providers
+│   ├── indicators.ts             # Technical analysis (EMA, MACD, RSI, Stochastic, divergences)
+│   ├── trading-utils.ts          # Order calculations, position sizing
+│   ├── candle-utils.ts           # Candle data processing
+│   ├── candle-aggregator.ts      # Aggregate candles across timeframes
+│   ├── inverted-utils.ts         # Inverted mode logic (flip bull/bear)
+│   ├── performance-utils.ts      # RAF throttling, debouncing
+│   ├── memoization.ts            # Memoization helpers
+│   ├── services/
+│   │   ├── hyperliquid.service.ts    # Core API service (REST + order signing)
+│   │   ├── scanner.service.ts        # Market scanning logic
+│   │   ├── account-cache.service.ts  # Account data caching
+│   │   └── metadata-cache.service.ts # Symbol metadata caching
+│   ├── websocket/
+│   │   ├── hyperliquid-websocket.service.ts # WebSocket client
+│   │   ├── websocket-singleton.ts   # Shared WS instance
+│   │   └── websocket-factory.ts     # WS creation
+│   └── utils/
+│       ├── crypto.ts             # AES-GCM encryption for private keys
+│       ├── order-helpers.ts      # Order building utilities
+│       └── order-mapper.ts       # Map API responses to internal types
+├── hooks/                        # React hooks
+│   ├── useKeyboardShortcuts.ts   # Keyboard shortcut bindings
+│   ├── useLocalStorageSync.ts    # Persist state to localStorage
+│   ├── usePriceVolumeAnimation.ts # Price change animations
+│   └── usePositionAnimations.ts  # Position P&L animations
+├── models/                       # TypeScript interfaces
+├── types/                        # Type definitions
+└── public/
+    └── landing/                  # Landing page images (hero.png, feature screenshots)
+```
+
+### State Management
+
+18 Zustand stores manage all application state. Key patterns:
+- **No server state** — all data comes from Hyperliquid API/WebSocket
+- **Stores are independent** — minimal cross-store dependencies
+- **Persist via localStorage** — settings, credentials, watchlist
+- **WebSocket-driven updates** — candles, trades, positions update in real-time
+
+### Performance Optimizations
+
+- **Virtual scrolling** (`@tanstack/react-virtual`) for symbol lists and scanner results
+- **RAF throttling** — chart updates capped at ~60fps
+- **Debounced analysis** — divergence detection debounced at 1000ms
+- **Memoized components** — React.memo + useMemo for expensive calculations
+- **WebSocket pooling** — single connection multiplexed across subscriptions
+
+---
+
+## Hyperliquid API Integration
+
+### SDK
+
+Uses `@nktkas/hyperliquid` SDK for typed API access.
+
+### REST Endpoints Used
+
+- `POST /info` — account state, open orders, user fills, metadata, candle snapshots, all mids
+- `POST /exchange` — place order, cancel order, modify order, update leverage
+
+### WebSocket Subscriptions
+
+- `candle` — real-time OHLCV updates per symbol/timeframe
+- `trades` — live trade feed
+- `allMids` — mid prices for all symbols
+- `userEvents` — fills, order updates, liquidations (when authenticated)
+- `webData2` — aggregated user account data
+
+### Order Types
+
+- Market orders (IOC with slippage)
+- Limit orders (GTC, ALO/post-only)
+- Stop-loss / take-profit (trigger orders)
+- Cloud ladders (multiple limit orders spread across price range)
+- TWAP-style scaling
+
+### Authentication
+
+Orders are signed client-side using the wallet's private key via ethers.js. The key is stored encrypted (AES-GCM) in localStorage and decrypted on demand.
+
+---
+
+## Technical Analysis Engine
+
+`lib/indicators.ts` implements all TA calculations:
+
+- **EMA** (5, 20, 50 periods) — exponential moving averages
+- **MACD** (12, 26, 9) — histogram + signal line
+- **RSI** (14 periods) — relative strength index
+- **Stochastic** (14, 3, 3) — %K and %D with oversold/overbought zones
+- **Donchian Channels** — high/low range channels
+- **Keltner Channels** — ATR-based volatility channels
+- **Pivot Points** — automatic pivot high/low detection
+- **Support/Resistance** — auto-detection with touch counting
+- **Divergence Detection** — regular and hidden divergences on MACD, RSI, Stochastic
+
+### Scanner Service
+
+`lib/services/scanner.service.ts` runs multi-symbol analysis:
+
+1. Fetches candle data for all Hyperliquid symbols
+2. Calculates indicators per timeframe
+3. Scores signals (stochastic crossovers, EMA alignment, MACD crosses, divergences, volume spikes, channel breakouts)
+4. Ranks results by signal strength
+5. Updates `useScannerStore` with results
+
+---
+
+## Theming
+
+4 built-in themes: Terminal Green, Synthwave, Amber, Girly Pastels. Themes use CSS custom properties applied via `lib/theme-applier.ts`. An "inverted mode" flips bullish/bearish colors for short-focused trading.
+
+---
+
+## Routes
+
+| Route | Purpose |
+|---|---|
+| `/` | Landing page (marketing + wallet connect) |
+| `/[address]/trades` | Trade history & performance tracking |
+| `/[address]/[symbol]` | Single symbol trading view |
+| `/[address]/multi-chart/[symbol]` | Multi-timeframe synchronized view |
+| `/[address]/chart-popup/[symbol]` | Pop-out chart window |
+| `/[address]/watchlist` | Wallet watchlist management |
+
+---
+
+## Development
+
+```bash
+npm install
+npm run dev        # http://localhost:3001
+npm run build      # Production build
+npm start          # Start production server
+```
+
+### Environment
+
+- Node.js 18+
+- No environment variables required (all config is client-side)
+- Deployed on Vercel (static export with edge runtime)
+
+### Key Dependencies
+
+| Package | Version | Purpose |
+|---|---|---|
+| next | 16 | Framework |
+| react | 19 | UI library |
+| typescript | 5 | Type safety |
+| tailwindcss | 4 | Styling |
+| lightweight-charts | 4.2 | TradingView charts |
+| zustand | 5 | State management |
+| @nktkas/hyperliquid | latest | Hyperliquid SDK |
+| @tanstack/react-virtual | latest | Virtual scrolling |
+| ethers | 6 | Wallet signing |
+| react-hot-toast | latest | Notifications |
+| @vercel/analytics | latest | Analytics |

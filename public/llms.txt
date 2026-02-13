@@ -1,0 +1,42 @@
+# Hyperscalper
+
+> Advanced scalping terminal for Hyperliquid DEX. 100% client-side — your keys never leave your browser.
+
+Hyperscalper is a professional-grade cryptocurrency trading terminal built specifically for scalping on [Hyperliquid](https://hyperliquid.xyz), the leading on-chain perpetuals DEX. It runs entirely in the browser with zero backend servers — all API calls go directly from the client to Hyperliquid's API.
+
+## Key Features
+
+- **Real-time charting** with TradingView lightweight-charts across multiple timeframes (1m, 5m, 15m, 1h)
+- **Market scanner** with divergence detection, signal scoring, and multi-symbol analysis
+- **Technical indicators**: EMA, MACD, RSI, Stochastic, Donchian/Keltner channels
+- **Advanced order execution**: cloud ladders, auto TP/SL, cursor-based chart ordering
+- **Performance tracking**: P&L, win rate, profit factor, daily/monthly overviews
+- **Wallet watching**: track any Hyperliquid address's positions and trades
+- **Multi-monitor support**: pop-out chart windows
+- **Keyboard shortcuts** for fast execution
+- **100% client-side**: no backend, no data collection, keys encrypted locally
+
+## Tech Stack
+
+- Next.js 16 / React 19 / TypeScript 5
+- TailwindCSS 4
+- TradingView lightweight-charts 4.2
+- Zustand 5 (state management)
+- @nktkas/hyperliquid SDK
+- Vercel Analytics
+
+## Getting Started
+
+```bash
+npm install
+npm run dev
+```
+
+Open [http://localhost:3001](http://localhost:3001), connect your Hyperliquid wallet address, and start trading.
+
+## Links
+
+- [README](https://github.com/jestersimpps/hyperscalper/blob/main/README.md)
+- [GitHub Repository](https://github.com/jestersimpps/hyperscalper)
+- [Live App](https://hyperscalper.dev)
+- [Author: Jo Vinkenroye](https://jovweb.dev)
