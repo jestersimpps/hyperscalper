@@ -198,6 +198,10 @@ This is a personal trading terminal project. Feel free to fork and customize for
 
 Private use only.
 
+## Author
+
+Built by [Jo Vinkenroye](https://jovweb.dev)
+
 ## Disclaimer
 
 This software is for educational and informational purposes only. Trading cryptocurrencies carries significant risk. Use at your own discretion. The authors are not responsible for any financial losses.
