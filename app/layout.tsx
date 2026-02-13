@@ -19,9 +19,56 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const siteUrl = "https://hyperscalper.dev";
+const ogImage = `${siteUrl}/landing/hero.png`;
+
 export const metadata: Metadata = {
-  title: "Hyperscalper | Advanced Trading Terminal for Hyperliquid",
-  description: "Professional scalping terminal for Hyperliquid DEX. Real-time charts, advanced indicators, market scanner, and instant order execution. No backend, your keys never leave your browser.",
+  title: "Hyperscalper | Advanced Scalping Terminal for Hyperliquid DEX",
+  description: "Professional scalping terminal for Hyperliquid. Real-time charts, market scanner, divergence detection & instant execution. 100% client-side — your keys never leave your browser.",
+  metadataBase: new URL(siteUrl),
+  alternates: {
+    canonical: "/",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+    },
+  },
+  openGraph: {
+    type: "website",
+    url: siteUrl,
+    title: "Hyperscalper — Advanced Scalping Terminal for Hyperliquid",
+    description: "Professional scalping terminal for Hyperliquid DEX. Real-time charts, market scanner, divergence detection & instant order execution. 100% client-side.",
+    siteName: "Hyperscalper",
+    images: [
+      {
+        url: ogImage,
+        width: 1200,
+        height: 630,
+        alt: "Hyperscalper Trading Terminal",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Hyperscalper — Scalping Terminal for Hyperliquid",
+    description: "Real-time charts, market scanner, divergence detection & instant execution. 100% client-side — your keys never leave your browser.",
+    images: [ogImage],
+  },
+  authors: [{ name: "Jo Vinkenroye", url: "https://jovweb.dev" }],
+  keywords: [
+    "Hyperliquid",
+    "trading terminal",
+    "scalping",
+    "crypto trading bot",
+    "DEX trading",
+    "technical analysis",
+    "market scanner",
+    "trading signals",
+  ],
 };
 
 export const viewport = {
@@ -37,6 +84,32 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "WebApplication",
+              name: "Hyperscalper",
+              url: siteUrl,
+              description: "Professional scalping terminal for Hyperliquid DEX with real-time charts, market scanner, and instant order execution.",
+              applicationCategory: "FinanceApplication",
+              operatingSystem: "Web",
+              author: {
+                "@type": "Person",
+                name: "Jo Vinkenroye",
+                url: "https://jovweb.dev",
+              },
+              offers: {
+                "@type": "Offer",
+                price: "0",
+                priceCurrency: "USD",
+              },
+            }),
+          }}
+        />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} subpixel-antialiased`}
         suppressHydrationWarning
