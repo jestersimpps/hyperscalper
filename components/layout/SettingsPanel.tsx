@@ -1379,9 +1379,38 @@ export default function SettingsPanel() {
               </div>
 
               <div className="p-3 bg-bg-secondary border border-frame rounded">
+                <div className="text-primary font-mono text-xs font-bold mb-3">█ LEVERAGE</div>
+                <p className="text-primary-muted text-[10px] mb-4 leading-relaxed">
+                  Set the leverage multiplier for your trades. Higher leverage increases both potential gains and losses.
+                  Leverage is applied when opening new positions.
+                </p>
+                <div>
+                  <label className="text-primary-muted font-mono block mb-2 text-xs flex items-center justify-between">
+                    <span>LEVERAGE</span>
+                    <span className="text-accent-yellow">{settings.orders.leverage}x</span>
+                  </label>
+                  <input
+                    type="range"
+                    min="1"
+                    max="50"
+                    step="1"
+                    value={settings.orders.leverage}
+                    onChange={(e) => updateOrderSettings({ leverage: Number(e.target.value) })}
+                    className="w-full h-2 bg-bg-primary rounded-lg appearance-none cursor-pointer accent-accent-yellow"
+                  />
+                  <div className="flex justify-between text-[10px] text-primary-muted mt-1">
+                    <span>1x</span>
+                    <span>25x</span>
+                    <span>50x</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-3 bg-bg-secondary border border-frame rounded">
                 <div className="text-primary-muted text-[10px] leading-relaxed">
                   <span className="text-bullish font-bold">NOTE:</span> These percentages represent how much of your total account value will be used for each order type.
-                  Make sure the total of all active positions doesn't exceed your risk tolerance.
+                  Make sure the total of all active positions doesn&apos;t exceed your risk tolerance.
+                  Leverage is set per-asset when placing orders.
                 </div>
               </div>
             </div>

@@ -103,6 +103,21 @@ export class MetadataCache {
   }
 
   /**
+   * Ensure a coin size meets the minimum notional value ($10 on Hyperliquid).
+   * If the size * price < minNotional, returns the minimum size needed.
+   * Returns the formatted size string and whether it was bumped up.
+   */
+  ensureMinNotional(size: number, price: number, metadata: SymbolMetadata, minNotional: number = 10): { size: string; wasBumped: boolean } {
+    const formatted = this.formatSize(size, metadata);
+    const notional = parseFloat(formatted) * price;
+    if (notional >= minNotional) {
+      return { size: formatted, wasBumped: false };
+    }
+    const minSize = this.getMinSizeForPrice(price, metadata, minNotional);
+    return { size: minSize, wasBumped: true };
+  }
+
+  /**
    * Check if an order size meets the minimum notional value ($10 on Hyperliquid).
    * Returns the minimum coin size needed at the given price, or the formatted size if it already meets the requirement.
    */

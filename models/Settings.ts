@@ -146,6 +146,7 @@ export interface OrderSettings {
   cloudPercentage: number;
   smallPercentage: number;
   bigPercentage: number;
+  leverage: number;
 }
 
 export type ThemeName = 'dark' | 'hyper' | 'hyper-black' | 'midnight' | 'light' | 'dark-blue' | 'afternoon' | 'psychedelic' | 'nintendo' | 'gameboy' | 'sega' | 'playstation' | 'cyberpunk' | 'vaporwave' | 'matrix' | 'synthwave' | 'ocean' | 'c64' | 'amber' | 'girly';
@@ -311,6 +312,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     cloudPercentage: 5,
     smallPercentage: 10,
     bigPercentage: 25,
+    leverage: 10,
   },
   theme: {
     selected: 'dark-blue',
