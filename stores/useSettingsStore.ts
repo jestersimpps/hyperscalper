@@ -218,6 +218,7 @@ const mergeSettings = (storedSettings: any): AppSettings => {
         cloudPercentage: storedSettings.orders?.cloudPercentage ?? DEFAULT_SETTINGS.orders.cloudPercentage,
         smallPercentage: storedSettings.orders?.smallPercentage ?? DEFAULT_SETTINGS.orders.smallPercentage,
         bigPercentage: storedSettings.orders?.bigPercentage ?? DEFAULT_SETTINGS.orders.bigPercentage,
+        leverage: storedSettings.orders?.leverage ?? DEFAULT_SETTINGS.orders.leverage,
       },
       theme: {
         selected: storedSettings.theme?.selected ?? DEFAULT_SETTINGS.theme.selected,

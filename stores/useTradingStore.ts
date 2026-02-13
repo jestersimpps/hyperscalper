@@ -2,10 +2,12 @@ import { create } from 'zustand';
 import { HyperliquidService } from '@/lib/services/hyperliquid.service';
 import { useOrderStore } from './useOrderStore';
 import { usePositionStore } from './usePositionStore';
+import { useSettingsStore } from './useSettingsStore';
 import toast from 'react-hot-toast';
 
 const ORDER_COUNT = 5;
 const TAKE_PROFIT_PERCENT = 2;
+const MIN_NOTIONAL = 10; // Hyperliquid minimum order value in USD
 
 interface CloudOrderParams {
   symbol: string;
@@ -108,18 +110,28 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
         priceLevels.push(level);
       }
 
+      const leverage = useSettingsStore.getState().settings.orders.leverage;
+      await service.setLeverage(symbol, leverage, metadata);
+
       const accountValue = parseFloat(accountBalance.accountValue);
       const cloudSize = (accountValue * percentage) / 100;
 
+      // Check if total cloud size can support ORDER_COUNT orders at $10 minimum each
+      if (cloudSize < MIN_NOTIONAL) {
+        throw new Error(`Order value ($${cloudSize.toFixed(2)}) is below minimum $${MIN_NOTIONAL}. Increase position size % or account balance.`);
+      }
+
       const batchOrders = [];
       let totalCoinSize = 0;
+      let anyBumped = false;
 
       for (const level of priceLevels) {
         const formattedPrice = service.formatPriceCached(level, metadata);
         const coinSize = cloudSize / level;
-        const formattedSize = service.formatSizeCached(coinSize, metadata);
+        const { size: formattedSize, wasBumped } = service.ensureMinNotional(coinSize, level, metadata, MIN_NOTIONAL);
+        if (wasBumped) anyBumped = true;
 
-        totalCoinSize += coinSize;
+        totalCoinSize += parseFloat(formattedSize);
 
         const tempId = `${batchTempId}_limit_${optimisticOrders.length}`;
         optimisticOrders.push({
@@ -208,7 +220,11 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
 
       service.invalidateAccountCache();
 
-      toast.success('Buy cloud placed');
+      if (anyBumped) {
+        toast.success('Buy cloud placed (some orders bumped to meet $10 minimum)');
+      } else {
+        toast.success('Buy cloud placed');
+      }
     } catch (error) {
       optimisticOrders.forEach(order => {
         orderStore.rollbackOptimisticOrder(symbol, order.tempId);
@@ -253,18 +269,27 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
         priceLevels.push(level);
       }
 
+      const leverage = useSettingsStore.getState().settings.orders.leverage;
+      await service.setLeverage(symbol, leverage, metadata);
+
       const accountValue = parseFloat(accountBalance.accountValue);
       const cloudSize = (accountValue * percentage) / 100;
 
+      if (cloudSize < MIN_NOTIONAL) {
+        throw new Error(`Order value ($${cloudSize.toFixed(2)}) is below minimum $${MIN_NOTIONAL}. Increase position size % or account balance.`);
+      }
+
       const batchOrders = [];
       let totalCoinSize = 0;
+      let anyBumped = false;
 
       for (const level of priceLevels) {
         const formattedPrice = service.formatPriceCached(level, metadata);
         const coinSize = cloudSize / level;
-        const formattedSize = service.formatSizeCached(coinSize, metadata);
+        const { size: formattedSize, wasBumped } = service.ensureMinNotional(coinSize, level, metadata, MIN_NOTIONAL);
+        if (wasBumped) anyBumped = true;
 
-        totalCoinSize += coinSize;
+        totalCoinSize += parseFloat(formattedSize);
 
         const tempId = `${batchTempId}_limit_${optimisticOrders.length}`;
         optimisticOrders.push({
@@ -353,7 +378,11 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
 
       service.invalidateAccountCache();
 
-      toast.success('Sell cloud placed');
+      if (anyBumped) {
+        toast.success('Sell cloud placed (some orders bumped to meet $10 minimum)');
+      } else {
+        toast.success('Sell cloud placed');
+      }
     } catch (error) {
       optimisticOrders.forEach(order => {
         orderStore.rollbackOptimisticOrder(symbol, order.tempId);
@@ -391,11 +420,18 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
         service.getMetadataCache(symbol)
       ]);
 
+      const leverage = useSettingsStore.getState().settings.orders.leverage;
+      await service.setLeverage(symbol, leverage, metadata);
+
       const accountValue = parseFloat(accountBalance.accountValue);
       const positionSize = (accountValue * percentage) / 100;
 
+      if (positionSize < MIN_NOTIONAL) {
+        throw new Error(`Order value ($${positionSize.toFixed(2)}) is below minimum $${MIN_NOTIONAL}. Increase position size % or account balance.`);
+      }
+
       const coinSize = positionSize / currentPrice;
-      const formattedSize = service.formatSizeCached(coinSize, metadata);
+      const { size: formattedSize, wasBumped } = service.ensureMinNotional(coinSize, currentPrice, metadata, MIN_NOTIONAL);
 
       const stopLossPrice = currentPrice - (8 * priceInterval);
       const formattedStopLoss = service.formatPriceCached(stopLossPrice, metadata);
@@ -463,7 +499,7 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
       }
 
       service.invalidateAccountCache();
-      toast.success('Market long placed');
+      toast.success(wasBumped ? 'Market long placed (size bumped to meet $10 minimum)' : 'Market long placed');
     } catch (error) {
       optimisticOrders.forEach(order => {
         orderStore.rollbackOptimisticOrder(symbol, order.tempId);
@@ -501,11 +537,18 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
         service.getMetadataCache(symbol)
       ]);
 
+      const leverage = useSettingsStore.getState().settings.orders.leverage;
+      await service.setLeverage(symbol, leverage, metadata);
+
       const accountValue = parseFloat(accountBalance.accountValue);
       const positionSize = (accountValue * percentage) / 100;
 
+      if (positionSize < MIN_NOTIONAL) {
+        throw new Error(`Order value ($${positionSize.toFixed(2)}) is below minimum $${MIN_NOTIONAL}. Increase position size % or account balance.`);
+      }
+
       const coinSize = positionSize / currentPrice;
-      const formattedSize = service.formatSizeCached(coinSize, metadata);
+      const { size: formattedSize, wasBumped } = service.ensureMinNotional(coinSize, currentPrice, metadata, MIN_NOTIONAL);
 
       const stopLossPrice = currentPrice + (8 * priceInterval);
       const formattedStopLoss = service.formatPriceCached(stopLossPrice, metadata);
@@ -573,7 +616,7 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
       }
 
       service.invalidateAccountCache();
-      toast.success('Market short placed');
+      toast.success(wasBumped ? 'Market short placed (size bumped to meet $10 minimum)' : 'Market short placed');
     } catch (error) {
       optimisticOrders.forEach(order => {
         orderStore.rollbackOptimisticOrder(symbol, order.tempId);
@@ -611,11 +654,18 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
         service.getMetadataCache(symbol)
       ]);
 
+      const leverage = useSettingsStore.getState().settings.orders.leverage;
+      await service.setLeverage(symbol, leverage, metadata);
+
       const accountValue = parseFloat(accountBalance.accountValue);
       const positionSize = (accountValue * percentage) / 100;
 
+      if (positionSize < MIN_NOTIONAL) {
+        throw new Error(`Order value ($${positionSize.toFixed(2)}) is below minimum $${MIN_NOTIONAL}. Increase position size % or account balance.`);
+      }
+
       const coinSize = positionSize / currentPrice;
-      const formattedSize = service.formatSizeCached(coinSize, metadata);
+      const { size: formattedSize, wasBumped } = service.ensureMinNotional(coinSize, currentPrice, metadata, MIN_NOTIONAL);
 
       const stopLossPrice = currentPrice - (8 * priceInterval);
       const formattedStopLoss = service.formatPriceCached(stopLossPrice, metadata);
@@ -683,7 +733,7 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
       }
 
       service.invalidateAccountCache();
-      toast.success('Big long placed');
+      toast.success(wasBumped ? 'Big long placed (size bumped to meet $10 minimum)' : 'Big long placed');
     } catch (error) {
       optimisticOrders.forEach(order => {
         orderStore.rollbackOptimisticOrder(symbol, order.tempId);
@@ -721,11 +771,18 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
         service.getMetadataCache(symbol)
       ]);
 
+      const leverage = useSettingsStore.getState().settings.orders.leverage;
+      await service.setLeverage(symbol, leverage, metadata);
+
       const accountValue = parseFloat(accountBalance.accountValue);
       const positionSize = (accountValue * percentage) / 100;
 
+      if (positionSize < MIN_NOTIONAL) {
+        throw new Error(`Order value ($${positionSize.toFixed(2)}) is below minimum $${MIN_NOTIONAL}. Increase position size % or account balance.`);
+      }
+
       const coinSize = positionSize / currentPrice;
-      const formattedSize = service.formatSizeCached(coinSize, metadata);
+      const { size: formattedSize, wasBumped } = service.ensureMinNotional(coinSize, currentPrice, metadata, MIN_NOTIONAL);
 
       const stopLossPrice = currentPrice + (8 * priceInterval);
       const formattedStopLoss = service.formatPriceCached(stopLossPrice, metadata);
@@ -793,7 +850,7 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
       }
 
       service.invalidateAccountCache();
-      toast.success('Big short placed');
+      toast.success(wasBumped ? 'Big short placed (size bumped to meet $10 minimum)' : 'Big short placed');
     } catch (error) {
       optimisticOrders.forEach(order => {
         orderStore.rollbackOptimisticOrder(symbol, order.tempId);
@@ -849,11 +906,18 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
         service.getMetadataCache(symbol)
       ]);
 
+      const leverage = useSettingsStore.getState().settings.orders.leverage;
+      await service.setLeverage(symbol, leverage, metadata);
+
       const accountValue = parseFloat(accountBalance.accountValue);
       const positionSize = (accountValue * percentage) / 100;
 
+      if (positionSize < MIN_NOTIONAL) {
+        throw new Error(`Order value ($${positionSize.toFixed(2)}) is below minimum $${MIN_NOTIONAL}. Increase position size % or account balance.`);
+      }
+
       const coinSize = positionSize / price;
-      const formattedSize = service.formatSizeCached(coinSize, metadata);
+      const { size: formattedSize, wasBumped } = service.ensureMinNotional(coinSize, price, metadata, MIN_NOTIONAL);
       const formattedPrice = service.formatPriceCached(price, metadata);
 
       console.log('[placeLimitOrderAtPrice] Calculated values:', {
@@ -861,7 +925,8 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
         positionSize,
         coinSize,
         formattedSize,
-        formattedPrice
+        formattedPrice,
+        wasBumped,
       });
 
       orderStore.addOptimisticOrder(symbol, {
