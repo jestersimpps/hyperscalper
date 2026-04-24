@@ -1,86 +1,124 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 
-function debounce<T extends (...args: any[]) => any>(
-  func: T,
-  wait: number
-): (...args: Parameters<T>) => void {
-  let timeout: NodeJS.Timeout | null = null;
+type AnyFn = (...args: never[]) => unknown;
 
-  return function executedFunction(...args: Parameters<T>) {
-    const later = () => {
-      timeout = null;
-      func(...args);
-    };
+interface Debounced<T extends AnyFn> {
+  (...args: Parameters<T>): void;
+  cancel: () => void;
+}
 
+function createDebounced<T extends AnyFn>(func: T, wait: number): Debounced<T> {
+  let timeout: ReturnType<typeof setTimeout> | null = null;
+
+  const debounced = ((...args: Parameters<T>) => {
     if (timeout) {
       clearTimeout(timeout);
     }
-    timeout = setTimeout(later, wait);
+    timeout = setTimeout(() => {
+      timeout = null;
+      func(...args);
+    }, wait);
+  }) as Debounced<T>;
+
+  debounced.cancel = () => {
+    if (timeout) {
+      clearTimeout(timeout);
+      timeout = null;
+    }
   };
+
+  return debounced;
 }
 
-function throttle<T extends (...args: any[]) => any>(
-  func: T,
-  limit: number
-): (...args: Parameters<T>) => void {
-  let inThrottle: boolean = false;
-  let lastArgs: Parameters<T> | null = null;
+interface Throttled<T extends AnyFn> {
+  (...args: Parameters<T>): void;
+  cancel: () => void;
+}
 
-  return function executedFunction(...args: Parameters<T>) {
+function createThrottled<T extends AnyFn>(func: T, limit: number): Throttled<T> {
+  let inThrottle = false;
+  let lastArgs: Parameters<T> | null = null;
+  let trailingTimeout: ReturnType<typeof setTimeout> | null = null;
+
+  const throttled = ((...args: Parameters<T>) => {
     if (!inThrottle) {
       func(...args);
       inThrottle = true;
 
-      setTimeout(() => {
+      trailingTimeout = setTimeout(() => {
         inThrottle = false;
+        trailingTimeout = null;
         if (lastArgs) {
-          executedFunction(...lastArgs);
+          const args = lastArgs;
           lastArgs = null;
+          throttled(...args);
         }
       }, limit);
     } else {
       lastArgs = args;
     }
+  }) as Throttled<T>;
+
+  throttled.cancel = () => {
+    if (trailingTimeout) {
+      clearTimeout(trailingTimeout);
+      trailingTimeout = null;
+    }
+    inThrottle = false;
+    lastArgs = null;
   };
+
+  return throttled;
 }
 
-export function useThrottledCallback<T extends (...args: any[]) => any>(
+export function useThrottledCallback<T extends AnyFn>(
   callback: T,
   delay: number
 ): (...args: Parameters<T>) => void {
   const callbackRef = useRef(callback);
-  const throttledRef = useRef<ReturnType<typeof throttle> | null>(null);
 
   useEffect(() => {
     callbackRef.current = callback;
   }, [callback]);
 
-  if (!throttledRef.current) {
-    throttledRef.current = throttle((...args: Parameters<T>) => {
+  const throttled = useMemo(
+    () => createThrottled((...args: Parameters<T>) => {
       callbackRef.current(...args);
-    }, delay);
-  }
+    }, delay),
+    [delay]
+  );
 
-  return throttledRef.current;
+  useEffect(() => {
+    return () => {
+      throttled.cancel();
+    };
+  }, [throttled]);
+
+  return throttled;
 }
 
-export function useDebouncedCallback<T extends (...args: any[]) => any>(
+export function useDebouncedCallback<T extends AnyFn>(
   callback: T,
   delay: number
 ): (...args: Parameters<T>) => void {
   const callbackRef = useRef(callback);
-  const debouncedRef = useRef<ReturnType<typeof debounce> | null>(null);
 
   useEffect(() => {
     callbackRef.current = callback;
   }, [callback]);
 
-  if (!debouncedRef.current) {
-    debouncedRef.current = debounce((...args: Parameters<T>) => {
+  const debounced = useMemo(
+    () => createDebounced((...args: Parameters<T>) => {
       callbackRef.current(...args);
-    }, delay);
-  }
+    }, delay),
+    [delay]
+  );
 
-  return debouncedRef.current;
+  useEffect(() => {
+    return () => {
+      debounced.cancel();
+    };
+  }, [debounced]);
+
+  return debounced;
 }
-
