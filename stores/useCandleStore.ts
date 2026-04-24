@@ -31,6 +31,50 @@ interface CandleStore {
 
 const getCandleKey = (coin: string, interval: string): string => `${coin}-${interval}`;
 
+const MAX_CANDLE_KEYS = 80;
+const lastAccess: Map<string, number> = new Map();
+
+const touch = (key: string): void => {
+  lastAccess.set(key, Date.now());
+};
+
+const evictIfNeeded = (
+  candles: Record<string, CandleData[]>,
+  subscriptions: Record<string, unknown>,
+  activeSymbol: string | null,
+): Record<string, CandleData[]> | null => {
+  const keys = Object.keys(candles);
+  if (keys.length <= MAX_CANDLE_KEYS) {
+    return null;
+  }
+
+  const evictable = keys.filter(key => {
+    if (subscriptions[key]) return false;
+    if (activeSymbol && key.startsWith(`${activeSymbol}-`)) return false;
+    return true;
+  });
+
+  if (evictable.length === 0) {
+    return null;
+  }
+
+  evictable.sort((a, b) => (lastAccess.get(a) ?? 0) - (lastAccess.get(b) ?? 0));
+
+  const toEvict = keys.length - MAX_CANDLE_KEYS;
+  const victims = evictable.slice(0, toEvict);
+
+  if (victims.length === 0) {
+    return null;
+  }
+
+  const next = { ...candles };
+  victims.forEach(key => {
+    delete next[key];
+    lastAccess.delete(key);
+  });
+  return next;
+};
+
 export const useCandleStore = create<CandleStore>((set, get) => ({
   candles: {},
   loading: {},
@@ -79,10 +123,15 @@ export const useCandleStore = create<CandleStore>((set, get) => ({
 
       const formattedData = data.map((candle) => formatCandle(candle, coin));
 
-      set((state) => ({
-        candles: { ...state.candles, [key]: formattedData },
-        loading: { ...state.loading, [key]: false },
-      }));
+      touch(key);
+      set((state) => {
+        const nextCandles = { ...state.candles, [key]: formattedData };
+        const afterEvict = evictIfNeeded(nextCandles, state.subscriptions, state.activeSymbol);
+        return {
+          candles: afterEvict ?? nextCandles,
+          loading: { ...state.loading, [key]: false },
+        };
+      });
     } catch (error) {
       set((state) => ({
         errors: { ...state.errors, [key]: error instanceof Error ? error.message : 'Unknown error' },
@@ -216,6 +265,7 @@ export const useCandleStore = create<CandleStore>((set, get) => ({
       delete newCandles[key];
       delete newLoading[key];
       delete newErrors[key];
+      lastAccess.delete(key);
     } else {
       const intervals: TimeInterval[] = ['1m', '5m', '15m', '1h'];
       intervals.forEach(int => {
@@ -223,6 +273,7 @@ export const useCandleStore = create<CandleStore>((set, get) => ({
         delete newCandles[key];
         delete newLoading[key];
         delete newErrors[key];
+        lastAccess.delete(key);
       });
     }
 
@@ -258,6 +309,7 @@ export const useCandleStore = create<CandleStore>((set, get) => ({
       return null;
     }
 
+    touch(key);
     return cachedCandles as TransformedCandle[];
   },
 
@@ -270,6 +322,7 @@ export const useCandleStore = create<CandleStore>((set, get) => ({
       return null;
     }
 
+    touch(key);
     const closePrices = downsampleCandles(cachedCandles as TransformedCandle[], count);
     return closePrices;
   },
