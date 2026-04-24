@@ -16,8 +16,10 @@ interface WatchlistStore {
   service: HyperliquidService | null;
   pollingInterval: NodeJS.Timeout | null;
   isInitialized: boolean;
+  expandedWallet: string | null;
 
   setService: (service: HyperliquidService) => void;
+  setExpandedWallet: (address: string | null) => void;
   addWallet: (address: string, nickname?: string) => void;
   removeWallet: (address: string) => void;
   updateNickname: (address: string, nickname: string) => void;
@@ -195,9 +197,14 @@ export const useWatchlistStore = create<WatchlistStore>((set, get) => ({
   service: null,
   pollingInterval: null,
   isInitialized: false,
+  expandedWallet: null,
 
   setService: (service) => {
     set({ service });
+  },
+
+  setExpandedWallet: (address: string | null) => {
+    set({ expandedWallet: address ? address.toLowerCase() : null });
   },
 
   initialize: () => {
@@ -506,10 +513,14 @@ export const useWatchlistStore = create<WatchlistStore>((set, get) => ({
   },
 
   fetchAllWalletsData: async () => {
-    const { watchedWallets } = get();
+    const { watchedWallets, expandedWallet } = get();
+
+    const walletsToFetch = watchedWallets.filter(
+      w => w.isFollowed || w.address === expandedWallet
+    );
 
     await Promise.all(
-      watchedWallets.map(wallet => get().fetchWalletData(wallet.address))
+      walletsToFetch.map(wallet => get().fetchWalletData(wallet.address))
     );
   },
 

@@ -9,24 +9,24 @@ import AddWalletModal from '@/components/watchlist/AddWalletModal';
 
 export default function WatchlistView() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [expandedWallet, setExpandedWallet] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const { watchedWallets, walletData, isInitialized } = useWatchlistStore(
+  const { watchedWallets, walletData, isInitialized, expandedWallet } = useWatchlistStore(
     useShallow((state) => ({
       watchedWallets: state.watchedWallets,
       walletData: state.walletData,
       isInitialized: state.isInitialized,
+      expandedWallet: state.expandedWallet,
     }))
   );
 
   const {
     initialize,
     setService,
+    setExpandedWallet,
     startPolling,
     stopPolling,
     fetchWalletData,
-    fetchAllWalletsData,
     removeWallet,
     updateNickname,
     toggleFollow,
@@ -34,10 +34,10 @@ export default function WatchlistView() {
     useShallow((state) => ({
       initialize: state.initialize,
       setService: state.setService,
+      setExpandedWallet: state.setExpandedWallet,
       startPolling: state.startPolling,
       stopPolling: state.stopPolling,
       fetchWalletData: state.fetchWalletData,
-      fetchAllWalletsData: state.fetchAllWalletsData,
       removeWallet: state.removeWallet,
       updateNickname: state.updateNickname,
       toggleFollow: state.toggleFollow,
@@ -85,18 +85,24 @@ export default function WatchlistView() {
   }, [isInitialized, service, startPolling, stopPolling]);
 
   const handleExpandWallet = useCallback(async (address: string) => {
-    setExpandedWallet((current) => (current === address ? null : address));
-    if (expandedWallet !== address) {
-      await fetchWalletData(address);
+    const normalized = address.toLowerCase();
+    const current = useWatchlistStore.getState().expandedWallet;
+    const next = current === normalized ? null : normalized;
+    setExpandedWallet(next);
+    if (next) {
+      await fetchWalletData(next);
     }
-  }, [expandedWallet, fetchWalletData]);
+  }, [setExpandedWallet, fetchWalletData]);
 
   const handleRemoveWallet = useCallback((address: string) => {
     if (confirm(`Remove wallet ${address} from watchlist?`)) {
       removeWallet(address);
-      setExpandedWallet((current) => (current === address ? null : current));
+      const current = useWatchlistStore.getState().expandedWallet;
+      if (current === address.toLowerCase()) {
+        setExpandedWallet(null);
+      }
     }
-  }, [removeWallet]);
+  }, [removeWallet, setExpandedWallet]);
 
   const handleUpdateNickname = useCallback((address: string, nickname: string) => {
     updateNickname(address, nickname);
@@ -109,11 +115,11 @@ export default function WatchlistView() {
   const handleRefreshAll = useCallback(async () => {
     setIsRefreshing(true);
     try {
-      await fetchAllWalletsData();
+      await Promise.all(watchedWallets.map(w => fetchWalletData(w.address)));
     } finally {
       setIsRefreshing(false);
     }
-  }, [fetchAllWalletsData]);
+  }, [watchedWallets, fetchWalletData]);
 
   const handleRefreshWallet = useCallback(async (address: string) => {
     await fetchWalletData(address);
