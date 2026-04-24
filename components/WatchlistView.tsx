@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useWatchlistStore } from '@/stores/useWatchlistStore';
 import { useTradingStore } from '@/stores/useTradingStore';
 import WalletCard from '@/components/watchlist/WalletCard';
@@ -11,18 +12,37 @@ export default function WatchlistView() {
   const [expandedWallet, setExpandedWallet] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const watchedWallets = useWatchlistStore((state) => state.watchedWallets);
-  const walletData = useWatchlistStore((state) => state.walletData);
-  const isInitialized = useWatchlistStore((state) => state.isInitialized);
-  const initialize = useWatchlistStore((state) => state.initialize);
-  const setService = useWatchlistStore((state) => state.setService);
-  const startPolling = useWatchlistStore((state) => state.startPolling);
-  const stopPolling = useWatchlistStore((state) => state.stopPolling);
-  const fetchWalletData = useWatchlistStore((state) => state.fetchWalletData);
-  const fetchAllWalletsData = useWatchlistStore((state) => state.fetchAllWalletsData);
-  const removeWallet = useWatchlistStore((state) => state.removeWallet);
-  const updateNickname = useWatchlistStore((state) => state.updateNickname);
-  const toggleFollow = useWatchlistStore((state) => state.toggleFollow);
+  const { watchedWallets, walletData, isInitialized } = useWatchlistStore(
+    useShallow((state) => ({
+      watchedWallets: state.watchedWallets,
+      walletData: state.walletData,
+      isInitialized: state.isInitialized,
+    }))
+  );
+
+  const {
+    initialize,
+    setService,
+    startPolling,
+    stopPolling,
+    fetchWalletData,
+    fetchAllWalletsData,
+    removeWallet,
+    updateNickname,
+    toggleFollow,
+  } = useWatchlistStore(
+    useShallow((state) => ({
+      initialize: state.initialize,
+      setService: state.setService,
+      startPolling: state.startPolling,
+      stopPolling: state.stopPolling,
+      fetchWalletData: state.fetchWalletData,
+      fetchAllWalletsData: state.fetchAllWalletsData,
+      removeWallet: state.removeWallet,
+      updateNickname: state.updateNickname,
+      toggleFollow: state.toggleFollow,
+    }))
+  );
 
   const service = useTradingStore((state) => state.service);
 
@@ -64,44 +84,40 @@ export default function WatchlistView() {
     }
   }, [isInitialized, service, startPolling, stopPolling]);
 
-  const handleExpandWallet = async (address: string) => {
-    if (expandedWallet === address) {
-      setExpandedWallet(null);
-    } else {
-      setExpandedWallet(address);
+  const handleExpandWallet = useCallback(async (address: string) => {
+    setExpandedWallet((current) => (current === address ? null : address));
+    if (expandedWallet !== address) {
       await fetchWalletData(address);
     }
-  };
+  }, [expandedWallet, fetchWalletData]);
 
-  const handleRemoveWallet = (address: string) => {
+  const handleRemoveWallet = useCallback((address: string) => {
     if (confirm(`Remove wallet ${address} from watchlist?`)) {
       removeWallet(address);
-      if (expandedWallet === address) {
-        setExpandedWallet(null);
-      }
+      setExpandedWallet((current) => (current === address ? null : current));
     }
-  };
+  }, [removeWallet]);
 
-  const handleUpdateNickname = (address: string, nickname: string) => {
+  const handleUpdateNickname = useCallback((address: string, nickname: string) => {
     updateNickname(address, nickname);
-  };
+  }, [updateNickname]);
 
-  const handleToggleFollow = (address: string) => {
+  const handleToggleFollow = useCallback((address: string) => {
     toggleFollow(address);
-  };
+  }, [toggleFollow]);
 
-  const handleRefreshAll = async () => {
+  const handleRefreshAll = useCallback(async () => {
     setIsRefreshing(true);
     try {
       await fetchAllWalletsData();
     } finally {
       setIsRefreshing(false);
     }
-  };
+  }, [fetchAllWalletsData]);
 
-  const handleRefreshWallet = async (address: string) => {
+  const handleRefreshWallet = useCallback(async (address: string) => {
     await fetchWalletData(address);
-  };
+  }, [fetchWalletData]);
 
   return (
     <div className="h-full flex flex-col bg-bg-primary">
@@ -146,8 +162,8 @@ export default function WatchlistView() {
                   wallet={wallet}
                   data={walletData.get(wallet.address)}
                   isExpanded={expandedWallet === wallet.address}
-                  onExpand={() => handleExpandWallet(wallet.address)}
-                  onRemove={() => handleRemoveWallet(wallet.address)}
+                  onExpand={handleExpandWallet}
+                  onRemove={handleRemoveWallet}
                   onUpdateNickname={handleUpdateNickname}
                   onToggleFollow={handleToggleFollow}
                   onRefresh={handleRefreshWallet}

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import type { WatchedWallet, WalletData } from '@/models/WatchedWallet';
 import WalletDetailPanel from './WalletDetailPanel';
 
@@ -8,14 +8,14 @@ interface WalletCardProps {
   wallet: WatchedWallet;
   data?: WalletData;
   isExpanded: boolean;
-  onExpand: () => void;
-  onRemove: () => void;
+  onExpand: (address: string) => void;
+  onRemove: (address: string) => void;
   onUpdateNickname: (address: string, nickname: string) => void;
   onToggleFollow: (address: string) => void;
   onRefresh: (address: string) => void;
 }
 
-export default function WalletCard({
+function WalletCard({
   wallet,
   data,
   isExpanded,
@@ -113,7 +113,7 @@ export default function WalletCard({
               {wallet.isFollowed ? '🔔 FOLLOWING' : '🔕 FOLLOW'}
             </button>
             <button
-              onClick={onRemove}
+              onClick={() => onRemove(wallet.address)}
               className="px-2 py-0.5 text-[9px] text-bearish hover:text-bearish-bright border border-bearish hover:border-bearish-bright rounded transition-colors"
               title="Remove from watchlist"
             >
@@ -163,7 +163,7 @@ export default function WalletCard({
             </div>
 
             <button
-              onClick={onExpand}
+              onClick={() => onExpand(wallet.address)}
               className="w-full px-2 py-1 text-[9px] font-mono uppercase tracking-wider bg-bg-secondary hover:bg-primary/10 text-primary-muted hover:text-primary border border-frame hover:border-primary rounded cursor-pointer transition-all"
             >
               {isExpanded ? '▲ COLLAPSE' : '▼ VIEW DETAILS'}
@@ -190,3 +190,5 @@ export default function WalletCard({
     </div>
   );
 }
+
+export default memo(WalletCard);

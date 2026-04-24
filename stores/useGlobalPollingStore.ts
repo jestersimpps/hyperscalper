@@ -16,6 +16,9 @@ interface GlobalPollingStore {
   lastSlowPollTime: number | null;
   lastCandlePollTime: number | null;
   isFirstCandleFetch: boolean;
+  fastFetchInFlight: boolean;
+  slowFetchInFlight: boolean;
+  candleFetchInFlight: boolean;
 
   setService: (service: HyperliquidService) => void;
   startGlobalPolling: () => void;
@@ -35,29 +38,26 @@ export const useGlobalPollingStore = create<GlobalPollingStore>((set, get) => ({
   lastSlowPollTime: null,
   lastCandlePollTime: null,
   isFirstCandleFetch: true,
+  fastFetchInFlight: false,
+  slowFetchInFlight: false,
+  candleFetchInFlight: false,
 
   setService: (service: HyperliquidService) => {
-    console.log('[GlobalPolling] setService called, starting global polling');
     set({ service });
     get().startGlobalPolling();
   },
 
   fetchFastData: async () => {
-    const { service } = get();
-    if (!service) {
+    const { service, fastFetchInFlight } = get();
+    if (!service || fastFetchInFlight) {
       return;
     }
 
+    set({ fastFetchInFlight: true });
     try {
       const [ordersData, positionsData] = await Promise.all([
-        service.getOpenOrders().catch(err => {
-          console.error('[GlobalPolling] Error fetching orders:', err);
-          return [];
-        }),
-        service.getOpenPositions().catch(err => {
-          console.error('[GlobalPolling] Error fetching positions:', err);
-          return [];
-        }),
+        service.getOpenOrders().catch(() => []),
+        service.getOpenPositions().catch(() => []),
       ]);
 
       const orderStore = useOrderStore.getState();
@@ -72,25 +72,25 @@ export const useGlobalPollingStore = create<GlobalPollingStore>((set, get) => ({
       }
 
       set({ lastFastPollTime: Date.now() });
-    } catch (error) {
-      console.error('[GlobalPolling] Error in fetchFastData:', error);
+    } catch {
+      // swallow - next tick will retry
+    } finally {
+      set({ fastFetchInFlight: false });
     }
   },
 
   fetchSlowData: async () => {
-    const { service } = get();
-    if (!service) {
+    const { service, slowFetchInFlight } = get();
+    if (!service || slowFetchInFlight) {
       return;
     }
 
+    set({ slowFetchInFlight: true });
     try {
       const topSymbolsStore = useTopSymbolsStore.getState();
       const symbolsBeforeUpdate = topSymbolsStore.symbols.length;
 
-      const metaData = await service.getMetaAndAssetCtxs().catch(err => {
-        console.error('[GlobalPolling] Error fetching meta:', err);
-        return null;
-      });
+      const metaData = await service.getMetaAndAssetCtxs().catch(() => null);
 
       if (metaData) {
         const volatilityStore = useSymbolVolatilityStore.getState();
@@ -101,35 +101,33 @@ export const useGlobalPollingStore = create<GlobalPollingStore>((set, get) => ({
         const symbolsAfterUpdate = topSymbolsStore.symbols.length;
 
         if (symbolsBeforeUpdate === 0 && symbolsAfterUpdate > 0) {
-          console.log('[GlobalPolling] Top symbols just loaded, triggering immediate candle fetch');
           get().fetchCandleData();
         }
       }
 
       set({ lastSlowPollTime: Date.now() });
-    } catch (error) {
-      console.error('[GlobalPolling] Error in fetchSlowData:', error);
+    } catch {
+      // swallow - next tick will retry
+    } finally {
+      set({ slowFetchInFlight: false });
     }
   },
 
   fetchCandleData: async () => {
-    const { service, isFirstCandleFetch } = get();
-    if (!service) {
-      console.log('[GlobalPolling] fetchCandleData: no service, skipping');
+    const { service, isFirstCandleFetch, candleFetchInFlight } = get();
+    if (!service || candleFetchInFlight) {
       return;
     }
 
+    set({ candleFetchInFlight: true });
     try {
       const candleStore = useCandleStore.getState();
       const topSymbolsStore = useTopSymbolsStore.getState();
       const topSymbols = topSymbolsStore.symbols.slice(0, 20);
 
       if (topSymbols.length === 0) {
-        console.log('[GlobalPolling] fetchCandleData: no symbols loaded yet, skipping');
         return;
       }
-
-      console.log(`[GlobalPolling] fetchCandleData: fetching for ${topSymbols.length} symbols`);
 
       const staggerDelay = 200;
       let index = 0;
@@ -138,7 +136,6 @@ export const useGlobalPollingStore = create<GlobalPollingStore>((set, get) => ({
         const symbolName = symbol.name;
 
         if (candleStore.activeSymbol === symbolName) {
-          console.log(`[GlobalPolling] Skipping active symbol: ${symbolName}`);
           continue;
         }
 
@@ -160,20 +157,21 @@ export const useGlobalPollingStore = create<GlobalPollingStore>((set, get) => ({
           await new Promise(resolve => setTimeout(resolve, staggerDelay));
         }
 
-        candleStore.fetchCandles(symbolName, '1m', startTime, endTime).catch(err => {
-          console.error(`[GlobalPolling] Error fetching candles for ${symbolName}:`, err);
+        candleStore.fetchCandles(symbolName, '1m', startTime, endTime).catch(() => {
+          // individual symbol failure is non-fatal
         });
 
         index++;
       }
 
-      console.log('[GlobalPolling] fetchCandleData: completed, updating lastCandlePollTime');
       set({
         lastCandlePollTime: Date.now(),
         isFirstCandleFetch: false
       });
-    } catch (error) {
-      console.error('[GlobalPolling] Error in fetchCandleData:', error);
+    } catch {
+      // swallow - next tick will retry
+    } finally {
+      set({ candleFetchInFlight: false });
     }
   },
 
@@ -181,11 +179,9 @@ export const useGlobalPollingStore = create<GlobalPollingStore>((set, get) => ({
     const { fastPollingInterval, slowPollingInterval, candlePollingInterval, fetchFastData, fetchSlowData, fetchCandleData } = get();
 
     if (fastPollingInterval || slowPollingInterval || candlePollingInterval) {
-      console.log('[GlobalPolling] startGlobalPolling: already running, skipping');
       return;
     }
 
-    console.log('[GlobalPolling] startGlobalPolling: starting all polling intervals');
     fetchFastData();
     fetchSlowData();
     fetchCandleData();
@@ -208,7 +204,6 @@ export const useGlobalPollingStore = create<GlobalPollingStore>((set, get) => ({
       candlePollingInterval: candleIntervalId,
       isPolling: true
     });
-    console.log('[GlobalPolling] startGlobalPolling: all intervals started');
   },
 
   stopGlobalPolling: () => {
