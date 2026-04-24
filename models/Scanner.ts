@@ -77,8 +77,32 @@ export interface SupportResistanceValue {
   nearLevel: 'support' | 'resistance';
 }
 
+export interface AscendingTriangleComponents {
+  flatness: number;
+  slope: number;
+  convergence: number;
+  volume: number;
+  ema: number;
+  proximity: number;
+}
+
+export interface AscendingTriangleValue {
+  timeframe: TimeInterval;
+  score: number;
+  components: AscendingTriangleComponents;
+  ceiling: number;
+  supportLineAtNow: number;
+  supportSlope: number;
+  supportR2: number;
+  stopSuggestion: number;
+  highPivotCount: number;
+  lowPivotCount: number;
+  atr: number;
+  currentPrice: number;
+}
+
 export type SignalType = 'bullish' | 'bearish';
-export type ScanType = 'stochastic' | 'emaAlignment' | 'channel' | 'divergence' | 'macdReversal' | 'rsiReversal' | 'volumeSpike' | 'supportResistance';
+export type ScanType = 'stochastic' | 'emaAlignment' | 'channel' | 'divergence' | 'macdReversal' | 'rsiReversal' | 'volumeSpike' | 'supportResistance' | 'ascendingTriangle';
 
 export interface ScanResult {
   symbol: string;
@@ -90,6 +114,7 @@ export interface ScanResult {
   rsiReversals?: RsiReversalValue[];
   volumeSpikes?: VolumeValue[];
   supportResistanceLevels?: SupportResistanceValue[];
+  ascendingTriangles?: AscendingTriangleValue[];
   matchedAt: number;
   signalType: SignalType;
   description: string;

@@ -126,6 +126,27 @@ export interface SupportResistanceScannerConfig {
   minTouches: number;
 }
 
+export interface AscendingTriangleWeights {
+  flatness: number;
+  slope: number;
+  convergence: number;
+  volume: number;
+  ema: number;
+  proximity: number;
+}
+
+export interface AscendingTriangleScannerConfig {
+  enabled: boolean;
+  timeframes: ('1m' | '5m')[];
+  lookbackBars: number;
+  pivotStrength: number;
+  minHighPivots: number;
+  minLowPivots: number;
+  minSlopeR2: number;
+  minScore: number;
+  weights: AscendingTriangleWeights;
+}
+
 export interface ScannerSettings {
   enabled: boolean;
   scanInterval: number;
@@ -140,6 +161,7 @@ export interface ScannerSettings {
   rsiReversalScanner: RsiReversalScannerConfig;
   volumeSpikeScanner: VolumeSpikeConfig;
   supportResistanceScanner: SupportResistanceScannerConfig;
+  ascendingTriangleScanner: AscendingTriangleScannerConfig;
 }
 
 export interface OrderSettings {
@@ -306,6 +328,24 @@ export const DEFAULT_SETTINGS: AppSettings = {
       timeframes: ['1m', '5m'],
       distanceThreshold: 1.0,
       minTouches: 2,
+    },
+    ascendingTriangleScanner: {
+      enabled: false,
+      timeframes: ['1m', '5m'],
+      lookbackBars: 60,
+      pivotStrength: 3,
+      minHighPivots: 2,
+      minLowPivots: 2,
+      minSlopeR2: 0.5,
+      minScore: 0.6,
+      weights: {
+        flatness: 0.25,
+        slope: 0.2,
+        convergence: 0.2,
+        volume: 0.15,
+        ema: 0.1,
+        proximity: 0.1,
+      },
     },
   },
   orders: {

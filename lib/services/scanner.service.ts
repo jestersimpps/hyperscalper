@@ -9,7 +9,9 @@ import type {
   RsiReversalValue,
   ChannelValue,
   DivergenceValue,
-  SupportResistanceValue
+  SupportResistanceValue,
+  AscendingTriangleValue,
+  AscendingTriangleComponents
 } from '@/models/Scanner';
 import type {
   StochasticScannerConfig,
@@ -20,7 +22,8 @@ import type {
   RsiReversalScannerConfig,
   ChannelScannerConfig,
   DivergenceScannerConfig,
-  SupportResistanceScannerConfig
+  SupportResistanceScannerConfig,
+  AscendingTriangleScannerConfig
 } from '@/models/Settings';
 import type { TransformedCandle } from './types';
 import {
@@ -35,6 +38,8 @@ import {
   detectDivergence,
   calculateTrendlines,
   calculateATR,
+  calculateEMA,
+  linearRegression,
   type DivergenceOptions
 } from '@/lib/indicators';
 import { aggregate1mTo5m } from '@/lib/candle-aggregator';
@@ -88,6 +93,12 @@ export interface SupportResistanceScanParams {
   symbol: string;
   timeframes: TimeInterval[];
   config: SupportResistanceScannerConfig;
+}
+
+export interface AscendingTriangleScanParams {
+  symbol: string;
+  timeframes: TimeInterval[];
+  config: AscendingTriangleScannerConfig;
 }
 
 export class ScannerService {
@@ -845,6 +856,56 @@ export class ScannerService {
     return null;
   }
 
+  async scanAscendingTriangle(params: AscendingTriangleScanParams): Promise<ScanResult | null> {
+    const { symbol, timeframes, config } = params;
+
+    const candleStore = useCandleStore.getState();
+    const closePrices = candleStore.getClosePrices(symbol, '1m', 100) || [];
+
+    for (const timeframe of timeframes) {
+      try {
+        const candles = this.getCandlesFromStore(symbol, timeframe, config.lookbackBars);
+        if (!candles || candles.length < config.lookbackBars) {
+          continue;
+        }
+
+        const evaluated = evaluateAscendingTriangle(candles, config);
+        if (!evaluated) {
+          continue;
+        }
+
+        if (evaluated.score < config.minScore) {
+          continue;
+        }
+
+        const triangleValue: AscendingTriangleValue = {
+          timeframe,
+          ...evaluated,
+        };
+
+        const componentStr = Object.entries(evaluated.components)
+          .map(([k, v]) => `${k}=${v.toFixed(2)}`)
+          .join(' ');
+        const description = `Ascending triangle forming on ${timeframe} (score ${evaluated.score.toFixed(2)}, ceiling $${evaluated.ceiling.toFixed(4)}) — ${componentStr}`;
+
+        return {
+          symbol,
+          ascendingTriangles: [triangleValue],
+          matchedAt: Date.now(),
+          signalType: 'bullish',
+          description,
+          scanType: 'ascendingTriangle',
+          closePrices,
+        };
+      } catch (error) {
+        console.error(`Error scanning ascending triangle for ${symbol} on ${timeframe}:`, error);
+        continue;
+      }
+    }
+
+    return null;
+  }
+
   async scanMultipleSymbols(
     symbols: string[],
     params: Omit<StochasticScanParams, 'symbol'>
@@ -980,4 +1041,142 @@ export class ScannerService {
       )
       .map(result => result.value as ScanResult);
   }
+
+  async scanMultipleSymbolsForAscendingTriangle(
+    symbols: string[],
+    params: Omit<AscendingTriangleScanParams, 'symbol'>
+  ): Promise<ScanResult[]> {
+    const results = await Promise.allSettled(
+      symbols.map(symbol =>
+        this.scanAscendingTriangle({ ...params, symbol })
+      )
+    );
+
+    return results
+      .filter((result): result is PromiseFulfilledResult<ScanResult | null> =>
+        result.status === 'fulfilled' && result.value !== null
+      )
+      .map(result => result.value as ScanResult);
+  }
+}
+
+interface EvaluatedTriangle {
+  score: number;
+  components: AscendingTriangleComponents;
+  ceiling: number;
+  supportLineAtNow: number;
+  supportSlope: number;
+  supportR2: number;
+  stopSuggestion: number;
+  highPivotCount: number;
+  lowPivotCount: number;
+  atr: number;
+  currentPrice: number;
+}
+
+function clamp01(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  if (value < 0) return 0;
+  if (value > 1) return 1;
+  return value;
+}
+
+function evaluateAscendingTriangle(
+  candles: TransformedCandle[],
+  config: AscendingTriangleScannerConfig
+): EvaluatedTriangle | null {
+  const n = candles.length;
+  if (n < config.lookbackBars) return null;
+
+  const atrSeries = calculateATR(candles as any, 14);
+  const atr = atrSeries.length > 0 ? atrSeries[atrSeries.length - 1] : 0;
+  if (atr <= 0) return null;
+
+  const pivots = detectPivots(candles as any, config.pivotStrength);
+  const highPivots = pivots.filter(p => p.type === 'high');
+  const lowPivots = pivots.filter(p => p.type === 'low');
+
+  if (highPivots.length < config.minHighPivots || lowPivots.length < config.minLowPivots) {
+    return null;
+  }
+
+  const ceiling = highPivots.reduce((sum, p) => sum + p.price, 0) / highPivots.length;
+  const meanHigh = ceiling;
+  const variance = highPivots.reduce((sum, p) => sum + (p.price - meanHigh) ** 2, 0) / highPivots.length;
+  const stdDevHighs = Math.sqrt(variance);
+
+  const flatness = clamp01(1 - (stdDevHighs / atr));
+
+  const regression = linearRegression(
+    lowPivots.map(p => ({ x: p.index, y: p.price }))
+  );
+  if (regression.slope <= 0 || regression.r2 < config.minSlopeR2) {
+    return null;
+  }
+
+  const slopePerBarInAtr = regression.slope / atr;
+  const slopeScore = clamp01(slopePerBarInAtr * 10);
+
+  const lastIndex = n - 1;
+  const supportLineAtNow = regression.slope * lastIndex + regression.intercept;
+  const gap = Math.max(0, ceiling - supportLineAtNow);
+  const convergence = clamp01(1 - (gap / (atr * 4)));
+
+  const third = Math.floor(n / 3);
+  const firstThird = candles.slice(0, third);
+  const lastThird = candles.slice(n - third);
+  const avgVolFirst = firstThird.reduce((sum, c) => sum + c.volume, 0) / Math.max(1, firstThird.length);
+  const avgVolLast = lastThird.reduce((sum, c) => sum + c.volume, 0) / Math.max(1, lastThird.length);
+  const volumeRatio = avgVolFirst > 0 ? avgVolLast / avgVolFirst : 1;
+  const volumeScore = clamp01(1 - volumeRatio);
+
+  const closes = candles.map(c => c.close);
+  const ema5 = calculateEMA(closes, 5);
+  const ema20 = calculateEMA(closes, 20);
+  const ema50 = calculateEMA(closes, 50);
+  const e5 = ema5.length > 0 ? ema5[ema5.length - 1] : 0;
+  const e20 = ema20.length > 0 ? ema20[ema20.length - 1] : 0;
+  const e50 = ema50.length > 0 ? ema50[ema50.length - 1] : 0;
+  const emaScore = (e5 > 0 && e20 > 0 && e50 > 0 && e5 > e20 && e20 > e50) ? 1 : 0;
+
+  const currentPrice = candles[n - 1].close;
+  const distanceToCeiling = Math.max(0, ceiling - currentPrice);
+  const proximity = clamp01(1 - (distanceToCeiling / (atr * 2)));
+
+  const components: AscendingTriangleComponents = {
+    flatness,
+    slope: slopeScore,
+    convergence,
+    volume: volumeScore,
+    ema: emaScore,
+    proximity,
+  };
+
+  const w = config.weights;
+  const weightSum = w.flatness + w.slope + w.convergence + w.volume + w.ema + w.proximity;
+  const weighted =
+    components.flatness * w.flatness +
+    components.slope * w.slope +
+    components.convergence * w.convergence +
+    components.volume * w.volume +
+    components.ema * w.ema +
+    components.proximity * w.proximity;
+  const score = weightSum > 0 ? weighted / weightSum : 0;
+
+  const lastLowPivot = lowPivots[lowPivots.length - 1];
+  const stopSuggestion = lastLowPivot.price - atr;
+
+  return {
+    score,
+    components,
+    ceiling,
+    supportLineAtNow,
+    supportSlope: regression.slope,
+    supportR2: regression.r2,
+    stopSuggestion,
+    highPivotCount: highPivots.length,
+    lowPivotCount: lowPivots.length,
+    atr,
+    currentPrice,
+  };
 }

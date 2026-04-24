@@ -146,6 +146,14 @@ export const useScannerStore = create<ScannerStore>((set, get) => ({
         newResults.push(...supportResistanceResults);
       }
 
+      if (settings.ascendingTriangleScanner?.enabled) {
+        const triangleResults = await scannerService.scanMultipleSymbolsForAscendingTriangle(symbols, {
+          timeframes: settings.ascendingTriangleScanner.timeframes,
+          config: settings.ascendingTriangleScanner,
+        });
+        newResults.push(...triangleResults);
+      }
+
       const newSymbols = new Set(newResults.map((r: ScanResult) => r.symbol));
 
       if (newResults.length > 0 && settings.playSound) {

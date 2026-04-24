@@ -17,6 +17,7 @@ export default function SettingsPanel() {
   const [isScannerRsiExpanded, setIsScannerRsiExpanded] = useState(false);
   const [isScannerVolumeExpanded, setIsScannerVolumeExpanded] = useState(false);
   const [isScannerSRExpanded, setIsScannerSRExpanded] = useState(false);
+  const [isScannerTriangleExpanded, setIsScannerTriangleExpanded] = useState(false);
 
   const handleBackdropClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget) {
@@ -892,6 +893,234 @@ export default function SettingsPanel() {
                             <div className="p-3 bg-bg-secondary border border-frame rounded">
                               <div className="text-primary-muted text-xs font-mono">
                                 Uses trendline-based support/resistance detection. Alerts when price approaches a valid S/R level.
+                              </div>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Ascending Triangle Scanner - Collapsible Section */}
+                  <div className="border border-frame rounded overflow-hidden">
+                    <button
+                      onClick={() => setIsScannerTriangleExpanded(!isScannerTriangleExpanded)}
+                      className="w-full p-3 bg-bg-secondary flex items-center justify-between hover:bg-primary/5 transition-colors"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-primary font-mono text-xs font-bold">█ ASCENDING TRIANGLE SCANNER</span>
+                      </div>
+                      <span className="text-primary text-base">{isScannerTriangleExpanded ? '▼' : '▶'}</span>
+                    </button>
+
+                    {isScannerTriangleExpanded && (
+                      <div className="p-4 space-y-4 bg-bg-primary">
+                        <div className="p-3 bg-bg-secondary border border-frame rounded">
+                          <label className="flex items-center justify-between cursor-pointer">
+                            <span className="text-primary-muted text-xs font-mono">ENABLE ASCENDING TRIANGLE SCANNER</span>
+                            <input
+                              type="checkbox"
+                              checked={settings.scanner.ascendingTriangleScanner?.enabled || false}
+                              onChange={(e) =>
+                                updateScannerSettings({
+                                  ascendingTriangleScanner: {
+                                    ...settings.scanner.ascendingTriangleScanner,
+                                    enabled: e.target.checked,
+                                  },
+                                })
+                              }
+                              className="w-4 h-4 accent-primary cursor-pointer"
+                            />
+                          </label>
+                        </div>
+
+                        {settings.scanner.ascendingTriangleScanner?.enabled && (
+                          <>
+                            <div className="p-3 bg-bg-secondary border border-frame rounded space-y-3">
+                              <div className="text-primary font-mono text-xs font-bold mb-2">TIMEFRAMES TO SCAN</div>
+                              <div className="grid grid-cols-2 gap-2">
+                                {(['1m', '5m'] as const).map((tf) => (
+                                  <label key={tf} className="flex items-center gap-2 cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={settings.scanner.ascendingTriangleScanner?.timeframes.includes(tf) || false}
+                                      onChange={(e) => {
+                                        const newTimeframes = e.target.checked
+                                          ? [...(settings.scanner.ascendingTriangleScanner?.timeframes || []), tf]
+                                          : (settings.scanner.ascendingTriangleScanner?.timeframes || []).filter((t) => t !== tf);
+                                        updateScannerSettings({
+                                          ascendingTriangleScanner: {
+                                            ...settings.scanner.ascendingTriangleScanner,
+                                            timeframes: newTimeframes,
+                                          },
+                                        });
+                                      }}
+                                      className="w-4 h-4 accent-primary cursor-pointer"
+                                    />
+                                    <span className="text-primary-muted text-xs font-mono">{tf.toUpperCase()}</span>
+                                  </label>
+                                ))}
+                              </div>
+                            </div>
+
+                            <div className="p-3 bg-bg-secondary border border-frame rounded">
+                              <div className="text-primary font-mono text-xs font-bold mb-3">PATTERN DETECTION</div>
+                              <div className="grid grid-cols-2 gap-3 text-xs">
+                                <div>
+                                  <label className="text-primary-muted font-mono block mb-1">LOOKBACK BARS</label>
+                                  <input
+                                    type="number"
+                                    min="30"
+                                    max="200"
+                                    value={settings.scanner.ascendingTriangleScanner?.lookbackBars || 60}
+                                    onChange={(e) =>
+                                      updateScannerSettings({
+                                        ascendingTriangleScanner: {
+                                          ...settings.scanner.ascendingTriangleScanner,
+                                          lookbackBars: Number(e.target.value),
+                                        },
+                                      })
+                                    }
+                                    className="w-full bg-bg-primary border border-frame text-primary px-2 py-1 rounded font-mono text-xs"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-primary-muted font-mono block mb-1">PIVOT STRENGTH</label>
+                                  <input
+                                    type="number"
+                                    min="2"
+                                    max="10"
+                                    value={settings.scanner.ascendingTriangleScanner?.pivotStrength || 3}
+                                    onChange={(e) =>
+                                      updateScannerSettings({
+                                        ascendingTriangleScanner: {
+                                          ...settings.scanner.ascendingTriangleScanner,
+                                          pivotStrength: Number(e.target.value),
+                                        },
+                                      })
+                                    }
+                                    className="w-full bg-bg-primary border border-frame text-primary px-2 py-1 rounded font-mono text-xs"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-primary-muted font-mono block mb-1">MIN HIGH PIVOTS</label>
+                                  <input
+                                    type="number"
+                                    min="2"
+                                    max="10"
+                                    value={settings.scanner.ascendingTriangleScanner?.minHighPivots || 2}
+                                    onChange={(e) =>
+                                      updateScannerSettings({
+                                        ascendingTriangleScanner: {
+                                          ...settings.scanner.ascendingTriangleScanner,
+                                          minHighPivots: Number(e.target.value),
+                                        },
+                                      })
+                                    }
+                                    className="w-full bg-bg-primary border border-frame text-primary px-2 py-1 rounded font-mono text-xs"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-primary-muted font-mono block mb-1">MIN LOW PIVOTS</label>
+                                  <input
+                                    type="number"
+                                    min="2"
+                                    max="10"
+                                    value={settings.scanner.ascendingTriangleScanner?.minLowPivots || 2}
+                                    onChange={(e) =>
+                                      updateScannerSettings({
+                                        ascendingTriangleScanner: {
+                                          ...settings.scanner.ascendingTriangleScanner,
+                                          minLowPivots: Number(e.target.value),
+                                        },
+                                      })
+                                    }
+                                    className="w-full bg-bg-primary border border-frame text-primary px-2 py-1 rounded font-mono text-xs"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-primary-muted font-mono block mb-1">MIN SLOPE R²</label>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max="1"
+                                    step="0.05"
+                                    value={settings.scanner.ascendingTriangleScanner?.minSlopeR2 ?? 0.5}
+                                    onChange={(e) =>
+                                      updateScannerSettings({
+                                        ascendingTriangleScanner: {
+                                          ...settings.scanner.ascendingTriangleScanner,
+                                          minSlopeR2: Number(e.target.value),
+                                        },
+                                      })
+                                    }
+                                    className="w-full bg-bg-primary border border-frame text-primary px-2 py-1 rounded font-mono text-xs"
+                                  />
+                                  <div className="text-primary-muted font-mono text-[10px] mt-1">
+                                    Rejects noisy support lines
+                                  </div>
+                                </div>
+                                <div>
+                                  <label className="text-primary-muted font-mono block mb-1">MIN SCORE</label>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max="1"
+                                    step="0.05"
+                                    value={settings.scanner.ascendingTriangleScanner?.minScore ?? 0.6}
+                                    onChange={(e) =>
+                                      updateScannerSettings({
+                                        ascendingTriangleScanner: {
+                                          ...settings.scanner.ascendingTriangleScanner,
+                                          minScore: Number(e.target.value),
+                                        },
+                                      })
+                                    }
+                                    className="w-full bg-bg-primary border border-frame text-primary px-2 py-1 rounded font-mono text-xs"
+                                  />
+                                  <div className="text-primary-muted font-mono text-[10px] mt-1">
+                                    Alert threshold
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="p-3 bg-bg-secondary border border-frame rounded space-y-3">
+                              <div className="text-primary font-mono text-xs font-bold mb-2">COMPONENT WEIGHTS</div>
+                              <div className="grid grid-cols-2 gap-3 text-xs">
+                                {(['flatness', 'slope', 'convergence', 'volume', 'ema', 'proximity'] as const).map((key) => (
+                                  <div key={key}>
+                                    <label className="text-primary-muted font-mono block mb-1">{key.toUpperCase()}</label>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      max="1"
+                                      step="0.05"
+                                      value={settings.scanner.ascendingTriangleScanner?.weights?.[key] ?? 0}
+                                      onChange={(e) =>
+                                        updateScannerSettings({
+                                          ascendingTriangleScanner: {
+                                            ...settings.scanner.ascendingTriangleScanner,
+                                            weights: {
+                                              ...settings.scanner.ascendingTriangleScanner.weights,
+                                              [key]: Number(e.target.value),
+                                            },
+                                          },
+                                        })
+                                      }
+                                      className="w-full bg-bg-primary border border-frame text-primary px-2 py-1 rounded font-mono text-xs"
+                                    />
+                                  </div>
+                                ))}
+                              </div>
+                              <div className="text-primary-muted font-mono text-[10px]">
+                                Weights are normalized — ratios matter, not absolute values.
+                              </div>
+                            </div>
+
+                            <div className="p-3 bg-bg-secondary border border-frame rounded">
+                              <div className="text-primary-muted text-xs font-mono">
+                                Watch mode: scores each symbol for flat ceiling + rising support + contraction. Emits when total crosses min score — breakout may not have fired yet.
                               </div>
                             </div>
                           </>

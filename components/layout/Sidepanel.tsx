@@ -340,6 +340,9 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect, mobileView =
         srDistance: number | null;
         srTouches: number | null;
         srPrice: number | null;
+        tri: boolean;
+        triScore: number | null;
+        triCeiling: number | null;
         signalType: 'bullish' | 'bearish';
       }>();
 
@@ -370,6 +373,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect, mobileView =
         if (result.volumeSpikes) timeframes.push(...result.volumeSpikes.map(v => v.timeframe));
         if (result.channels) timeframes.push(...result.channels.map(c => c.timeframe));
         if (result.supportResistanceLevels) timeframes.push(...result.supportResistanceLevels.map(sr => sr.timeframe));
+        if (result.ascendingTriangles) timeframes.push(...result.ascendingTriangles.map(t => t.timeframe));
 
         const uniqueTimeframes = [...new Set(timeframes)];
 
@@ -386,6 +390,9 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect, mobileView =
               srDistance: null,
               srTouches: null,
               srPrice: null,
+              tri: false,
+              triScore: null,
+              triCeiling: null,
               signalType: result.signalType
             });
           }
@@ -429,6 +436,14 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect, mobileView =
               tfData.srDistance = distance;
               tfData.srTouches = touches;
               tfData.srPrice = price;
+            }
+          }
+          if (result.scanType === 'ascendingTriangle' && result.ascendingTriangles) {
+            const triangle = result.ascendingTriangles.find(t => t.timeframe === tf);
+            if (triangle) {
+              tfData.tri = true;
+              tfData.triScore = triangle.score;
+              tfData.triCeiling = triangle.ceiling;
             }
           }
         });

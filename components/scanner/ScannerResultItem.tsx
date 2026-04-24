@@ -20,6 +20,9 @@ interface ProcessedSignal {
   srDistance: number | null;
   srTouches: number | null;
   srPrice: number | null;
+  tri: boolean;
+  triScore: number | null;
+  triCeiling: number | null;
   signalType: 'bullish' | 'bearish';
 }
 
@@ -129,6 +132,14 @@ const ScannerResultItem = ({
                         </span>
                       );
                     })()}
+                    {signals.tri && (
+                      <span
+                        className={`${badgeBg} text-bg-primary px-1.5 py-0.5 rounded font-bold`}
+                        title={`Ascending triangle forming — ceiling $${signals.triCeiling?.toFixed(4)} (score ${signals.triScore?.toFixed(2)})`}
+                      >
+                        TRI {signals.triScore?.toFixed(2)}
+                      </span>
+                    )}
                   </div>
                 </div>
               );
