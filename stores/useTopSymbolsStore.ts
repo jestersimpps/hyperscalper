@@ -25,13 +25,16 @@ export const useTopSymbolsStore = create<TopSymbolsStore>((set, get) => ({
   service: null,
 
   setService: (service: HyperliquidService) => {
+    const prevService = get().service;
     set({ service });
+    if (service && service !== prevService && get().symbols.length === 0) {
+      get().fetchTopSymbols();
+    }
   },
 
   fetchTopSymbols: async () => {
     const { service } = get();
     if (!service) {
-      console.warn('Service not initialized yet, skipping top symbols fetch');
       return;
     }
 
