@@ -102,12 +102,46 @@ function MiniPriceChart({ closePrices, signalType, invertedMode = false }: MiniP
   }), []);
 
   if (closePrices.length === 0) {
-    return null;
+    return <MiniPriceChartSkeleton />;
   }
 
   return (
     <div className="w-full h-full">
       <Line data={data} options={options} />
+    </div>
+  );
+}
+
+const SKELETON_POINTS = [
+  [0, 62], [8, 55], [16, 60], [24, 48], [32, 52],
+  [40, 40], [48, 45], [56, 35], [64, 42], [72, 30],
+  [80, 38], [88, 28], [96, 33], [100, 25]
+] as const;
+
+const SKELETON_LINE = SKELETON_POINTS.map(([x, y]) => `${x},${y}`).join(' ');
+const SKELETON_AREA = `0,70 ${SKELETON_LINE} 100,70`;
+
+function MiniPriceChartSkeleton() {
+  return (
+    <div className="w-full h-full relative overflow-hidden">
+      <svg
+        viewBox="0 0 100 70"
+        preserveAspectRatio="none"
+        className="w-full h-full animate-pulse"
+      >
+        <polygon points={SKELETON_AREA} fill="currentColor" className="text-primary/10" />
+        <polyline
+          points={SKELETON_LINE}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          vectorEffect="non-scaling-stroke"
+          className="text-primary/30"
+        />
+      </svg>
+      <div className="absolute inset-0 skeleton-shimmer pointer-events-none" />
     </div>
   );
 }

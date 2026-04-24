@@ -56,11 +56,9 @@ const SymbolItem = ({
             }}
             className="flex-1 text-left p-2 pb-0 cursor-pointer relative active:scale-[0.98] transition-transform duration-100"
           >
-            {closePrices && closePrices.length > 0 && (
-              <div className="absolute inset-y-0 left-0 right-[40%] opacity-50 pointer-events-none">
-                <MiniPriceChart closePrices={closePrices} invertedMode={invertedMode} />
-              </div>
-            )}
+            <div className="absolute inset-y-0 left-0 right-[40%] opacity-50 pointer-events-none">
+              <MiniPriceChart closePrices={closePrices ?? []} invertedMode={invertedMode} />
+            </div>
             <div className="flex justify-between items-stretch gap-2 relative z-10">
               <div className="flex flex-col justify-between min-w-0">
                 <div className="flex items-center gap-2">

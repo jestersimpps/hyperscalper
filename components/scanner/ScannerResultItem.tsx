@@ -74,15 +74,13 @@ const ScannerResultItem = ({
     >
       <div className="flex items-start">
         <div className="flex flex-col flex-1 relative">
-          {closePrices && closePrices.length > 0 && (
-            <div className="absolute inset-0 opacity-50 pointer-events-none">
-              <MiniPriceChart
-                closePrices={closePrices}
-                signalType={signalType}
-                invertedMode={invertedMode}
-              />
-            </div>
-          )}
+          <div className="absolute inset-0 opacity-50 pointer-events-none">
+            <MiniPriceChart
+              closePrices={closePrices ?? []}
+              signalType={signalType}
+              invertedMode={invertedMode}
+            />
+          </div>
           <div className="p-2 pb-1 relative z-10">
             <span className="text-primary font-bold text-xs">{symbol}/USD</span>
           </div>

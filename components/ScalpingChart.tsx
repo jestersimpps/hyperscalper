@@ -1546,7 +1546,9 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
     <div className="relative flex flex-col h-full w-full">
       {isLoading && (
         <div className="absolute inset-0 flex items-center justify-center bg-bg-primary bg-opacity-90 z-10">
-          <div className="text-primary">Loading chart...</div>
+          <div className="text-primary text-sm">
+            Loading chart<span className="loading-ellipsis" />
+          </div>
         </div>
       )}
       <div ref={chartContainerRef} className="flex-1 min-h-0" />
