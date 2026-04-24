@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react';
 
-export function debounce<T extends (...args: any[]) => any>(
+function debounce<T extends (...args: any[]) => any>(
   func: T,
   wait: number
 ): (...args: Parameters<T>) => void {
@@ -19,7 +19,7 @@ export function debounce<T extends (...args: any[]) => any>(
   };
 }
 
-export function throttle<T extends (...args: any[]) => any>(
+function throttle<T extends (...args: any[]) => any>(
   func: T,
   limit: number
 ): (...args: Parameters<T>) => void {
@@ -84,50 +84,3 @@ export function useDebouncedCallback<T extends (...args: any[]) => any>(
   return debouncedRef.current;
 }
 
-export function useRAFThrottle(callback: () => void, deps: React.DependencyList) {
-  const rafIdRef = useRef<number | null>(null);
-  const callbackRef = useRef(callback);
-
-  useEffect(() => {
-    callbackRef.current = callback;
-  }, [callback]);
-
-  useEffect(() => {
-    if (rafIdRef.current !== null) {
-      cancelAnimationFrame(rafIdRef.current);
-    }
-
-    rafIdRef.current = requestAnimationFrame(() => {
-      callbackRef.current();
-      rafIdRef.current = null;
-    });
-
-    return () => {
-      if (rafIdRef.current !== null) {
-        cancelAnimationFrame(rafIdRef.current);
-      }
-    };
-  }, deps);
-}
-
-export function batchUpdates<T>(
-  updateFn: (batch: T[]) => void,
-  delay: number = 16
-): (item: T) => void {
-  let batch: T[] = [];
-  let timeoutId: NodeJS.Timeout | null = null;
-
-  return (item: T) => {
-    batch.push(item);
-
-    if (timeoutId) {
-      clearTimeout(timeoutId);
-    }
-
-    timeoutId = setTimeout(() => {
-      updateFn([...batch]);
-      batch = [];
-      timeoutId = null;
-    }, delay);
-  };
-}

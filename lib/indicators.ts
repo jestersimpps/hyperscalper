@@ -204,6 +204,52 @@ export function calculateATR(candles: FullCandleData[], period: number = 14): nu
   return atr;
 }
 
+export interface LinearRegressionResult {
+  slope: number;
+  intercept: number;
+  r2: number;
+}
+
+export function linearRegression(points: { x: number; y: number }[]): LinearRegressionResult {
+  const n = points.length;
+  if (n < 2) {
+    return { slope: 0, intercept: n === 1 ? points[0].y : 0, r2: 0 };
+  }
+
+  let sumX = 0;
+  let sumY = 0;
+  let sumXY = 0;
+  let sumXX = 0;
+  for (const { x, y } of points) {
+    sumX += x;
+    sumY += y;
+    sumXY += x * y;
+    sumXX += x * x;
+  }
+
+  const meanX = sumX / n;
+  const meanY = sumY / n;
+  const denominator = sumXX - n * meanX * meanX;
+
+  if (denominator === 0) {
+    return { slope: 0, intercept: meanY, r2: 0 };
+  }
+
+  const slope = (sumXY - n * meanX * meanY) / denominator;
+  const intercept = meanY - slope * meanX;
+
+  let ssTot = 0;
+  let ssRes = 0;
+  for (const { x, y } of points) {
+    const predicted = slope * x + intercept;
+    ssRes += (y - predicted) ** 2;
+    ssTot += (y - meanY) ** 2;
+  }
+
+  const r2 = ssTot === 0 ? 1 : 1 - ssRes / ssTot;
+  return { slope, intercept, r2 };
+}
+
 export function calculateRSIVolatility(rsiValues: number[], period: number = 15): number {
   if (rsiValues.length < period) return 5;
 
@@ -1650,44 +1696,6 @@ export function calculatePivotLines(candles: FullCandleData[]): Trendlines {
   return { supportLine, resistanceLine };
 }
 
-export function calculateStochasticPivotLines(
-  stochData: StochasticData[],
-  candles: FullCandleData[]
-): Trendlines {
-  if (stochData.length < 30 || candles.length < 30 || stochData.length !== candles.length) {
-    return { supportLine: [], resistanceLine: [] };
-  }
-
-  const pivots = detectStochasticPivots(stochData, candles, 3);
-
-  const tops = pivots.filter(p => p.type === 'high');
-  const bottoms = pivots.filter(p => p.type === 'low');
-
-  const supportLine: TrendlineWithStyle[] = [];
-  for (let i = 1; i < bottoms.length; i++) {
-    supportLine.push({
-      points: [
-        { time: bottoms[i-1].time / 1000, value: bottoms[i-1].value },
-        { time: bottoms[i].time / 1000, value: bottoms[i].value }
-      ],
-      lineStyle: 0
-    });
-  }
-
-  const resistanceLine: TrendlineWithStyle[] = [];
-  for (let i = 1; i < tops.length; i++) {
-    resistanceLine.push({
-      points: [
-        { time: tops[i-1].time / 1000, value: tops[i-1].value },
-        { time: tops[i].time / 1000, value: tops[i].value }
-      ],
-      lineStyle: 0
-    });
-  }
-
-  return { supportLine, resistanceLine };
-}
-
 export const calculateEMAMemoized = createMemoizedFunction(
   calculateEMA,
   (data: number[], period: number) => {
@@ -1928,71 +1936,3 @@ function findBestStochasticTrendlineForPeriod(
   return bestLine;
 }
 
-export function calculateStochasticTrendlines(
-  stochData: StochasticData[],
-  candles: FullCandleData[],
-  lookbackPeriod?: number
-): Trendlines {
-  if (stochData.length < 30 || candles.length < 30 || stochData.length !== candles.length) {
-    return { supportLine: [], resistanceLine: [] };
-  }
-
-  const excludeLastCandles = 10;
-  const lastValue = stochData[stochData.length - 1 - excludeLastCandles].d;
-
-  const lookbackPeriods: number[] = [];
-  if (lookbackPeriod) {
-    lookbackPeriods.push(Math.min(lookbackPeriod, stochData.length - excludeLastCandles));
-  } else {
-    const minPeriod = 20;
-    const maxPeriod = stochData.length - excludeLastCandles;
-    const step = 10;
-    for (let period = minPeriod; period <= maxPeriod; period += step) {
-      lookbackPeriods.push(period);
-    }
-  }
-
-  const supportCandidates: ScoredStochasticLine[] = [];
-  const resistanceCandidates: ScoredStochasticLine[] = [];
-
-  const FIFTEEN_MINUTES_MS = 15 * 60 * 1000;
-  const actualEndTime = candles[candles.length - 1].time + FIFTEEN_MINUTES_MS;
-
-  for (const period of lookbackPeriods) {
-    const stochSubset = stochData.slice(-(period + excludeLastCandles), -excludeLastCandles);
-    const candleSubset = candles.slice(-(period + excludeLastCandles), -excludeLastCandles);
-
-    if (stochSubset.length < 20 || candleSubset.length < 20) continue;
-
-    const pivotLows = findStochasticPivotLows(stochSubset, candleSubset, 3);
-    const pivotHighs = findStochasticPivotHighs(stochSubset, candleSubset, 3);
-
-    const supportLine = findBestStochasticTrendlineForPeriod(pivotLows, stochSubset, candleSubset, true, period, lastValue, actualEndTime);
-    const resistanceLine = findBestStochasticTrendlineForPeriod(pivotHighs, stochSubset, candleSubset, false, period, lastValue, actualEndTime);
-
-    if (supportLine) {
-      supportCandidates.push(supportLine);
-    }
-
-    if (resistanceLine) {
-      resistanceCandidates.push(resistanceLine);
-    }
-  }
-
-  supportCandidates.sort((a, b) => b.score - a.score);
-  resistanceCandidates.sort((a, b) => b.score - a.score);
-
-  const topSupport = supportCandidates.slice(0, 1);
-  const topResistance = resistanceCandidates.slice(0, 1);
-
-  return {
-    supportLine: topSupport.map((s) => ({
-      points: s.line,
-      lineStyle: 0
-    })),
-    resistanceLine: topResistance.map((r) => ({
-      points: r.line,
-      lineStyle: 0
-    }))
-  };
-}
