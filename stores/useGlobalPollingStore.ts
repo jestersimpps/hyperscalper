@@ -5,6 +5,7 @@ import { usePositionStore } from './usePositionStore';
 import { useSymbolVolatilityStore } from './useSymbolVolatilityStore';
 import { useTopSymbolsStore } from './useTopSymbolsStore';
 import { useCandleStore } from './useCandleStore';
+import { useScannerStore } from './useScannerStore';
 
 interface GlobalPollingStore {
   service: HyperliquidService | null;
@@ -23,6 +24,8 @@ interface GlobalPollingStore {
   setService: (service: HyperliquidService) => void;
   startGlobalPolling: () => void;
   stopGlobalPolling: () => void;
+  pauseBackgroundPolling: () => void;
+  resumeBackgroundPolling: () => void;
   fetchFastData: () => Promise<void>;
   fetchSlowData: () => Promise<void>;
   fetchCandleData: () => Promise<void>;
@@ -228,6 +231,54 @@ export const useGlobalPollingStore = create<GlobalPollingStore>((set, get) => ({
       isPolling: false
     });
   },
+
+  pauseBackgroundPolling: () => {
+    const { slowPollingInterval, candlePollingInterval } = get();
+    const scannerRunning = useScannerStore.getState().status.isRunning;
+
+    if (slowPollingInterval) {
+      clearInterval(slowPollingInterval);
+    }
+
+    const updates: Partial<GlobalPollingStore> = {
+      slowPollingInterval: null,
+    };
+
+    if (!scannerRunning && candlePollingInterval) {
+      clearInterval(candlePollingInterval);
+      updates.candlePollingInterval = null;
+    }
+
+    set(updates);
+  },
+
+  resumeBackgroundPolling: () => {
+    const { service, slowPollingInterval, candlePollingInterval, fetchSlowData, fetchCandleData } = get();
+
+    if (!service) {
+      return;
+    }
+
+    const updates: Partial<GlobalPollingStore> = {};
+
+    if (!slowPollingInterval) {
+      fetchSlowData();
+      updates.slowPollingInterval = setInterval(() => {
+        fetchSlowData();
+      }, 60000);
+    }
+
+    if (!candlePollingInterval) {
+      fetchCandleData();
+      updates.candlePollingInterval = setInterval(() => {
+        fetchCandleData();
+      }, 60000);
+    }
+
+    if (Object.keys(updates).length > 0) {
+      set(updates);
+    }
+  },
 }));
 
 if (typeof window !== 'undefined') {
@@ -237,4 +288,16 @@ if (typeof window !== 'undefined') {
   };
 
   window.addEventListener('beforeunload', cleanup);
+
+  document.addEventListener('visibilitychange', () => {
+    const { isPolling, pauseBackgroundPolling, resumeBackgroundPolling } = useGlobalPollingStore.getState();
+    if (!isPolling) {
+      return;
+    }
+    if (document.hidden) {
+      pauseBackgroundPolling();
+    } else {
+      resumeBackgroundPolling();
+    }
+  });
 }

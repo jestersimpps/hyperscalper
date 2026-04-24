@@ -5,6 +5,7 @@ import { ScannerService } from '@/lib/services/scanner.service';
 import { useSettingsStore } from './useSettingsStore';
 import { useTopSymbolsStore } from './useTopSymbolsStore';
 import { playNotificationSound } from '@/lib/sound-utils';
+import { flashTitle, requestNotificationPermission, showScanNotification } from '@/lib/notifications';
 
 interface ScannerStore {
   results: ScanResult[];
@@ -156,16 +157,23 @@ export const useScannerStore = create<ScannerStore>((set, get) => ({
 
       const newSymbols = new Set(newResults.map((r: ScanResult) => r.symbol));
 
-      if (newResults.length > 0 && settings.playSound) {
+      if (newResults.length > 0) {
         const firstResult = newResults[0];
-        console.log(`[Scanner] Scan completed with ${newResults.length} result(s): ${newResults.map(r => r.symbol).join(', ')} - Playing sound`);
-        playNotificationSound(firstResult.signalType).catch(err =>
-          console.error('Error playing sound:', err)
-        );
-      } else if (settings.playSound) {
-        console.log('[Scanner] Scan completed with no results - skipping sound');
-      } else {
-        console.log('[Scanner] Sound disabled in settings');
+
+        if (settings.playSound) {
+          playNotificationSound(firstResult.signalType).catch(err =>
+            console.error('Error playing sound:', err)
+          );
+        }
+
+        showScanNotification(newResults);
+
+        if (typeof document !== 'undefined' && document.hidden) {
+          const label = newResults.length === 1
+            ? `🔔 ${firstResult.symbol}`
+            : `🔔 ${newResults.length} signals`;
+          flashTitle(label);
+        }
       }
 
       set({
@@ -195,6 +203,8 @@ export const useScannerStore = create<ScannerStore>((set, get) => ({
 
     if (status.isRunning) return;
 
+    requestNotificationPermission();
+
     get().runScan();
 
     const settings = useSettingsStore.getState().settings.scanner;
@@ -217,6 +227,8 @@ export const useScannerStore = create<ScannerStore>((set, get) => ({
     const { intervalId, status } = get();
 
     if (status.isRunning) return;
+
+    requestNotificationPermission();
 
     const settings = useSettingsStore.getState().settings.scanner;
     const intervalMs = settings.scanInterval * 60 * 1000;
