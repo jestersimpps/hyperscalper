@@ -1,5 +1,22 @@
 import { useEffect, useMemo, useRef } from 'react';
 
+interface SchedulerWithYield {
+  yield?: () => Promise<void>;
+}
+
+export function yieldToMain(): Promise<void> {
+  if (typeof window === 'undefined') {
+    return Promise.resolve();
+  }
+
+  const scheduler = (window as unknown as { scheduler?: SchedulerWithYield }).scheduler;
+  if (scheduler?.yield) {
+    return scheduler.yield();
+  }
+
+  return new Promise(resolve => setTimeout(resolve, 0));
+}
+
 type AnyFn = (...args: never[]) => unknown;
 
 interface Debounced<T extends AnyFn> {

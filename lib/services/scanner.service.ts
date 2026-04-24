@@ -45,6 +45,26 @@ import {
 import { aggregate1mTo5m } from '@/lib/candle-aggregator';
 import { downsampleCandles } from '@/lib/candle-utils';
 import { useCandleStore } from '@/stores/useCandleStore';
+import { yieldToMain } from '@/lib/performance-utils';
+
+const YIELD_EVERY = 4;
+
+async function scanWithYield<T, R>(
+  items: T[],
+  fn: (item: T) => Promise<R | null>
+): Promise<R[]> {
+  const results: R[] = [];
+  for (let i = 0; i < items.length; i++) {
+    const result = await fn(items[i]);
+    if (result !== null) {
+      results.push(result);
+    }
+    if ((i + 1) % YIELD_EVERY === 0 && i < items.length - 1) {
+      await yieldToMain();
+    }
+  }
+  return results;
+}
 
 export interface StochasticScanParams {
   symbol: string;
@@ -910,153 +930,63 @@ export class ScannerService {
     symbols: string[],
     params: Omit<StochasticScanParams, 'symbol'>
   ): Promise<ScanResult[]> {
-    const results = await Promise.allSettled(
-      symbols.map(symbol =>
-        this.scanStochastic({ ...params, symbol })
-      )
-    );
-
-    return results
-      .filter((result): result is PromiseFulfilledResult<ScanResult | null> =>
-        result.status === 'fulfilled' && result.value !== null
-      )
-      .map(result => result.value as ScanResult);
+    return scanWithYield(symbols, symbol => this.scanStochastic({ ...params, symbol }));
   }
 
   async scanMultipleSymbolsForVolume(
     symbols: string[],
     params: Omit<VolumeScanParams, 'symbol'>
   ): Promise<ScanResult[]> {
-    const results = await Promise.allSettled(
-      symbols.map(symbol =>
-        this.scanVolumeSpike({ ...params, symbol })
-      )
-    );
-
-    return results
-      .filter((result): result is PromiseFulfilledResult<ScanResult | null> =>
-        result.status === 'fulfilled' && result.value !== null
-      )
-      .map(result => result.value as ScanResult);
+    return scanWithYield(symbols, symbol => this.scanVolumeSpike({ ...params, symbol }));
   }
 
   async scanMultipleSymbolsForEmaAlignment(
     symbols: string[],
     params: Omit<EmaAlignmentScanParams, 'symbol'>
   ): Promise<ScanResult[]> {
-    const results = await Promise.allSettled(
-      symbols.map(symbol =>
-        this.scanEmaAlignment({ ...params, symbol })
-      )
-    );
-
-    return results
-      .filter((result): result is PromiseFulfilledResult<ScanResult | null> =>
-        result.status === 'fulfilled' && result.value !== null
-      )
-      .map(result => result.value as ScanResult);
+    return scanWithYield(symbols, symbol => this.scanEmaAlignment({ ...params, symbol }));
   }
 
   async scanMultipleSymbolsForMacdReversal(
     symbols: string[],
     params: Omit<MacdReversalScanParams, 'symbol'>
   ): Promise<ScanResult[]> {
-    const results = await Promise.allSettled(
-      symbols.map(symbol =>
-        this.scanMacdReversal({ ...params, symbol })
-      )
-    );
-
-    return results
-      .filter((result): result is PromiseFulfilledResult<ScanResult | null> =>
-        result.status === 'fulfilled' && result.value !== null
-      )
-      .map(result => result.value as ScanResult);
+    return scanWithYield(symbols, symbol => this.scanMacdReversal({ ...params, symbol }));
   }
 
   async scanMultipleSymbolsForRsiReversal(
     symbols: string[],
     params: Omit<RsiReversalScanParams, 'symbol'>
   ): Promise<ScanResult[]> {
-    const results = await Promise.allSettled(
-      symbols.map(symbol =>
-        this.scanRsiReversal({ ...params, symbol })
-      )
-    );
-
-    return results
-      .filter((result): result is PromiseFulfilledResult<ScanResult | null> =>
-        result.status === 'fulfilled' && result.value !== null
-      )
-      .map(result => result.value as ScanResult);
+    return scanWithYield(symbols, symbol => this.scanRsiReversal({ ...params, symbol }));
   }
 
   async scanMultipleSymbolsForChannel(
     symbols: string[],
     params: Omit<ChannelScanParams, 'symbol'>
   ): Promise<ScanResult[]> {
-    const results = await Promise.allSettled(
-      symbols.map(symbol =>
-        this.scanChannel({ ...params, symbol })
-      )
-    );
-
-    return results
-      .filter((result): result is PromiseFulfilledResult<ScanResult | null> =>
-        result.status === 'fulfilled' && result.value !== null
-      )
-      .map(result => result.value as ScanResult);
+    return scanWithYield(symbols, symbol => this.scanChannel({ ...params, symbol }));
   }
 
   async scanMultipleSymbolsForDivergence(
     symbols: string[],
     params: Omit<DivergenceScanParams, 'symbol'>
   ): Promise<ScanResult[]> {
-    const results = await Promise.allSettled(
-      symbols.map(symbol =>
-        this.scanDivergence({ ...params, symbol })
-      )
-    );
-
-    return results
-      .filter((result): result is PromiseFulfilledResult<ScanResult | null> =>
-        result.status === 'fulfilled' && result.value !== null
-      )
-      .map(result => result.value as ScanResult);
+    return scanWithYield(symbols, symbol => this.scanDivergence({ ...params, symbol }));
   }
 
   async scanMultipleSymbolsForSupportResistance(
     symbols: string[],
     params: Omit<SupportResistanceScanParams, 'symbol'>
   ): Promise<ScanResult[]> {
-    const results = await Promise.allSettled(
-      symbols.map(symbol =>
-        this.scanSupportResistance({ ...params, symbol })
-      )
-    );
-
-    return results
-      .filter((result): result is PromiseFulfilledResult<ScanResult | null> =>
-        result.status === 'fulfilled' && result.value !== null
-      )
-      .map(result => result.value as ScanResult);
+    return scanWithYield(symbols, symbol => this.scanSupportResistance({ ...params, symbol }));
   }
 
   async scanMultipleSymbolsForAscendingTriangle(
     symbols: string[],
     params: Omit<AscendingTriangleScanParams, 'symbol'>
   ): Promise<ScanResult[]> {
-    const results = await Promise.allSettled(
-      symbols.map(symbol =>
-        this.scanAscendingTriangle({ ...params, symbol })
-      )
-    );
-
-    return results
-      .filter((result): result is PromiseFulfilledResult<ScanResult | null> =>
-        result.status === 'fulfilled' && result.value !== null
-      )
-      .map(result => result.value as ScanResult);
+    return scanWithYield(symbols, symbol => this.scanAscendingTriangle({ ...params, symbol }));
   }
 }
 

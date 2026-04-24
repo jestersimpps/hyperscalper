@@ -6,6 +6,7 @@ import { useSettingsStore } from './useSettingsStore';
 import { useTopSymbolsStore } from './useTopSymbolsStore';
 import { playNotificationSound } from '@/lib/sound-utils';
 import { flashTitle, requestNotificationPermission, showScanNotification } from '@/lib/notifications';
+import { yieldToMain } from '@/lib/performance-utils';
 
 interface ScannerStore {
   results: ScanResult[];
@@ -89,6 +90,7 @@ export const useScannerStore = create<ScannerStore>((set, get) => ({
           variants: indicatorSettings.stochastic.variants,
         });
         newResults.push(...stochResults);
+        await yieldToMain();
       }
 
       if (settings.volumeSpikeScanner.enabled) {
@@ -97,6 +99,7 @@ export const useScannerStore = create<ScannerStore>((set, get) => ({
           config: settings.volumeSpikeScanner,
         });
         newResults.push(...volumeResults);
+        await yieldToMain();
       }
 
       if (settings.emaAlignmentScanner.enabled) {
@@ -105,6 +108,7 @@ export const useScannerStore = create<ScannerStore>((set, get) => ({
           config: settings.emaAlignmentScanner,
         });
         newResults.push(...emaResults);
+        await yieldToMain();
       }
 
       if (settings.macdReversalScanner.enabled) {
@@ -113,6 +117,7 @@ export const useScannerStore = create<ScannerStore>((set, get) => ({
           config: settings.macdReversalScanner,
         });
         newResults.push(...macdResults);
+        await yieldToMain();
       }
 
       if (settings.rsiReversalScanner.enabled) {
@@ -121,6 +126,7 @@ export const useScannerStore = create<ScannerStore>((set, get) => ({
           config: settings.rsiReversalScanner,
         });
         newResults.push(...rsiResults);
+        await yieldToMain();
       }
 
       if (settings.channelScanner.enabled) {
@@ -129,6 +135,7 @@ export const useScannerStore = create<ScannerStore>((set, get) => ({
           config: settings.channelScanner,
         });
         newResults.push(...channelResults);
+        await yieldToMain();
       }
 
       if (settings.divergenceScanner.enabled) {
@@ -137,6 +144,7 @@ export const useScannerStore = create<ScannerStore>((set, get) => ({
           config: settings.divergenceScanner,
         });
         newResults.push(...divergenceResults);
+        await yieldToMain();
       }
 
       if (settings.supportResistanceScanner?.enabled) {
@@ -145,6 +153,7 @@ export const useScannerStore = create<ScannerStore>((set, get) => ({
           config: settings.supportResistanceScanner,
         });
         newResults.push(...supportResistanceResults);
+        await yieldToMain();
       }
 
       if (settings.ascendingTriangleScanner?.enabled) {
