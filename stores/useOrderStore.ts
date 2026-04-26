@@ -24,6 +24,7 @@ interface OrderStore {
   addOptimisticOrders: (coin: string, orders: Partial<Order>[]) => void;
   confirmOptimisticOrder: (coin: string, tempId: string, realOid: string) => void;
   rollbackOptimisticOrder: (coin: string, tempId: string) => void;
+  updateOptimisticOrder: (coin: string, tempId: string, patch: Partial<Order>) => void;
   markPendingCancellation: (coin: string, oid: string) => void;
   confirmCancellation: (coin: string, oid: string) => void;
   getAllOrders: (coin: string) => Order[];
@@ -225,6 +226,22 @@ export const useOrderStore = create<OrderStore>()(
         }
 
         set({ optimisticOrders: newOptimisticOrders });
+      },
+
+      updateOptimisticOrder: (coin: string, tempId: string, patch: Partial<Order>) => {
+        const { optimisticOrders } = get();
+        const coinOptimistic = optimisticOrders[coin] || [];
+
+        const next = coinOptimistic.map(o =>
+          o.tempId === tempId ? { ...o, ...patch } : o
+        );
+
+        set({
+          optimisticOrders: {
+            ...optimisticOrders,
+            [coin]: next,
+          },
+        });
       },
 
       markPendingCancellation: (coin: string, oid: string) => {

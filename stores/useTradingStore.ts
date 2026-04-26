@@ -895,6 +895,18 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
     const tempId = `temp_${Date.now()}_${Math.random()}`;
     const orderStore = useOrderStore.getState();
 
+    orderStore.addOptimisticOrder(symbol, {
+      oid: tempId,
+      coin: symbol,
+      side: isBuy ? 'buy' : 'sell',
+      price,
+      size: 0,
+      orderType: useTriggerOrder ? 'trigger' : 'limit',
+      timestamp: Date.now(),
+      isOptimistic: true,
+      tempId: tempId,
+    });
+
     set((state) => ({
       isExecuting: { ...state.isExecuting, [`limitOrder_${symbol}`]: true },
       errors: { ...state.errors, [`limitOrder_${symbol}`]: null },
@@ -929,16 +941,9 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
         wasBumped,
       });
 
-      orderStore.addOptimisticOrder(symbol, {
-        oid: tempId,
-        coin: symbol,
-        side: isBuy ? 'buy' : 'sell',
+      orderStore.updateOptimisticOrder(symbol, tempId, {
         price: parseFloat(formattedPrice),
         size: parseFloat(formattedSize),
-        orderType: useTriggerOrder ? 'trigger' : 'limit',
-        timestamp: Date.now(),
-        isOptimistic: true,
-        tempId: tempId,
       });
 
       let response;
@@ -1019,6 +1024,19 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
 
     const tempId = `temp_${Date.now()}_${Math.random()}`;
     const orderStore = useOrderStore.getState();
+    const isBuy = !isLong;
+
+    orderStore.addOptimisticOrder(symbol, {
+      oid: tempId,
+      coin: symbol,
+      side: isBuy ? 'buy' : 'sell',
+      price,
+      size: 0,
+      orderType,
+      timestamp: Date.now(),
+      isOptimistic: true,
+      tempId: tempId,
+    });
 
     set((state) => ({
       isExecuting: { ...state.isExecuting, [`exitOrder_${symbol}`]: true },
@@ -1032,18 +1050,9 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
       const formattedSize = service.formatSizeCached(sizeToExit, metadata);
       const formattedPrice = service.formatPriceCached(price, metadata);
 
-      const isBuy = !isLong;
-
-      orderStore.addOptimisticOrder(symbol, {
-        oid: tempId,
-        coin: symbol,
-        side: isBuy ? 'buy' : 'sell',
+      orderStore.updateOptimisticOrder(symbol, tempId, {
         price: parseFloat(formattedPrice),
         size: parseFloat(formattedSize),
-        orderType,
-        timestamp: Date.now(),
-        isOptimistic: true,
-        tempId: tempId,
       });
 
       let response;

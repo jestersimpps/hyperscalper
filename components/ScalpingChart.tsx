@@ -235,6 +235,8 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
   const positionLineRef = useRef<any>(null);
   const breakevenBandSeriesRef = useRef<any>(null);
   const orderLinesRef = useRef<any[]>([]);
+  const optimisticLinesRef = useRef<{ line: any; visibleColor: string; hiddenColor: string }[]>([]);
+  const blinkIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const cachedTrendlinesRef = useRef<{ supportLine: any[]; resistanceLine: any[] }>({ supportLine: [], resistanceLine: [] });
   const lastTrendlineCalculationRef = useRef<number>(0);
   const [chartReady, setChartReady] = useState(false);
@@ -1451,6 +1453,12 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
   useEffect(() => {
     if (!chartReady || !candleSeriesRef.current) return;
 
+    if (blinkIntervalRef.current) {
+      clearInterval(blinkIntervalRef.current);
+      blinkIntervalRef.current = null;
+    }
+    optimisticLinesRef.current = [];
+
     // Remove existing order lines
     orderLinesRef.current.forEach((line) => {
       try {
@@ -1510,11 +1518,38 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
         });
 
         orderLinesRef.current.push(orderLine);
+
+        if (isOptimistic && !isPending) {
+          optimisticLinesRef.current.push({
+            line: orderLine,
+            visibleColor: color,
+            hiddenColor: fadeColor(baseColor, 0),
+          });
+        }
       });
+
+      if (optimisticLinesRef.current.length > 0) {
+        let visible = true;
+        blinkIntervalRef.current = setInterval(() => {
+          visible = !visible;
+          for (const o of optimisticLinesRef.current) {
+            try {
+              o.line.applyOptions({ color: visible ? o.visibleColor : o.hiddenColor });
+            } catch (e) {
+              // Ignore errors on stale lines
+            }
+          }
+        }, 400);
+      }
     }
 
     // Cleanup on unmount or orders change
     return () => {
+      if (blinkIntervalRef.current) {
+        clearInterval(blinkIntervalRef.current);
+        blinkIntervalRef.current = null;
+      }
+      optimisticLinesRef.current = [];
       orderLinesRef.current.forEach((line) => {
         if (candleSeriesRef.current) {
           try {
