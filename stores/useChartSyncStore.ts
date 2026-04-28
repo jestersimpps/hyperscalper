@@ -1,16 +1,16 @@
 import { create } from 'zustand';
 
-interface TimeRange {
+interface LogicalRange {
   from: number;
   to: number;
 }
 
 interface ChartSyncStore {
-  visibleTimeRange: TimeRange | null;
-  setVisibleTimeRange: (range: TimeRange | null) => void;
+  visibleLogicalRange: LogicalRange | null;
+  setVisibleLogicalRange: (range: LogicalRange | null) => void;
 }
 
 export const useChartSyncStore = create<ChartSyncStore>((set) => ({
-  visibleTimeRange: null,
-  setVisibleTimeRange: (range) => set({ visibleTimeRange: range }),
+  visibleLogicalRange: null,
+  setVisibleLogicalRange: (range) => set({ visibleLogicalRange: range }),
 }));

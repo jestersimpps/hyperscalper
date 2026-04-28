@@ -6,7 +6,11 @@ import { useCandleStore } from '@/stores/useCandleStore';
 import { getCandleTimeWindow } from '@/lib/time-utils';
 import { STANDARD_CANDLES } from '@/lib/constants';
 
-function BTCChart() {
+interface BTCChartProps {
+  syncZoom?: boolean;
+}
+
+function BTCChart({ syncZoom = false }: BTCChartProps) {
   const [currentPrice, setCurrentPrice] = useState(0);
   const candles = useCandleStore((state) => state.candles['BTC-1m']) || [];
   const candleService = useCandleStore((state) => state.service);
@@ -38,6 +42,8 @@ function BTCChart() {
           candleData={candles}
           isExternalData={true}
           onPriceUpdate={setCurrentPrice}
+          syncZoom={syncZoom}
+          referenceMode
         />
       </div>
     </div>

@@ -27,6 +27,8 @@ interface SymbolViewProps {
 function SymbolView({ coin }: SymbolViewProps) {
   const [currentPrice, setCurrentPrice] = useState(0);
   const [newTradeKeys, setNewTradeKeys] = useState<Set<string>>(new Set());
+  const [isBtcRefExpanded, setIsBtcRefExpanded] = useState(false);
+  const showBtcRef = coin !== 'BTC';
   const chartRef = useRef<any>(null);
   const crosshairStateRef = useRef({ active: false, type: null as any });
 
@@ -547,11 +549,23 @@ function SymbolView({ coin }: SymbolViewProps) {
           </div>
         ) : (
           <div className="terminal-border p-1.5 flex flex-col flex-1 min-h-0">
-            <div className="text-[10px] text-primary-muted mb-0.5 uppercase tracking-wider">█ SCALPING CHART</div>
+            <div className="flex items-center gap-3 mb-0.5">
+              <span className="text-[10px] text-primary-muted uppercase tracking-wider">█ SCALPING CHART</span>
+              {showBtcRef && (
+                <button
+                  type="button"
+                  onClick={() => setIsBtcRefExpanded((v) => !v)}
+                  className="text-[10px] text-primary-muted uppercase tracking-wider hover:text-primary-default"
+                >
+                  [{isBtcRefExpanded ? 'x' : ' '}] BTC REF
+                </button>
+              )}
+            </div>
             <div className={`flex-1 min-h-0 ${crosshairActive ? 'cursor-crosshair' : ''}`}>
               <ScalpingChart
                 coin={coin}
                 interval="1m"
+                showBtcReference={showBtcRef && isBtcRefExpanded}
                 onPriceUpdate={setCurrentPrice}
                 onChartReady={(chart) => { chartRef.current = chart; }}
 onChartClick={async (data) => {
