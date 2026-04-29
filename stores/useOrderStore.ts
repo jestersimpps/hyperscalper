@@ -90,7 +90,7 @@ export const useOrderStore = create<OrderStore>()(
       },
 
       updateOrdersFromGlobalPoll: (allOrders: any[]) => {
-        const { optimisticOrders } = get();
+        const { optimisticOrders, pendingCancellations } = get();
         const ordersByCoin: Record<string, Order[]> = {};
 
         allOrders.forEach((order: any) => {
@@ -103,7 +103,11 @@ export const useOrderStore = create<OrderStore>()(
 
         const mappedOrders: Record<string, Order[]> = {};
         Object.keys(ordersByCoin).forEach(coin => {
-          mappedOrders[coin] = mapHyperliquidOrders(ordersByCoin[coin]);
+          mappedOrders[coin] = mapHyperliquidOrders(ordersByCoin[coin]).map(order =>
+            pendingCancellations.has(order.oid)
+              ? { ...order, isPendingCancellation: true }
+              : order
+          );
         });
 
         const newOptimisticOrders = { ...optimisticOrders };
