@@ -6,6 +6,7 @@ import { useSettingsStore } from '@/stores/useSettingsStore';
 import { useCrosshairStore } from '@/stores/useCrosshairStore';
 import { usePositionStore } from '@/stores/usePositionStore';
 import { formatPnlSchmeckles } from '@/lib/format-utils';
+import { isTpFor, isSlFor } from '@/lib/utils/order-classification';
 import type { Position } from '@/models/Position';
 import type { Order } from '@/models/Order';
 
@@ -54,28 +55,14 @@ function RightTradingPanel({
   onCancelSLOrders,
   onCancelAllOrders,
 }: RightTradingPanelProps) {
-  const hasExitOrders = orders.some(order => order.orderType === 'stop' || order.orderType === 'tp');
-
   const hasTPOrders = useMemo(() => {
     if (!position) return false;
-    return orders.some(order => {
-      if (position.side === 'long') {
-        return order.side === 'sell' && order.price > position.entryPrice;
-      } else {
-        return order.side === 'buy' && order.price < position.entryPrice;
-      }
-    });
+    return orders.some(o => isTpFor(o, position));
   }, [orders, position]);
 
   const hasSLOrders = useMemo(() => {
     if (!position) return false;
-    return orders.some(order => {
-      if (position.side === 'long') {
-        return order.side === 'sell' && order.price < position.entryPrice;
-      } else {
-        return order.side === 'buy' && order.price > position.entryPrice;
-      }
-    });
+    return orders.some(o => isSlFor(o, position));
   }, [orders, position]);
 
   const schmecklesMode = useSettingsStore((state) => state.settings.chart.schmecklesMode);

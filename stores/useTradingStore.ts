@@ -3,6 +3,7 @@ import { HyperliquidService } from '@/lib/services/hyperliquid.service';
 import { useOrderStore } from './useOrderStore';
 import { usePositionStore } from './usePositionStore';
 import { useSettingsStore } from './useSettingsStore';
+import { isEntryOrder, isExitOrder, isTpFor, isSlFor } from '@/lib/utils/order-classification';
 import toast from 'react-hot-toast';
 
 const ORDER_COUNT = 5;
@@ -1271,7 +1272,7 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
 
     const orderStore = useOrderStore.getState();
     const allOrders = orderStore.getAllOrders(symbol);
-    const entryOrders = allOrders.filter(order => order.orderType === 'limit' || order.orderType === 'trigger');
+    const entryOrders = allOrders.filter(isEntryOrder);
 
     const optimisticEntries = entryOrders.filter(o => o.isOptimistic && o.tempId);
     const confirmedEntries = entryOrders.filter(o => !o.isOptimistic);
@@ -1310,7 +1311,7 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
 
     const orderStore = useOrderStore.getState();
     const allOrders = orderStore.getAllOrders(symbol);
-    const exitOrders = allOrders.filter(order => order.orderType === 'stop' || order.orderType === 'tp');
+    const exitOrders = allOrders.filter(isExitOrder);
 
     const optimisticExits = exitOrders.filter(o => o.isOptimistic && o.tempId);
     const confirmedExits = exitOrders.filter(o => !o.isOptimistic);
@@ -1357,13 +1358,7 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
     }
 
     const allOrders = orderStore.getAllOrders(symbol);
-    const tpOrders = allOrders.filter(order => {
-      if (position.side === 'long') {
-        return order.side === 'sell' && order.price > position.entryPrice;
-      } else {
-        return order.side === 'buy' && order.price < position.entryPrice;
-      }
-    });
+    const tpOrders = allOrders.filter(o => isTpFor(o, position));
 
     if (tpOrders.length === 0) {
       toast.error('No take profit orders found');
@@ -1415,13 +1410,7 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
     }
 
     const allOrders = orderStore.getAllOrders(symbol);
-    const slOrders = allOrders.filter(order => {
-      if (position.side === 'long') {
-        return order.side === 'sell' && order.price < position.entryPrice;
-      } else {
-        return order.side === 'buy' && order.price > position.entryPrice;
-      }
-    });
+    const slOrders = allOrders.filter(o => isSlFor(o, position));
 
     if (slOrders.length === 0) {
       toast.error('No stop loss orders found');

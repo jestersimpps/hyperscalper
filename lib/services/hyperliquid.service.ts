@@ -37,6 +37,7 @@ import type {
 } from './types';
 import { metadataCache, type SymbolMetadata } from './metadata-cache.service';
 import { accountCache } from './account-cache.service';
+import { isRawEntryOrder, isRawExitOrder } from '@/lib/utils/order-classification';
 
 export class HyperliquidService implements IHyperliquidService {
   public publicClient: PublicClient;
@@ -568,20 +569,7 @@ export class HyperliquidService implements IHyperliquidService {
     const orders = await this.getOpenOrders();
     const coinOrders = orders.filter(order => order.coin === coin);
 
-    const entryOrders = coinOrders.filter(order => {
-      if (order.isPositionTpsl) return false;
-
-      const ot = order.orderType?.toLowerCase() || '';
-      if (ot.includes('stop')) return false;
-      if (ot.includes('tp')) return false;
-
-      if (order.isTrigger && order.reduceOnly) {
-        const triggerType = ot || '';
-        if (triggerType.includes('market')) return false;
-      }
-
-      return true;
-    });
+    const entryOrders = coinOrders.filter(isRawEntryOrder);
 
     if (entryOrders.length === 0) {
       return { status: 'ok', response: { type: 'cancel', data: { statuses: [] } } } as CancelResponse;
@@ -604,20 +592,7 @@ export class HyperliquidService implements IHyperliquidService {
     const orders = await this.getOpenOrders();
     const coinOrders = orders.filter(order => order.coin === coin);
 
-    const exitOrders = coinOrders.filter(order => {
-      if (order.isPositionTpsl) return true;
-
-      const ot = order.orderType?.toLowerCase() || '';
-      if (ot.includes('stop')) return true;
-      if (ot.includes('tp')) return true;
-
-      if (order.isTrigger && order.reduceOnly) {
-        const triggerType = ot || '';
-        if (triggerType.includes('market')) return true;
-      }
-
-      return false;
-    });
+    const exitOrders = coinOrders.filter(isRawExitOrder);
 
     if (exitOrders.length === 0) {
       return { status: 'ok', response: { type: 'cancel', data: { statuses: [] } } } as CancelResponse;
