@@ -4,7 +4,33 @@ import { useOrderStore } from './useOrderStore';
 import { usePositionStore } from './usePositionStore';
 import { useSettingsStore } from './useSettingsStore';
 import { isEntryOrder, isExitOrder, isTpFor, isSlFor } from '@/lib/utils/order-classification';
+import type { BulkCancelResult } from '@/lib/services/types';
+import type { Order } from '@/models/Order';
 import toast from 'react-hot-toast';
+
+const reconcileBulkCancel = (
+  symbol: string,
+  result: BulkCancelResult,
+  removedSnapshot: Order[]
+): { failedCount: number } => {
+  const orderStore = useOrderStore.getState();
+  const snapshotByOid = new Map(removedSnapshot.map(o => [o.oid, o]));
+  const failed: Order[] = [];
+
+  result.attemptedOids.forEach((oid, index) => {
+    const status = result.response.response.data.statuses[index];
+    if (typeof status === 'object' && status !== null && 'error' in status) {
+      const original = snapshotByOid.get(oid);
+      if (original) failed.push(original);
+    }
+  });
+
+  if (failed.length > 0) {
+    orderStore.restoreOrders(symbol, failed);
+  }
+
+  return { failedCount: failed.length };
+};
 
 const ORDER_COUNT = 5;
 const TAKE_PROFIT_PERCENT = 2;
@@ -1288,8 +1314,13 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
 
     try {
       const metadata = await service.getMetadataCache(symbol);
-      await service.cancelEntryOrders(symbol, metadata);
-      toast.success('Entry orders cancelled');
+      const result = await service.cancelEntryOrders(symbol, metadata);
+      const { failedCount } = reconcileBulkCancel(symbol, result, removedSnapshot);
+      if (failedCount > 0) {
+        toast.error(`${failedCount} entry order(s) failed to cancel`);
+      } else {
+        toast.success('Entry orders cancelled');
+      }
     } catch (error) {
       orderStore.restoreOrders(symbol, removedSnapshot);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -1327,8 +1358,13 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
 
     try {
       const metadata = await service.getMetadataCache(symbol);
-      await service.cancelExitOrders(symbol, metadata);
-      toast.success('Exit orders cancelled');
+      const result = await service.cancelExitOrders(symbol, metadata);
+      const { failedCount } = reconcileBulkCancel(symbol, result, removedSnapshot);
+      if (failedCount > 0) {
+        toast.error(`${failedCount} exit order(s) failed to cancel`);
+      } else {
+        toast.success('Exit orders cancelled');
+      }
     } catch (error) {
       orderStore.restoreOrders(symbol, removedSnapshot);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -1379,8 +1415,13 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
 
     try {
       const metadata = await service.getMetadataCache(symbol);
-      await service.cancelTPOrders(symbol, metadata);
-      toast.success('Take profit orders cancelled');
+      const result = await service.cancelTPOrders(symbol, metadata);
+      const { failedCount } = reconcileBulkCancel(symbol, result, removedSnapshot);
+      if (failedCount > 0) {
+        toast.error(`${failedCount} take profit order(s) failed to cancel`);
+      } else {
+        toast.success('Take profit orders cancelled');
+      }
     } catch (error) {
       orderStore.restoreOrders(symbol, removedSnapshot);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -1431,8 +1472,13 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
 
     try {
       const metadata = await service.getMetadataCache(symbol);
-      await service.cancelSLOrders(symbol, metadata);
-      toast.success('Stop loss orders cancelled');
+      const result = await service.cancelSLOrders(symbol, metadata);
+      const { failedCount } = reconcileBulkCancel(symbol, result, removedSnapshot);
+      if (failedCount > 0) {
+        toast.error(`${failedCount} stop loss order(s) failed to cancel`);
+      } else {
+        toast.success('Stop loss orders cancelled');
+      }
     } catch (error) {
       orderStore.restoreOrders(symbol, removedSnapshot);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -1469,8 +1515,13 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
 
     try {
       const metadata = await service.getMetadataCache(symbol);
-      await service.cancelAllOrders(symbol, metadata);
-      toast.success('All orders cancelled');
+      const result = await service.cancelAllOrders(symbol, metadata);
+      const { failedCount } = reconcileBulkCancel(symbol, result, removedSnapshot);
+      if (failedCount > 0) {
+        toast.error(`${failedCount} order(s) failed to cancel`);
+      } else {
+        toast.success('All orders cancelled');
+      }
     } catch (error) {
       orderStore.restoreOrders(symbol, removedSnapshot);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';

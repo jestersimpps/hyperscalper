@@ -100,6 +100,11 @@ export interface MetaAndAssetCtxs {
   assetCtxs: AssetCtx[];
 }
 
+export interface BulkCancelResult {
+  response: CancelResponse;
+  attemptedOids: string[];
+}
+
 export interface IHyperliquidService {
   getCandles(params: CandleParams): Promise<TransformedCandle[]>;
   getRecentTrades(params: TradesParams): Promise<WsTrade[]>;
@@ -120,11 +125,11 @@ export interface IHyperliquidService {
   getAccountBalance(user?: string): Promise<AccountBalance>;
   getOpenOrders(user?: string): Promise<FrontendOrder[]>;
   cancelOrder(coin: string, orderId: number, metadata: SymbolMetadata): Promise<CancelResponse>;
-  cancelAllOrders(coin: string, metadata: SymbolMetadata): Promise<CancelResponse>;
-  cancelEntryOrders(coin: string, metadata: SymbolMetadata): Promise<CancelResponse>;
-  cancelExitOrders(coin: string, metadata: SymbolMetadata): Promise<CancelResponse>;
-  cancelTPOrders(coin: string, metadata: SymbolMetadata): Promise<CancelResponse>;
-  cancelSLOrders(coin: string, metadata: SymbolMetadata): Promise<CancelResponse>;
+  cancelAllOrders(coin: string, metadata: SymbolMetadata): Promise<BulkCancelResult>;
+  cancelEntryOrders(coin: string, metadata: SymbolMetadata): Promise<BulkCancelResult>;
+  cancelExitOrders(coin: string, metadata: SymbolMetadata): Promise<BulkCancelResult>;
+  cancelTPOrders(coin: string, metadata: SymbolMetadata): Promise<BulkCancelResult>;
+  cancelSLOrders(coin: string, metadata: SymbolMetadata): Promise<BulkCancelResult>;
 
   openLong(params: LongParams, metadata: SymbolMetadata): Promise<OrderResponse>;
   openShort(params: ShortParams, metadata: SymbolMetadata): Promise<OrderResponse>;

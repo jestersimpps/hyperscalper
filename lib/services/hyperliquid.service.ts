@@ -33,7 +33,8 @@ import type {
   ClosePositionParams,
   AccountBalance,
   TransformedCandle,
-  MetaAndAssetCtxs
+  MetaAndAssetCtxs,
+  BulkCancelResult
 } from './types';
 import { metadataCache, type SymbolMetadata } from './metadata-cache.service';
 import { accountCache } from './account-cache.service';
@@ -539,28 +540,32 @@ export class HyperliquidService implements IHyperliquidService {
     });
   }
 
-  async cancelAllOrders(coin: string, metadata: SymbolMetadata): Promise<CancelResponse> {
-    this.ensureWalletClient();
-    if (!metadata) {
-      throw new Error('Metadata is a required parameter');
-    }
-
-    const orders = await this.getOpenOrders();
-    const coinOrders = orders.filter(order => order.coin === coin);
-
-    if (coinOrders.length === 0) {
-      return { status: 'ok', response: { type: 'cancel', data: { statuses: [] } } } as CancelResponse;
-    }
-
-    const cancels = coinOrders.map(order => ({
-      a: metadata.coinIndex,
-      o: order.oid
-    }));
-
-    return await this.walletClient!.cancel({ cancels });
+  private emptyBulkCancelResult(): BulkCancelResult {
+    return {
+      response: { status: 'ok', response: { type: 'cancel', data: { statuses: [] } } } as CancelResponse,
+      attemptedOids: [],
+    };
   }
 
-  async cancelEntryOrders(coin: string, metadata: SymbolMetadata): Promise<CancelResponse> {
+  private async submitBulkCancel(
+    targetOrders: Array<{ oid: string | number }>,
+    metadata: SymbolMetadata
+  ): Promise<BulkCancelResult> {
+    if (targetOrders.length === 0) {
+      return this.emptyBulkCancelResult();
+    }
+
+    const attemptedOids = targetOrders.map(o => o.oid.toString());
+    const cancels = targetOrders.map(o => ({
+      a: metadata.coinIndex,
+      o: typeof o.oid === 'number' ? o.oid : parseInt(o.oid as string, 10),
+    }));
+
+    const response = await this.walletClient!.cancel({ cancels });
+    return { response, attemptedOids };
+  }
+
+  async cancelAllOrders(coin: string, metadata: SymbolMetadata): Promise<BulkCancelResult> {
     this.ensureWalletClient();
     if (!metadata) {
       throw new Error('Metadata is a required parameter');
@@ -569,21 +574,23 @@ export class HyperliquidService implements IHyperliquidService {
     const orders = await this.getOpenOrders();
     const coinOrders = orders.filter(order => order.coin === coin);
 
+    return this.submitBulkCancel(coinOrders, metadata);
+  }
+
+  async cancelEntryOrders(coin: string, metadata: SymbolMetadata): Promise<BulkCancelResult> {
+    this.ensureWalletClient();
+    if (!metadata) {
+      throw new Error('Metadata is a required parameter');
+    }
+
+    const orders = await this.getOpenOrders();
+    const coinOrders = orders.filter(order => order.coin === coin);
     const entryOrders = coinOrders.filter(isRawEntryOrder);
 
-    if (entryOrders.length === 0) {
-      return { status: 'ok', response: { type: 'cancel', data: { statuses: [] } } } as CancelResponse;
-    }
-
-    const cancels = entryOrders.map(order => ({
-      a: metadata.coinIndex,
-      o: order.oid
-    }));
-
-    return await this.walletClient!.cancel({ cancels });
+    return this.submitBulkCancel(entryOrders, metadata);
   }
 
-  async cancelExitOrders(coin: string, metadata: SymbolMetadata): Promise<CancelResponse> {
+  async cancelExitOrders(coin: string, metadata: SymbolMetadata): Promise<BulkCancelResult> {
     this.ensureWalletClient();
     if (!metadata) {
       throw new Error('Metadata is a required parameter');
@@ -591,22 +598,12 @@ export class HyperliquidService implements IHyperliquidService {
 
     const orders = await this.getOpenOrders();
     const coinOrders = orders.filter(order => order.coin === coin);
-
     const exitOrders = coinOrders.filter(isRawExitOrder);
 
-    if (exitOrders.length === 0) {
-      return { status: 'ok', response: { type: 'cancel', data: { statuses: [] } } } as CancelResponse;
-    }
-
-    const cancels = exitOrders.map(order => ({
-      a: metadata.coinIndex,
-      o: order.oid
-    }));
-
-    return await this.walletClient!.cancel({ cancels });
+    return this.submitBulkCancel(exitOrders, metadata);
   }
 
-  async cancelTPOrders(coin: string, metadata: SymbolMetadata): Promise<CancelResponse> {
+  async cancelTPOrders(coin: string, metadata: SymbolMetadata): Promise<BulkCancelResult> {
     this.ensureWalletClient();
     if (!metadata) {
       throw new Error('Metadata is a required parameter');
@@ -619,7 +616,7 @@ export class HyperliquidService implements IHyperliquidService {
 
     const position = positions.find(p => p.position.coin === coin);
     if (!position) {
-      return { status: 'ok', response: { type: 'cancel', data: { statuses: [] } } } as CancelResponse;
+      return this.emptyBulkCancelResult();
     }
 
     const positionSize = parseFloat(position.position.szi);
@@ -638,19 +635,10 @@ export class HyperliquidService implements IHyperliquidService {
       }
     });
 
-    if (tpOrders.length === 0) {
-      return { status: 'ok', response: { type: 'cancel', data: { statuses: [] } } } as CancelResponse;
-    }
-
-    const cancels = tpOrders.map(order => ({
-      a: metadata.coinIndex,
-      o: order.oid
-    }));
-
-    return await this.walletClient!.cancel({ cancels });
+    return this.submitBulkCancel(tpOrders, metadata);
   }
 
-  async cancelSLOrders(coin: string, metadata: SymbolMetadata): Promise<CancelResponse> {
+  async cancelSLOrders(coin: string, metadata: SymbolMetadata): Promise<BulkCancelResult> {
     this.ensureWalletClient();
     if (!metadata) {
       throw new Error('Metadata is a required parameter');
@@ -663,7 +651,7 @@ export class HyperliquidService implements IHyperliquidService {
 
     const position = positions.find(p => p.position.coin === coin);
     if (!position) {
-      return { status: 'ok', response: { type: 'cancel', data: { statuses: [] } } } as CancelResponse;
+      return this.emptyBulkCancelResult();
     }
 
     const positionSize = parseFloat(position.position.szi);
@@ -682,16 +670,7 @@ export class HyperliquidService implements IHyperliquidService {
       }
     });
 
-    if (slOrders.length === 0) {
-      return { status: 'ok', response: { type: 'cancel', data: { statuses: [] } } } as CancelResponse;
-    }
-
-    const cancels = slOrders.map(order => ({
-      a: metadata.coinIndex,
-      o: order.oid
-    }));
-
-    return await this.walletClient!.cancel({ cancels });
+    return this.submitBulkCancel(slOrders, metadata);
   }
 
   async openLong(params: LongParams, metadata: SymbolMetadata): Promise<OrderResponse> {
