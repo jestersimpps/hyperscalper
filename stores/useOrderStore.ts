@@ -27,6 +27,8 @@ interface OrderStore {
   updateOptimisticOrder: (coin: string, tempId: string, patch: Partial<Order>) => void;
   markPendingCancellation: (coin: string, oid: string) => void;
   confirmCancellation: (coin: string, oid: string) => void;
+  removeOrders: (coin: string, oids: string[]) => void;
+  restoreOrders: (coin: string, restored: Order[]) => void;
   getAllOrders: (coin: string) => Order[];
 }
 
@@ -274,6 +276,38 @@ export const useOrderStore = create<OrderStore>()(
         set({
           orders: { ...orders, [coin]: updatedOrders },
           pendingCancellations: newPendingCancellations,
+        });
+      },
+
+      removeOrders: (coin: string, oids: string[]) => {
+        if (oids.length === 0) return;
+        const { orders, pendingCancellations } = get();
+        const coinOrders = orders[coin] || [];
+        const oidSet = new Set(oids);
+
+        const updatedOrders = coinOrders.filter(order => !oidSet.has(order.oid));
+        const newPendingCancellations = new Set(pendingCancellations);
+        oids.forEach(oid => newPendingCancellations.delete(oid));
+
+        set({
+          orders: { ...orders, [coin]: updatedOrders },
+          pendingCancellations: newPendingCancellations,
+        });
+      },
+
+      restoreOrders: (coin: string, restored: Order[]) => {
+        if (restored.length === 0) return;
+        const { orders } = get();
+        const coinOrders = orders[coin] || [];
+        const existingOids = new Set(coinOrders.map(o => o.oid));
+        const toAdd = restored
+          .filter(o => !existingOids.has(o.oid))
+          .map(o => ({ ...o, isPendingCancellation: false }));
+
+        if (toAdd.length === 0) return;
+
+        set({
+          orders: { ...orders, [coin]: [...coinOrders, ...toAdd] },
         });
       },
 

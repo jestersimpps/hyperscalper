@@ -1273,29 +1273,24 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
     const allOrders = orderStore.getAllOrders(symbol);
     const entryOrders = allOrders.filter(order => order.orderType === 'limit' || order.orderType === 'trigger');
 
+    const optimisticEntries = entryOrders.filter(o => o.isOptimistic && o.tempId);
+    const confirmedEntries = entryOrders.filter(o => !o.isOptimistic);
+    const removedSnapshot = confirmedEntries.map(o => ({ ...o }));
+
     set((state) => ({
       isExecuting: { ...state.isExecuting, [`cancelEntry_${symbol}`]: true },
       errors: { ...state.errors, [`cancelEntry_${symbol}`]: null },
     }));
 
-    entryOrders.forEach(order => {
-      if (!order.isOptimistic) {
-        orderStore.markPendingCancellation(symbol, order.oid);
-      } else if (order.tempId) {
-        orderStore.rollbackOptimisticOrder(symbol, order.tempId);
-      }
-    });
+    optimisticEntries.forEach(o => orderStore.rollbackOptimisticOrder(symbol, o.tempId!));
+    orderStore.removeOrders(symbol, confirmedEntries.map(o => o.oid));
 
     try {
       const metadata = await service.getMetadataCache(symbol);
       await service.cancelEntryOrders(symbol, metadata);
-      entryOrders.forEach(order => {
-        if (!order.isOptimistic) {
-          orderStore.confirmCancellation(symbol, order.oid);
-        }
-      });
       toast.success('Entry orders cancelled');
     } catch (error) {
+      orderStore.restoreOrders(symbol, removedSnapshot);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       toast.error(`Cancel failed: ${errorMessage}`);
       set((state) => ({
@@ -1317,29 +1312,24 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
     const allOrders = orderStore.getAllOrders(symbol);
     const exitOrders = allOrders.filter(order => order.orderType === 'stop' || order.orderType === 'tp');
 
+    const optimisticExits = exitOrders.filter(o => o.isOptimistic && o.tempId);
+    const confirmedExits = exitOrders.filter(o => !o.isOptimistic);
+    const removedSnapshot = confirmedExits.map(o => ({ ...o }));
+
     set((state) => ({
       isExecuting: { ...state.isExecuting, [`cancelExit_${symbol}`]: true },
       errors: { ...state.errors, [`cancelExit_${symbol}`]: null },
     }));
 
-    exitOrders.forEach(order => {
-      if (!order.isOptimistic) {
-        orderStore.markPendingCancellation(symbol, order.oid);
-      } else if (order.tempId) {
-        orderStore.rollbackOptimisticOrder(symbol, order.tempId);
-      }
-    });
+    optimisticExits.forEach(o => orderStore.rollbackOptimisticOrder(symbol, o.tempId!));
+    orderStore.removeOrders(symbol, confirmedExits.map(o => o.oid));
 
     try {
       const metadata = await service.getMetadataCache(symbol);
       await service.cancelExitOrders(symbol, metadata);
-      exitOrders.forEach(order => {
-        if (!order.isOptimistic) {
-          orderStore.confirmCancellation(symbol, order.oid);
-        }
-      });
       toast.success('Exit orders cancelled');
     } catch (error) {
+      orderStore.restoreOrders(symbol, removedSnapshot);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       toast.error(`Cancel failed: ${errorMessage}`);
       set((state) => ({
@@ -1380,29 +1370,24 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
       return;
     }
 
+    const optimisticTps = tpOrders.filter(o => o.isOptimistic && o.tempId);
+    const confirmedTps = tpOrders.filter(o => !o.isOptimistic);
+    const removedSnapshot = confirmedTps.map(o => ({ ...o }));
+
     set((state) => ({
       isExecuting: { ...state.isExecuting, [`cancelTP_${symbol}`]: true },
       errors: { ...state.errors, [`cancelTP_${symbol}`]: null },
     }));
 
-    tpOrders.forEach(order => {
-      if (!order.isOptimistic) {
-        orderStore.markPendingCancellation(symbol, order.oid);
-      } else if (order.tempId) {
-        orderStore.rollbackOptimisticOrder(symbol, order.tempId);
-      }
-    });
+    optimisticTps.forEach(o => orderStore.rollbackOptimisticOrder(symbol, o.tempId!));
+    orderStore.removeOrders(symbol, confirmedTps.map(o => o.oid));
 
     try {
       const metadata = await service.getMetadataCache(symbol);
       await service.cancelTPOrders(symbol, metadata);
-      tpOrders.forEach(order => {
-        if (!order.isOptimistic) {
-          orderStore.confirmCancellation(symbol, order.oid);
-        }
-      });
       toast.success('Take profit orders cancelled');
     } catch (error) {
+      orderStore.restoreOrders(symbol, removedSnapshot);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       toast.error(`Cancel failed: ${errorMessage}`);
       set((state) => ({
@@ -1443,29 +1428,24 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
       return;
     }
 
+    const optimisticSls = slOrders.filter(o => o.isOptimistic && o.tempId);
+    const confirmedSls = slOrders.filter(o => !o.isOptimistic);
+    const removedSnapshot = confirmedSls.map(o => ({ ...o }));
+
     set((state) => ({
       isExecuting: { ...state.isExecuting, [`cancelSL_${symbol}`]: true },
       errors: { ...state.errors, [`cancelSL_${symbol}`]: null },
     }));
 
-    slOrders.forEach(order => {
-      if (!order.isOptimistic) {
-        orderStore.markPendingCancellation(symbol, order.oid);
-      } else if (order.tempId) {
-        orderStore.rollbackOptimisticOrder(symbol, order.tempId);
-      }
-    });
+    optimisticSls.forEach(o => orderStore.rollbackOptimisticOrder(symbol, o.tempId!));
+    orderStore.removeOrders(symbol, confirmedSls.map(o => o.oid));
 
     try {
       const metadata = await service.getMetadataCache(symbol);
       await service.cancelSLOrders(symbol, metadata);
-      slOrders.forEach(order => {
-        if (!order.isOptimistic) {
-          orderStore.confirmCancellation(symbol, order.oid);
-        }
-      });
       toast.success('Stop loss orders cancelled');
     } catch (error) {
+      orderStore.restoreOrders(symbol, removedSnapshot);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       toast.error(`Cancel failed: ${errorMessage}`);
       set((state) => ({
@@ -1486,29 +1466,24 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
     const orderStore = useOrderStore.getState();
     const allOrders = orderStore.getAllOrders(symbol);
 
+    const optimisticAll = allOrders.filter(o => o.isOptimistic && o.tempId);
+    const confirmedAll = allOrders.filter(o => !o.isOptimistic);
+    const removedSnapshot = confirmedAll.map(o => ({ ...o }));
+
     set((state) => ({
       isExecuting: { ...state.isExecuting, [`cancelAll_${symbol}`]: true },
       errors: { ...state.errors, [`cancelAll_${symbol}`]: null },
     }));
 
-    allOrders.forEach(order => {
-      if (!order.isOptimistic) {
-        orderStore.markPendingCancellation(symbol, order.oid);
-      } else if (order.tempId) {
-        orderStore.rollbackOptimisticOrder(symbol, order.tempId);
-      }
-    });
+    optimisticAll.forEach(o => orderStore.rollbackOptimisticOrder(symbol, o.tempId!));
+    orderStore.removeOrders(symbol, confirmedAll.map(o => o.oid));
 
     try {
       const metadata = await service.getMetadataCache(symbol);
       await service.cancelAllOrders(symbol, metadata);
-      allOrders.forEach(order => {
-        if (!order.isOptimistic) {
-          orderStore.confirmCancellation(symbol, order.oid);
-        }
-      });
       toast.success('All orders cancelled');
     } catch (error) {
+      orderStore.restoreOrders(symbol, removedSnapshot);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       toast.error(`Cancel failed: ${errorMessage}`);
       set((state) => ({
