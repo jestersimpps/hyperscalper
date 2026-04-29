@@ -26,6 +26,7 @@ interface OrderStore {
   rollbackOptimisticOrder: (coin: string, tempId: string) => void;
   updateOptimisticOrder: (coin: string, tempId: string, patch: Partial<Order>) => void;
   markPendingCancellation: (coin: string, oid: string) => void;
+  clearPendingCancellation: (coin: string, oid: string) => void;
   confirmCancellation: (coin: string, oid: string) => void;
   removeOrders: (coin: string, oids: string[]) => void;
   restoreOrders: (coin: string, restored: Order[]) => void;
@@ -262,6 +263,26 @@ export const useOrderStore = create<OrderStore>()(
 
         const newPendingCancellations = new Set(pendingCancellations);
         newPendingCancellations.add(oid);
+
+        set({
+          orders: { ...orders, [coin]: updatedOrders },
+          pendingCancellations: newPendingCancellations,
+        });
+      },
+
+      clearPendingCancellation: (coin: string, oid: string) => {
+        const { orders, pendingCancellations } = get();
+        if (!pendingCancellations.has(oid)) return;
+
+        const coinOrders = orders[coin] || [];
+        const updatedOrders = coinOrders.map(order =>
+          order.oid === oid
+            ? { ...order, isPendingCancellation: false }
+            : order
+        );
+
+        const newPendingCancellations = new Set(pendingCancellations);
+        newPendingCancellations.delete(oid);
 
         set({
           orders: { ...orders, [coin]: updatedOrders },

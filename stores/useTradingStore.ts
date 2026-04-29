@@ -1516,9 +1516,11 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
     try {
       const metadata = await service.getMetadataCache(coin);
       await service.cancelOrder(coin, parseInt(oid), metadata);
-      orderStore.confirmCancellation(coin, oid);
+      orderStore.removeOrders(coin, [oid]);
     } catch (error) {
+      orderStore.clearPendingCancellation(coin, oid);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`Cancel failed: ${errorMessage}`);
       set((state) => ({
         errors: { ...state.errors, [`cancel_${oid}`]: errorMessage },
       }));
