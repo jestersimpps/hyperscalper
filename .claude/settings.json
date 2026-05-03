@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "hyperscalper": {
+      "command": "npx",
+      "args": ["tsx", "mcp/server.ts"],
+      "cwd": "${workspaceFolder}"
+    }
+  },
+  "permissions": {
+    "allow": [
+      "mcp__hyperscalper__get_positions"
+    ]
+  }
+}
