@@ -1,0 +1,20 @@
+{
+  "name": "hyperscalper-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local MCP server exposing Hyperliquid read/trade tools to Claude Code",
+  "type": "module",
+  "scripts": {
+    "start": "tsx server.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "@nktkas/hyperliquid": "^0.16.0",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.4.0"
+  }
+}

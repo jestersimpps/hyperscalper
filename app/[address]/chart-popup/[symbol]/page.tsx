@@ -1,11 +1,16 @@
 import ChartPopupView from '@/components/chart-popup/ChartPopupView';
 import type { Metadata } from 'next';
+import { symbolStaticParams } from '@/lib/static-params';
 
 interface ChartPopupPageProps {
   params: Promise<{
     address: string;
     symbol: string;
   }>;
+}
+
+export function generateStaticParams(): Array<{ address: string; symbol: string }> {
+  return symbolStaticParams();
 }
 
 export async function generateMetadata({ params }: ChartPopupPageProps): Promise<Metadata> {

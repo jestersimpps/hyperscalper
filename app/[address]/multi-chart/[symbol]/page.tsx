@@ -1,11 +1,16 @@
 import MultiChartView from '@/components/multi-chart/MultiChartView';
 import type { Metadata } from 'next';
+import { symbolStaticParams } from '@/lib/static-params';
 
 interface MultiChartPageProps {
   params: Promise<{
     address: string;
     symbol: string;
   }>;
+}
+
+export function generateStaticParams(): Array<{ address: string; symbol: string }> {
+  return symbolStaticParams();
 }
 
 export async function generateMetadata({ params }: MultiChartPageProps): Promise<Metadata> {

@@ -1,8 +1,13 @@
 import SymbolView from '@/components/symbol/SymbolView';
 import type { Metadata } from 'next';
+import { symbolStaticParams } from '@/lib/static-params';
 
 interface SymbolPageProps {
   params: Promise<{ address: string; symbol: string }>;
+}
+
+export function generateStaticParams(): Array<{ address: string; symbol: string }> {
+  return symbolStaticParams();
 }
 
 export async function generateMetadata({ params }: SymbolPageProps): Promise<Metadata> {

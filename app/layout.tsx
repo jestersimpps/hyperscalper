@@ -6,6 +6,7 @@ import SettingsPanel from "@/components/layout/SettingsPanel";
 import { CredentialsProvider } from "@/lib/context/credentials-context";
 import { RequireCredentials } from "@/components/auth/RequireCredentials";
 import { ConditionalServiceProvider } from "@/components/providers/ConditionalServiceProvider";
+import { DesktopBridge } from "@/lib/desktop/bridge";
 import { Analytics } from "@vercel/analytics/next";
 import { Toaster } from "react-hot-toast";
 
@@ -115,6 +116,7 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         <CredentialsProvider>
+          <DesktopBridge />
           <ThemeApplier />
           <SettingsPanel />
           <RequireCredentials>
