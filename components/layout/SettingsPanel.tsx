@@ -18,6 +18,7 @@ export default function SettingsPanel() {
   const [isScannerVolumeExpanded, setIsScannerVolumeExpanded] = useState(false);
   const [isScannerSRExpanded, setIsScannerSRExpanded] = useState(false);
   const [isScannerTriangleExpanded, setIsScannerTriangleExpanded] = useState(false);
+  const [isScannerCupExpanded, setIsScannerCupExpanded] = useState(false);
 
   const handleBackdropClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget) {
@@ -1121,6 +1122,330 @@ export default function SettingsPanel() {
                             <div className="p-3 bg-bg-secondary border border-frame rounded">
                               <div className="text-primary-muted text-xs font-mono">
                                 Watch mode: scores each symbol for flat ceiling + rising support + contraction. Emits when total crosses min score — breakout may not have fired yet.
+                              </div>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Cup and Handle Scanner - Collapsible Section */}
+                  <div className="border border-frame rounded overflow-hidden">
+                    <button
+                      onClick={() => setIsScannerCupExpanded(!isScannerCupExpanded)}
+                      className="w-full p-3 bg-bg-secondary flex items-center justify-between hover:bg-primary/5 transition-colors"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-primary font-mono text-xs font-bold">█ CUP AND HANDLE SCANNER</span>
+                      </div>
+                      <span className="text-primary text-base">{isScannerCupExpanded ? '▼' : '▶'}</span>
+                    </button>
+
+                    {isScannerCupExpanded && (
+                      <div className="p-4 space-y-4 bg-bg-primary">
+                        <div className="p-3 bg-bg-secondary border border-frame rounded">
+                          <label className="flex items-center justify-between cursor-pointer">
+                            <span className="text-primary-muted text-xs font-mono">ENABLE CUP AND HANDLE SCANNER</span>
+                            <input
+                              type="checkbox"
+                              checked={settings.scanner.cupAndHandleScanner?.enabled || false}
+                              onChange={(e) =>
+                                updateScannerSettings({
+                                  cupAndHandleScanner: {
+                                    ...settings.scanner.cupAndHandleScanner,
+                                    enabled: e.target.checked,
+                                  },
+                                })
+                              }
+                              className="w-4 h-4 accent-primary cursor-pointer"
+                            />
+                          </label>
+                        </div>
+
+                        {settings.scanner.cupAndHandleScanner?.enabled && (
+                          <>
+                            <div className="p-3 bg-bg-secondary border border-frame rounded space-y-3">
+                              <div className="text-primary font-mono text-xs font-bold mb-2">TIMEFRAMES TO SCAN</div>
+                              <div className="grid grid-cols-2 gap-2">
+                                {(['1m', '5m'] as const).map((tf) => (
+                                  <label key={tf} className="flex items-center gap-2 cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={settings.scanner.cupAndHandleScanner?.timeframes.includes(tf) || false}
+                                      onChange={(e) => {
+                                        const newTimeframes = e.target.checked
+                                          ? [...(settings.scanner.cupAndHandleScanner?.timeframes || []), tf]
+                                          : (settings.scanner.cupAndHandleScanner?.timeframes || []).filter((t) => t !== tf);
+                                        updateScannerSettings({
+                                          cupAndHandleScanner: {
+                                            ...settings.scanner.cupAndHandleScanner,
+                                            timeframes: newTimeframes,
+                                          },
+                                        });
+                                      }}
+                                      className="w-4 h-4 accent-primary cursor-pointer"
+                                    />
+                                    <span className="text-primary-muted text-xs font-mono">{tf.toUpperCase()}</span>
+                                  </label>
+                                ))}
+                              </div>
+                            </div>
+
+                            <div className="p-3 bg-bg-secondary border border-frame rounded">
+                              <div className="text-primary font-mono text-xs font-bold mb-3">PATTERN DETECTION</div>
+                              <div className="grid grid-cols-2 gap-3 text-xs">
+                                <div>
+                                  <label className="text-primary-muted font-mono block mb-1">LOOKBACK BARS</label>
+                                  <input
+                                    type="number"
+                                    min="60"
+                                    max="500"
+                                    value={settings.scanner.cupAndHandleScanner?.lookbackBars || 240}
+                                    onChange={(e) =>
+                                      updateScannerSettings({
+                                        cupAndHandleScanner: {
+                                          ...settings.scanner.cupAndHandleScanner,
+                                          lookbackBars: Number(e.target.value),
+                                        },
+                                      })
+                                    }
+                                    className="w-full bg-bg-primary border border-frame text-primary px-2 py-1 rounded font-mono text-xs"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-primary-muted font-mono block mb-1">PIVOT STRENGTH</label>
+                                  <input
+                                    type="number"
+                                    min="2"
+                                    max="10"
+                                    value={settings.scanner.cupAndHandleScanner?.pivotStrength || 4}
+                                    onChange={(e) =>
+                                      updateScannerSettings({
+                                        cupAndHandleScanner: {
+                                          ...settings.scanner.cupAndHandleScanner,
+                                          pivotStrength: Number(e.target.value),
+                                        },
+                                      })
+                                    }
+                                    className="w-full bg-bg-primary border border-frame text-primary px-2 py-1 rounded font-mono text-xs"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-primary-muted font-mono block mb-1">MIN CUP BARS</label>
+                                  <input
+                                    type="number"
+                                    min="10"
+                                    max="500"
+                                    value={settings.scanner.cupAndHandleScanner?.minCupBars || 40}
+                                    onChange={(e) =>
+                                      updateScannerSettings({
+                                        cupAndHandleScanner: {
+                                          ...settings.scanner.cupAndHandleScanner,
+                                          minCupBars: Number(e.target.value),
+                                        },
+                                      })
+                                    }
+                                    className="w-full bg-bg-primary border border-frame text-primary px-2 py-1 rounded font-mono text-xs"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-primary-muted font-mono block mb-1">MAX CUP BARS</label>
+                                  <input
+                                    type="number"
+                                    min="20"
+                                    max="500"
+                                    value={settings.scanner.cupAndHandleScanner?.maxCupBars || 200}
+                                    onChange={(e) =>
+                                      updateScannerSettings({
+                                        cupAndHandleScanner: {
+                                          ...settings.scanner.cupAndHandleScanner,
+                                          maxCupBars: Number(e.target.value),
+                                        },
+                                      })
+                                    }
+                                    className="w-full bg-bg-primary border border-frame text-primary px-2 py-1 rounded font-mono text-xs"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-primary-muted font-mono block mb-1">MIN HANDLE BARS</label>
+                                  <input
+                                    type="number"
+                                    min="2"
+                                    max="100"
+                                    value={settings.scanner.cupAndHandleScanner?.minHandleBars || 5}
+                                    onChange={(e) =>
+                                      updateScannerSettings({
+                                        cupAndHandleScanner: {
+                                          ...settings.scanner.cupAndHandleScanner,
+                                          minHandleBars: Number(e.target.value),
+                                        },
+                                      })
+                                    }
+                                    className="w-full bg-bg-primary border border-frame text-primary px-2 py-1 rounded font-mono text-xs"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-primary-muted font-mono block mb-1">MAX HANDLE BARS</label>
+                                  <input
+                                    type="number"
+                                    min="5"
+                                    max="200"
+                                    value={settings.scanner.cupAndHandleScanner?.maxHandleBars || 60}
+                                    onChange={(e) =>
+                                      updateScannerSettings({
+                                        cupAndHandleScanner: {
+                                          ...settings.scanner.cupAndHandleScanner,
+                                          maxHandleBars: Number(e.target.value),
+                                        },
+                                      })
+                                    }
+                                    className="w-full bg-bg-primary border border-frame text-primary px-2 py-1 rounded font-mono text-xs"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-primary-muted font-mono block mb-1">MAX RIM ASYMMETRY</label>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max="0.2"
+                                    step="0.01"
+                                    value={settings.scanner.cupAndHandleScanner?.maxRimAsymmetry ?? 0.04}
+                                    onChange={(e) =>
+                                      updateScannerSettings({
+                                        cupAndHandleScanner: {
+                                          ...settings.scanner.cupAndHandleScanner,
+                                          maxRimAsymmetry: Number(e.target.value),
+                                        },
+                                      })
+                                    }
+                                    className="w-full bg-bg-primary border border-frame text-primary px-2 py-1 rounded font-mono text-xs"
+                                  />
+                                  <div className="text-primary-muted font-mono text-[10px] mt-1">
+                                    Rim height tolerance (fraction)
+                                  </div>
+                                </div>
+                                <div>
+                                  <label className="text-primary-muted font-mono block mb-1">MIN CUP DEPTH</label>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max="1"
+                                    step="0.005"
+                                    value={settings.scanner.cupAndHandleScanner?.minCupDepth ?? 0.015}
+                                    onChange={(e) =>
+                                      updateScannerSettings({
+                                        cupAndHandleScanner: {
+                                          ...settings.scanner.cupAndHandleScanner,
+                                          minCupDepth: Number(e.target.value),
+                                        },
+                                      })
+                                    }
+                                    className="w-full bg-bg-primary border border-frame text-primary px-2 py-1 rounded font-mono text-xs"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-primary-muted font-mono block mb-1">MAX CUP DEPTH</label>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max="1"
+                                    step="0.05"
+                                    value={settings.scanner.cupAndHandleScanner?.maxCupDepth ?? 0.5}
+                                    onChange={(e) =>
+                                      updateScannerSettings({
+                                        cupAndHandleScanner: {
+                                          ...settings.scanner.cupAndHandleScanner,
+                                          maxCupDepth: Number(e.target.value),
+                                        },
+                                      })
+                                    }
+                                    className="w-full bg-bg-primary border border-frame text-primary px-2 py-1 rounded font-mono text-xs"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-primary-muted font-mono block mb-1">MAX HANDLE PULLBACK</label>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max="1"
+                                    step="0.05"
+                                    value={settings.scanner.cupAndHandleScanner?.maxHandlePullback ?? 0.5}
+                                    onChange={(e) =>
+                                      updateScannerSettings({
+                                        cupAndHandleScanner: {
+                                          ...settings.scanner.cupAndHandleScanner,
+                                          maxHandlePullback: Number(e.target.value),
+                                        },
+                                      })
+                                    }
+                                    className="w-full bg-bg-primary border border-frame text-primary px-2 py-1 rounded font-mono text-xs"
+                                  />
+                                  <div className="text-primary-muted font-mono text-[10px] mt-1">
+                                    Fraction of cup depth
+                                  </div>
+                                </div>
+                                <div>
+                                  <label className="text-primary-muted font-mono block mb-1">MIN SCORE</label>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max="1"
+                                    step="0.05"
+                                    value={settings.scanner.cupAndHandleScanner?.minScore ?? 0.6}
+                                    onChange={(e) =>
+                                      updateScannerSettings({
+                                        cupAndHandleScanner: {
+                                          ...settings.scanner.cupAndHandleScanner,
+                                          minScore: Number(e.target.value),
+                                        },
+                                      })
+                                    }
+                                    className="w-full bg-bg-primary border border-frame text-primary px-2 py-1 rounded font-mono text-xs"
+                                  />
+                                  <div className="text-primary-muted font-mono text-[10px] mt-1">
+                                    Alert threshold
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="p-3 bg-bg-secondary border border-frame rounded space-y-3">
+                              <div className="text-primary font-mono text-xs font-bold mb-2">COMPONENT WEIGHTS</div>
+                              <div className="grid grid-cols-2 gap-3 text-xs">
+                                {(['rimSymmetry', 'cupRoundness', 'cupDepth', 'handlePullback', 'handleVolume', 'proximity'] as const).map((key) => (
+                                  <div key={key}>
+                                    <label className="text-primary-muted font-mono block mb-1">{key.toUpperCase()}</label>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      max="1"
+                                      step="0.05"
+                                      value={settings.scanner.cupAndHandleScanner?.weights?.[key] ?? 0}
+                                      onChange={(e) =>
+                                        updateScannerSettings({
+                                          cupAndHandleScanner: {
+                                            ...settings.scanner.cupAndHandleScanner,
+                                            weights: {
+                                              ...settings.scanner.cupAndHandleScanner.weights,
+                                              [key]: Number(e.target.value),
+                                            },
+                                          },
+                                        })
+                                      }
+                                      className="w-full bg-bg-primary border border-frame text-primary px-2 py-1 rounded font-mono text-xs"
+                                    />
+                                  </div>
+                                ))}
+                              </div>
+                              <div className="text-primary-muted font-mono text-[10px]">
+                                Weights are normalized — ratios matter, not absolute values.
+                              </div>
+                            </div>
+
+                            <div className="p-3 bg-bg-secondary border border-frame rounded">
+                              <div className="text-primary-muted text-xs font-mono">
+                                Watch mode: scores each symbol for U-shaped cup + matching rims + small handle pullback. Emits when total crosses min score — breakout may not have fired yet.
                               </div>
                             </div>
                           </>

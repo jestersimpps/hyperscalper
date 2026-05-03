@@ -162,6 +162,15 @@ export const useScannerStore = create<ScannerStore>((set, get) => ({
           config: settings.ascendingTriangleScanner,
         });
         newResults.push(...triangleResults);
+        await yieldToMain();
+      }
+
+      if (settings.cupAndHandleScanner?.enabled) {
+        const cupResults = await scannerService.scanMultipleSymbolsForCupAndHandle(symbols, {
+          timeframes: settings.cupAndHandleScanner.timeframes,
+          config: settings.cupAndHandleScanner,
+        });
+        newResults.push(...cupResults);
       }
 
       const newSymbols = new Set(newResults.map((r: ScanResult) => r.symbol));

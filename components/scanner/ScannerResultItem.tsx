@@ -23,6 +23,9 @@ interface ProcessedSignal {
   tri: boolean;
   triScore: number | null;
   triCeiling: number | null;
+  cup: boolean;
+  cupScore: number | null;
+  cupResistance: number | null;
   signalType: 'bullish' | 'bearish';
 }
 
@@ -136,6 +139,14 @@ const ScannerResultItem = ({
                         title={`Ascending triangle forming — ceiling $${signals.triCeiling?.toFixed(4)} (score ${signals.triScore?.toFixed(2)})`}
                       >
                         TRI {signals.triScore?.toFixed(2)}
+                      </span>
+                    )}
+                    {signals.cup && (
+                      <span
+                        className={`${badgeBg} text-bg-primary px-1.5 py-0.5 rounded font-bold`}
+                        title={`Cup and handle forming — resistance $${signals.cupResistance?.toFixed(4)} (score ${signals.cupScore?.toFixed(2)})`}
+                      >
+                        CUP {signals.cupScore?.toFixed(2)}
                       </span>
                     )}
                   </div>

@@ -101,8 +101,35 @@ export interface AscendingTriangleValue {
   currentPrice: number;
 }
 
+export interface CupAndHandleComponents {
+  rimSymmetry: number;
+  cupRoundness: number;
+  cupDepth: number;
+  handlePullback: number;
+  handleVolume: number;
+  proximity: number;
+}
+
+export interface CupAndHandleValue {
+  timeframe: TimeInterval;
+  score: number;
+  components: CupAndHandleComponents;
+  resistance: number;
+  leftRimPrice: number;
+  rightRimPrice: number;
+  cupBottomPrice: number;
+  handleLowPrice: number;
+  cupStartIndex: number;
+  cupBottomIndex: number;
+  rightRimIndex: number;
+  handleEndIndex: number;
+  stopSuggestion: number;
+  atr: number;
+  currentPrice: number;
+}
+
 export type SignalType = 'bullish' | 'bearish';
-export type ScanType = 'stochastic' | 'emaAlignment' | 'channel' | 'divergence' | 'macdReversal' | 'rsiReversal' | 'volumeSpike' | 'supportResistance' | 'ascendingTriangle';
+export type ScanType = 'stochastic' | 'emaAlignment' | 'channel' | 'divergence' | 'macdReversal' | 'rsiReversal' | 'volumeSpike' | 'supportResistance' | 'ascendingTriangle' | 'cupAndHandle';
 
 export interface ScanResult {
   symbol: string;
@@ -115,6 +142,7 @@ export interface ScanResult {
   volumeSpikes?: VolumeValue[];
   supportResistanceLevels?: SupportResistanceValue[];
   ascendingTriangles?: AscendingTriangleValue[];
+  cupAndHandles?: CupAndHandleValue[];
   matchedAt: number;
   signalType: SignalType;
   description: string;

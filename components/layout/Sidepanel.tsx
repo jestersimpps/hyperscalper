@@ -343,6 +343,9 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect, mobileView =
         tri: boolean;
         triScore: number | null;
         triCeiling: number | null;
+        cup: boolean;
+        cupScore: number | null;
+        cupResistance: number | null;
         signalType: 'bullish' | 'bearish';
       }>();
 
@@ -374,6 +377,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect, mobileView =
         if (result.channels) timeframes.push(...result.channels.map(c => c.timeframe));
         if (result.supportResistanceLevels) timeframes.push(...result.supportResistanceLevels.map(sr => sr.timeframe));
         if (result.ascendingTriangles) timeframes.push(...result.ascendingTriangles.map(t => t.timeframe));
+        if (result.cupAndHandles) timeframes.push(...result.cupAndHandles.map(c => c.timeframe));
 
         const uniqueTimeframes = [...new Set(timeframes)];
 
@@ -393,6 +397,9 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect, mobileView =
               tri: false,
               triScore: null,
               triCeiling: null,
+              cup: false,
+              cupScore: null,
+              cupResistance: null,
               signalType: result.signalType
             });
           }
@@ -444,6 +451,14 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect, mobileView =
               tfData.tri = true;
               tfData.triScore = triangle.score;
               tfData.triCeiling = triangle.ceiling;
+            }
+          }
+          if (result.scanType === 'cupAndHandle' && result.cupAndHandles) {
+            const cup = result.cupAndHandles.find(c => c.timeframe === tf);
+            if (cup) {
+              tfData.cup = true;
+              tfData.cupScore = cup.score;
+              tfData.cupResistance = cup.resistance;
             }
           }
         });

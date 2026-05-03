@@ -11,7 +11,9 @@ import type {
   DivergenceValue,
   SupportResistanceValue,
   AscendingTriangleValue,
-  AscendingTriangleComponents
+  AscendingTriangleComponents,
+  CupAndHandleValue,
+  CupAndHandleComponents
 } from '@/models/Scanner';
 import type {
   StochasticScannerConfig,
@@ -23,7 +25,8 @@ import type {
   ChannelScannerConfig,
   DivergenceScannerConfig,
   SupportResistanceScannerConfig,
-  AscendingTriangleScannerConfig
+  AscendingTriangleScannerConfig,
+  CupAndHandleScannerConfig
 } from '@/models/Settings';
 import type { TransformedCandle } from './types';
 import {
@@ -119,6 +122,12 @@ export interface AscendingTriangleScanParams {
   symbol: string;
   timeframes: TimeInterval[];
   config: AscendingTriangleScannerConfig;
+}
+
+export interface CupAndHandleScanParams {
+  symbol: string;
+  timeframes: TimeInterval[];
+  config: CupAndHandleScannerConfig;
 }
 
 export class ScannerService {
@@ -926,6 +935,56 @@ export class ScannerService {
     return null;
   }
 
+  async scanCupAndHandle(params: CupAndHandleScanParams): Promise<ScanResult | null> {
+    const { symbol, timeframes, config } = params;
+
+    const candleStore = useCandleStore.getState();
+    const closePrices = candleStore.getClosePrices(symbol, '1m', 100) || [];
+
+    for (const timeframe of timeframes) {
+      try {
+        const candles = this.getCandlesFromStore(symbol, timeframe, config.lookbackBars);
+        if (!candles || candles.length < config.lookbackBars) {
+          continue;
+        }
+
+        const evaluated = evaluateCupAndHandle(candles, config);
+        if (!evaluated) {
+          continue;
+        }
+
+        if (evaluated.score < config.minScore) {
+          continue;
+        }
+
+        const cupValue: CupAndHandleValue = {
+          timeframe,
+          ...evaluated,
+        };
+
+        const componentStr = Object.entries(evaluated.components)
+          .map(([k, v]) => `${k}=${v.toFixed(2)}`)
+          .join(' ');
+        const description = `Cup and handle forming on ${timeframe} (score ${evaluated.score.toFixed(2)}, resistance $${evaluated.resistance.toFixed(4)}) — ${componentStr}`;
+
+        return {
+          symbol,
+          cupAndHandles: [cupValue],
+          matchedAt: Date.now(),
+          signalType: 'bullish',
+          description,
+          scanType: 'cupAndHandle',
+          closePrices,
+        };
+      } catch (error) {
+        console.error(`Error scanning cup and handle for ${symbol} on ${timeframe}:`, error);
+        continue;
+      }
+    }
+
+    return null;
+  }
+
   async scanMultipleSymbols(
     symbols: string[],
     params: Omit<StochasticScanParams, 'symbol'>
@@ -987,6 +1046,13 @@ export class ScannerService {
     params: Omit<AscendingTriangleScanParams, 'symbol'>
   ): Promise<ScanResult[]> {
     return scanWithYield(symbols, symbol => this.scanAscendingTriangle({ ...params, symbol }));
+  }
+
+  async scanMultipleSymbolsForCupAndHandle(
+    symbols: string[],
+    params: Omit<CupAndHandleScanParams, 'symbol'>
+  ): Promise<ScanResult[]> {
+    return scanWithYield(symbols, symbol => this.scanCupAndHandle({ ...params, symbol }));
   }
 }
 
@@ -1109,4 +1175,190 @@ function evaluateAscendingTriangle(
     atr,
     currentPrice,
   };
+}
+
+interface EvaluatedCupAndHandle {
+  score: number;
+  components: CupAndHandleComponents;
+  resistance: number;
+  leftRimPrice: number;
+  rightRimPrice: number;
+  cupBottomPrice: number;
+  handleLowPrice: number;
+  cupStartIndex: number;
+  cupBottomIndex: number;
+  rightRimIndex: number;
+  handleEndIndex: number;
+  stopSuggestion: number;
+  atr: number;
+  currentPrice: number;
+}
+
+function evaluateCupAndHandle(
+  candles: TransformedCandle[],
+  config: CupAndHandleScannerConfig
+): EvaluatedCupAndHandle | null {
+  const n = candles.length;
+  if (n < config.lookbackBars) return null;
+
+  const atrSeries = calculateATR(candles as any, 14);
+  const atr = atrSeries.length > 0 ? atrSeries[atrSeries.length - 1] : 0;
+  if (atr <= 0) return null;
+
+  const pivots = detectPivots(candles as any, config.pivotStrength);
+  const highPivots = pivots.filter(p => p.type === 'high');
+  const lowPivots = pivots.filter(p => p.type === 'low');
+
+  if (highPivots.length < 2 || lowPivots.length < 1) return null;
+
+  const handleEndIndex = n - 1;
+  const currentPrice = candles[handleEndIndex].close;
+
+  let best: EvaluatedCupAndHandle | null = null;
+
+  for (let li = 0; li < highPivots.length - 1; li++) {
+    const leftRim = highPivots[li];
+
+    for (let ri = highPivots.length - 1; ri > li; ri--) {
+      const rightRim = highPivots[ri];
+
+      const cupBars = rightRim.index - leftRim.index;
+      if (cupBars < config.minCupBars || cupBars > config.maxCupBars) continue;
+
+      const barsSinceRim = handleEndIndex - rightRim.index;
+      if (barsSinceRim < config.minHandleBars) continue;
+      if (barsSinceRim > config.maxHandleBars * 2) continue;
+
+      const rimAvg = (leftRim.price + rightRim.price) / 2;
+      const rimAsymmetry = Math.abs(leftRim.price - rightRim.price) / rimAvg;
+      if (rimAsymmetry > config.maxRimAsymmetry) continue;
+
+      const cupLowPivots = lowPivots.filter(p => p.index > leftRim.index && p.index < rightRim.index);
+      if (cupLowPivots.length === 0) continue;
+
+      const cupBottom = cupLowPivots.reduce((min, p) => p.price < min.price ? p : min, cupLowPivots[0]);
+
+      const cupDepth = (rimAvg - cupBottom.price) / rimAvg;
+      if (cupDepth < config.minCupDepth || cupDepth > config.maxCupDepth) continue;
+
+      const handleStart = rightRim.index;
+      const handleSearchEnd = Math.min(n - 1, rightRim.index + config.maxHandleBars);
+      let handleLow = candles[handleStart].low;
+      let handleLowIndex = handleStart;
+      for (let k = handleStart; k <= handleSearchEnd; k++) {
+        if (candles[k].low < handleLow) {
+          handleLow = candles[k].low;
+          handleLowIndex = k;
+        }
+      }
+      const actualHandleBars = handleLowIndex - handleStart;
+      if (actualHandleBars < config.minHandleBars) continue;
+
+      const handleDrop = rightRim.price - handleLow;
+      const cupRange = rimAvg - cupBottom.price;
+      const handlePullback = cupRange > 0 ? handleDrop / cupRange : 1;
+      if (handlePullback > config.maxHandlePullback) continue;
+      if (handleLow < cupBottom.price) continue;
+
+      const rimSymmetryScore = clamp01(1 - (rimAsymmetry / config.maxRimAsymmetry));
+
+      const cupSlice = candles.slice(leftRim.index, rightRim.index + 1);
+      const cupRoundnessScore = computeCupRoundness(cupSlice, leftRim.price, rightRim.price, cupBottom.price);
+
+      const cupDepthScore = clamp01(1 - Math.abs(cupDepth - 0.08) / 0.08);
+
+      const handlePullbackScore = clamp01(1 - Math.abs(handlePullback - 0.33) / 0.33);
+
+      const handleVolumeScore = computeHandleVolumeScore(candles, leftRim.index, rightRim.index, handleLowIndex);
+
+      const distanceToResistance = Math.max(0, rightRim.price - currentPrice);
+      const proximityScore = clamp01(1 - (distanceToResistance / (atr * 2)));
+
+      const components: CupAndHandleComponents = {
+        rimSymmetry: rimSymmetryScore,
+        cupRoundness: cupRoundnessScore,
+        cupDepth: cupDepthScore,
+        handlePullback: handlePullbackScore,
+        handleVolume: handleVolumeScore,
+        proximity: proximityScore,
+      };
+
+      const w = config.weights;
+      const weightSum = w.rimSymmetry + w.cupRoundness + w.cupDepth + w.handlePullback + w.handleVolume + w.proximity;
+      const weighted =
+        components.rimSymmetry * w.rimSymmetry +
+        components.cupRoundness * w.cupRoundness +
+        components.cupDepth * w.cupDepth +
+        components.handlePullback * w.handlePullback +
+        components.handleVolume * w.handleVolume +
+        components.proximity * w.proximity;
+      const score = weightSum > 0 ? weighted / weightSum : 0;
+
+      if (!best || score > best.score) {
+        best = {
+          score,
+          components,
+          resistance: Math.max(leftRim.price, rightRim.price),
+          leftRimPrice: leftRim.price,
+          rightRimPrice: rightRim.price,
+          cupBottomPrice: cupBottom.price,
+          handleLowPrice: handleLow,
+          cupStartIndex: leftRim.index,
+          cupBottomIndex: cupBottom.index,
+          rightRimIndex: rightRim.index,
+          handleEndIndex,
+          stopSuggestion: handleLow - atr,
+          atr,
+          currentPrice,
+        };
+      }
+    }
+  }
+
+  return best;
+}
+
+function computeCupRoundness(
+  cupSlice: TransformedCandle[],
+  leftPrice: number,
+  rightPrice: number,
+  bottomPrice: number
+): number {
+  const n = cupSlice.length;
+  if (n < 5) return 0;
+
+  const lows = cupSlice.map(c => c.low);
+  const startV = leftPrice;
+  const endV = rightPrice;
+  const minV = bottomPrice;
+  const range = ((startV + endV) / 2) - minV;
+  if (range <= 0) return 0;
+
+  let ssRes = 0;
+  let ssTot = 0;
+  const meanLow = lows.reduce((s, v) => s + v, 0) / n;
+  for (let i = 0; i < n; i++) {
+    const t = i / (n - 1);
+    const expected = startV + (endV - startV) * t - 4 * range * t * (1 - t);
+    ssRes += (lows[i] - expected) ** 2;
+    ssTot += (lows[i] - meanLow) ** 2;
+  }
+  const r2 = ssTot > 0 ? 1 - ssRes / ssTot : 0;
+  return clamp01(r2);
+}
+
+function computeHandleVolumeScore(
+  candles: TransformedCandle[],
+  cupStartIndex: number,
+  rightRimIndex: number,
+  handleEndIndex: number
+): number {
+  const cupSlice = candles.slice(cupStartIndex, rightRimIndex + 1);
+  const handleSlice = candles.slice(rightRimIndex, handleEndIndex + 1);
+  if (cupSlice.length === 0 || handleSlice.length === 0) return 0;
+  const cupAvgVol = cupSlice.reduce((s, c) => s + c.volume, 0) / cupSlice.length;
+  const handleAvgVol = handleSlice.reduce((s, c) => s + c.volume, 0) / handleSlice.length;
+  if (cupAvgVol <= 0) return 0;
+  const ratio = handleAvgVol / cupAvgVol;
+  return clamp01(1 - ratio);
 }

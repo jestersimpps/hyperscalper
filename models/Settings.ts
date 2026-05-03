@@ -147,6 +147,32 @@ export interface AscendingTriangleScannerConfig {
   weights: AscendingTriangleWeights;
 }
 
+export interface CupAndHandleWeights {
+  rimSymmetry: number;
+  cupRoundness: number;
+  cupDepth: number;
+  handlePullback: number;
+  handleVolume: number;
+  proximity: number;
+}
+
+export interface CupAndHandleScannerConfig {
+  enabled: boolean;
+  timeframes: ('1m' | '5m')[];
+  lookbackBars: number;
+  pivotStrength: number;
+  minCupBars: number;
+  maxCupBars: number;
+  minHandleBars: number;
+  maxHandleBars: number;
+  maxRimAsymmetry: number;
+  minCupDepth: number;
+  maxCupDepth: number;
+  maxHandlePullback: number;
+  minScore: number;
+  weights: CupAndHandleWeights;
+}
+
 export interface ScannerSettings {
   enabled: boolean;
   scanInterval: number;
@@ -162,6 +188,7 @@ export interface ScannerSettings {
   volumeSpikeScanner: VolumeSpikeConfig;
   supportResistanceScanner: SupportResistanceScannerConfig;
   ascendingTriangleScanner: AscendingTriangleScannerConfig;
+  cupAndHandleScanner: CupAndHandleScannerConfig;
 }
 
 export interface OrderSettings {
@@ -345,6 +372,29 @@ export const DEFAULT_SETTINGS: AppSettings = {
         volume: 0.15,
         ema: 0.1,
         proximity: 0.1,
+      },
+    },
+    cupAndHandleScanner: {
+      enabled: false,
+      timeframes: ['1m', '5m'],
+      lookbackBars: 480,
+      pivotStrength: 4,
+      minCupBars: 40,
+      maxCupBars: 360,
+      minHandleBars: 5,
+      maxHandleBars: 90,
+      maxRimAsymmetry: 0.04,
+      minCupDepth: 0.015,
+      maxCupDepth: 0.5,
+      maxHandlePullback: 0.5,
+      minScore: 0.6,
+      weights: {
+        rimSymmetry: 0.2,
+        cupRoundness: 0.2,
+        cupDepth: 0.15,
+        handlePullback: 0.2,
+        handleVolume: 0.1,
+        proximity: 0.15,
       },
     },
   },
