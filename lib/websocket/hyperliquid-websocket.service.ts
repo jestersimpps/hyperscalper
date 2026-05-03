@@ -2,27 +2,44 @@ import type {
   ExchangeWebSocketService,
   CandleSubscriptionParams,
   TradeSubscriptionParams,
+  OrderbookSubscriptionParams,
   CandleCallback,
   TradeCallback,
   AllMidsCallback,
+  OrderbookCallback,
   CandleData,
   TradeData,
-  AllMidsData
+  AllMidsData,
+  OrderbookData,
+  OrderbookLevel
 } from './exchange-websocket.interface';
 
 import { EventClient, WebSocketTransport } from '@nktkas/hyperliquid';
 import type { Candle, WsTrade } from '@nktkas/hyperliquid';
+
+interface BookLevelRaw {
+  px: string;
+  sz: string;
+  n?: number;
+}
+interface BookSnapshot {
+  coin: string;
+  time: number;
+  levels: [BookLevelRaw[], BookLevelRaw[]];
+}
 import { useSymbolMetaStore } from '@/stores/useSymbolMetaStore';
 import { useWebSocketStatusStore } from '@/stores/useWebSocketStatusStore';
 import { formatPrice, formatSize } from '@/lib/format-utils';
 
 interface Subscription {
   id: string;
-  type: 'candle' | 'trade' | 'allMids';
+  type: 'candle' | 'trade' | 'allMids' | 'orderbook';
   params: any;
   callback: any;
   unsubscribeFn: Promise<{ unsubscribe: () => void }> | (() => void);
 }
+
+const MAX_BOOK_LEVELS = 25;
 
 export class HyperliquidWebSocketService implements ExchangeWebSocketService {
   private wsTransport: WebSocketTransport | null = null;
@@ -178,6 +195,68 @@ export class HyperliquidWebSocketService implements ExchangeWebSocketService {
         id: subscriptionId,
         type: 'allMids',
         params: {},
+        callback,
+        unsubscribeFn
+      };
+
+      this.subscriptions.set(subscriptionId, subscription);
+    }).catch(() => {});
+
+    return subscriptionId;
+  }
+
+  subscribeToOrderbook(params: OrderbookSubscriptionParams, callback: OrderbookCallback): string {
+    const subscriptionId = `orderbook_${params.coin}_${Date.now()}`;
+
+    this.initialize().then(() => {
+      if (!this.eventClient) {
+        return;
+      }
+
+      const unsubscribeFn = this.eventClient.l2Book(
+        { coin: params.coin },
+        (book: BookSnapshot) => {
+          try {
+            const rawBids = book.levels?.[0] ?? [];
+            const rawAsks = book.levels?.[1] ?? [];
+
+            let bidTotal = 0;
+            const bids: OrderbookLevel[] = [];
+            for (let i = 0; i < rawBids.length && i < MAX_BOOK_LEVELS; i++) {
+              const price = parseFloat(rawBids[i].px);
+              const size = parseFloat(rawBids[i].sz);
+              if (!Number.isFinite(price) || !Number.isFinite(size)) continue;
+              bidTotal += size;
+              bids.push({ price, size, total: bidTotal });
+            }
+
+            let askTotal = 0;
+            const asks: OrderbookLevel[] = [];
+            for (let i = 0; i < rawAsks.length && i < MAX_BOOK_LEVELS; i++) {
+              const price = parseFloat(rawAsks[i].px);
+              const size = parseFloat(rawAsks[i].sz);
+              if (!Number.isFinite(price) || !Number.isFinite(size)) continue;
+              askTotal += size;
+              asks.push({ price, size, total: askTotal });
+            }
+
+            const data: OrderbookData = {
+              coin: book.coin ?? params.coin,
+              time: book.time ?? Date.now(),
+              bids,
+              asks,
+            };
+            callback(data);
+          } catch (error) {
+            // Error processing orderbook
+          }
+        }
+      );
+
+      const subscription: Subscription = {
+        id: subscriptionId,
+        type: 'orderbook',
+        params,
         callback,
         unsubscribeFn
       };

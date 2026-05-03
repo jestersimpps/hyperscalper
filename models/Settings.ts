@@ -209,6 +209,7 @@ export interface ChartSettings {
   showPivotMarkers: boolean;
   schmecklesMode: boolean;
   invertedMode: boolean;
+  showOrderbook: boolean;
 }
 
 export interface AppSettings {
@@ -412,6 +413,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     showPivotMarkers: true,
     schmecklesMode: false,
     invertedMode: false,
+    showOrderbook: false,
   },
   pinnedSymbols: [],
 };

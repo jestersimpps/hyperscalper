@@ -23,6 +23,7 @@ interface SettingsStore {
   updateScannerSettings: (settings: Partial<ScannerSettings>) => void;
   updateOrderSettings: (settings: Partial<OrderSettings>) => void;
   updateThemeSettings: (settings: Partial<ThemeSettings>) => void;
+  updateChartSettings: (settings: Partial<ChartSettings>) => void;
   updateSettings: (settings: Partial<AppSettings>) => void;
   pinSymbol: (symbol: string) => void;
   unpinSymbol: (symbol: string) => void;
@@ -269,6 +270,7 @@ const mergeSettings = (storedSettings: any): AppSettings => {
         showPivotMarkers: storedSettings.chart?.showPivotMarkers ?? DEFAULT_SETTINGS.chart.showPivotMarkers,
         schmecklesMode: storedSettings.chart?.schmecklesMode ?? DEFAULT_SETTINGS.chart.schmecklesMode,
         invertedMode: storedSettings.chart?.invertedMode ?? DEFAULT_SETTINGS.chart.invertedMode,
+        showOrderbook: storedSettings.chart?.showOrderbook ?? DEFAULT_SETTINGS.chart.showOrderbook,
       },
       pinnedSymbols: storedSettings.pinnedSymbols ?? DEFAULT_SETTINGS.pinnedSymbols,
     };
@@ -356,6 +358,16 @@ export const useSettingsStore = create<SettingsStore>()(
             ...state.settings,
             theme: {
               ...state.settings.theme,
+              ...updates,
+            },
+          },
+        })),
+      updateChartSettings: (updates) =>
+        set((state) => ({
+          settings: {
+            ...state.settings,
+            chart: {
+              ...state.settings.chart,
               ...updates,
             },
           },

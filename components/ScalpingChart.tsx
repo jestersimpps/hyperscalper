@@ -8,9 +8,11 @@ import { useCandleStore } from '@/stores/useCandleStore';
 import { useSettingsStore } from '@/stores/useSettingsStore';
 import { useSymbolMetaStore } from '@/stores/useSymbolMetaStore';
 import { useChartSyncStore } from '@/stores/useChartSyncStore';
+import { useOrderbookStore } from '@/stores/useOrderbookStore';
 import { getThemeColors } from '@/lib/theme-utils';
 import { useDebouncedCallback, useThrottledCallback } from '@/lib/performance-utils';
 import ChartLegend from '@/components/ChartLegend';
+import OrderbookOverlay from '@/components/OrderbookOverlay';
 import {
   calculateEMA,
   calculateMACD,
@@ -241,6 +243,8 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
   const positionLineRef = useRef<any>(null);
   const breakevenBandSeriesRef = useRef<any>(null);
   const orderLinesRef = useRef<any[]>([]);
+  const bestBidLineRef = useRef<any>(null);
+  const bestAskLineRef = useRef<any>(null);
   const optimisticLinesRef = useRef<{ line: any; visibleColor: string; hiddenColor: string }[]>([]);
   const blinkIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const cachedTrendlinesRef = useRef<{ supportLine: any[]; resistanceLine: any[] }>({ supportLine: [], resistanceLine: [] });
@@ -248,7 +252,6 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
   const [chartReady, setChartReady] = useState(false);
   const [divergencePoints, setDivergencePoints] = useState<DivergencePoint[]>([]);
   const candlesBufferRef = useRef<CandleData[]>([]);
-  const lastCandleTimeRef = useRef<number | null>(null);
 
   const candleKey = `${coin}-${interval}`;
   const storeCandles = useCandleStore((state) => state.candles[candleKey]) || [];
@@ -812,8 +815,15 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
   }, [coin, interval, chartReady, isExternalData, candleService, simplifiedView, enabledMacdTimeframes.join(','), macdSettings.showMultiTimeframe, stochasticSettings.showMultiVariant]);
 
   useEffect(() => {
-    lastCandleTimeRef.current = null;
-  }, [interval]);
+    if (!chartSettings?.showOrderbook || referenceMode) return;
+
+    const { subscribeToOrderbook, unsubscribeFromOrderbook } = useOrderbookStore.getState();
+    subscribeToOrderbook(coin);
+
+    return () => {
+      unsubscribeFromOrderbook(coin);
+    };
+  }, [coin, chartSettings?.showOrderbook, referenceMode]);
 
   useEffect(() => {
     if (!btcOverlayActive || !candleService || isExternalData) return;
@@ -997,9 +1007,14 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
     }));
 
     const lastCandle = displayCandles[displayCandles.length - 1];
-    const isNewCandle = lastCandleTimeRef.current !== null && lastCandle.time !== lastCandleTimeRef.current;
+    const newBarTime = (lastCandle.time / 1000) as number;
+    const existingSeriesData = candleSeriesRef.current.data();
+    const seriesLastTime = existingSeriesData.length > 0
+      ? (existingSeriesData[existingSeriesData.length - 1].time as number)
+      : null;
+    const canUpdateInPlace = seriesLastTime !== null && newBarTime >= seriesLastTime;
 
-    if (isNewCandle || lastCandleTimeRef.current === null) {
+    if (!canUpdateInPlace) {
       updateChartWithRAF(() => {
         candleSeriesRef.current?.setData(candleData);
         volumeSeriesRef.current?.setData(volumeData);
@@ -1066,8 +1081,6 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
       }
 
     }
-
-    lastCandleTimeRef.current = lastCandle.time;
 
     if (onPriceUpdate) {
       onPriceUpdate(lastCandle.close);
@@ -1607,6 +1620,112 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
     };
   }, [orders, chartReady, chartSettings?.invertedMode, displayCandles.length, candles]);
 
+  const orderbookSnapshot = useOrderbookStore((state) => state.books[coin]);
+
+  const priceToY = useCallback((price: number): number | null => {
+    const series = candleSeriesRef.current;
+    if (!series) return null;
+    const y = series.priceToCoordinate(price);
+    return y == null ? null : Number(y);
+  }, []);
+
+  useEffect(() => {
+    if (!chartReady || !candleSeriesRef.current) return;
+
+    const showOrderbook = !!chartSettings?.showOrderbook && !referenceMode;
+    const series = candleSeriesRef.current;
+    const colors = getThemeColors();
+    const inverted = !!chartSettings?.invertedMode;
+    const bidColor = inverted ? colors.statusBearish : colors.statusBullish;
+    const askColor = inverted ? colors.statusBullish : colors.statusBearish;
+
+    const removeLine = (ref: React.MutableRefObject<any>) => {
+      if (ref.current) {
+        try {
+          series.removePriceLine(ref.current);
+        } catch (e) {
+          // Ignore stale-line errors
+        }
+        ref.current = null;
+      }
+    };
+
+    if (!showOrderbook || !orderbookSnapshot) {
+      removeLine(bestBidLineRef);
+      removeLine(bestAskLineRef);
+      return;
+    }
+
+    const { bestBid, bestAsk } = orderbookSnapshot;
+    const refPrice = inverted && candles.length > 0
+      ? (candles[0]?.close ?? displayCandles[0]?.close ?? 0)
+      : 0;
+    const flip = (p: number) => (inverted && refPrice > 0 ? 2 * refPrice - p : p);
+    const displayBid = bestBid != null ? flip(bestBid) : null;
+    const displayAsk = bestAsk != null ? flip(bestAsk) : null;
+    // In inverted mode bids appear above the candles (drawn in bear color region of the flip)
+    const lineBidColor = inverted ? askColor : bidColor;
+    const lineAskColor = inverted ? bidColor : askColor;
+    const bidTitle = inverted ? 'ASK' : 'BID';
+    const askTitle = inverted ? 'BID' : 'ASK';
+
+    if (displayBid != null) {
+      if (bestBidLineRef.current) {
+        try {
+          bestBidLineRef.current.applyOptions({ price: displayBid, color: lineBidColor, title: bidTitle });
+        } catch (e) {
+          removeLine(bestBidLineRef);
+        }
+      }
+      if (!bestBidLineRef.current) {
+        bestBidLineRef.current = series.createPriceLine({
+          price: displayBid,
+          color: lineBidColor,
+          lineWidth: 1,
+          lineStyle: 2,
+          axisLabelVisible: true,
+          title: bidTitle,
+        });
+      }
+    } else {
+      removeLine(bestBidLineRef);
+    }
+
+    if (displayAsk != null) {
+      if (bestAskLineRef.current) {
+        try {
+          bestAskLineRef.current.applyOptions({ price: displayAsk, color: lineAskColor, title: askTitle });
+        } catch (e) {
+          removeLine(bestAskLineRef);
+        }
+      }
+      if (!bestAskLineRef.current) {
+        bestAskLineRef.current = series.createPriceLine({
+          price: displayAsk,
+          color: lineAskColor,
+          lineWidth: 1,
+          lineStyle: 2,
+          axisLabelVisible: true,
+          title: askTitle,
+        });
+      }
+    } else {
+      removeLine(bestAskLineRef);
+    }
+
+    return () => {
+      removeLine(bestBidLineRef);
+      removeLine(bestAskLineRef);
+    };
+  }, [
+    chartReady,
+    chartSettings?.showOrderbook,
+    chartSettings?.invertedMode,
+    referenceMode,
+    orderbookSnapshot?.bestBid,
+    orderbookSnapshot?.bestAsk,
+  ]);
+
   const variantColorVars: Record<string, string> = {
     ultraFast: '#FF10FF',
     fast: '#00D9FF',
@@ -1630,7 +1749,17 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
           </div>
         </div>
       )}
-      <div ref={chartContainerRef} className="flex-1 min-h-0" />
+      <div className="relative flex-1 min-h-0">
+        <div ref={chartContainerRef} className="absolute inset-0" />
+        <OrderbookOverlay
+          coin={coin}
+          priceToY={priceToY}
+          chartReady={chartReady}
+          enabled={!!chartSettings?.showOrderbook && !referenceMode}
+          inverted={!!chartSettings?.invertedMode}
+          invertReference={candles[0]?.close ?? null}
+        />
+      </div>
       <div className="mt-1 flex gap-3 text-[9px] items-center">
         <ChartLegend className="flex-shrink-0" />
         {emaSettings.ema1.enabled && (

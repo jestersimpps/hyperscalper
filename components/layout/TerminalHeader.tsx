@@ -17,6 +17,8 @@ export default function TerminalHeader({ coin, onRefreshCharts, onAutoZoom, onZo
   const streams = useWebSocketStatusStore((state) => state.streams);
   const isMultiChartView = useSettingsStore((state) => state.isMultiChartView);
   const toggleMultiChartView = useSettingsStore((state) => state.toggleMultiChartView);
+  const showOrderbook = useSettingsStore((state) => state.settings.chart.showOrderbook);
+  const updateChartSettings = useSettingsStore((state) => state.updateChartSettings);
 
   useEffect(() => {
     const updateTime = () => {
@@ -86,6 +88,7 @@ export default function TerminalHeader({ coin, onRefreshCharts, onAutoZoom, onZo
             {renderStreamIndicator('candles', 'CANDLES')}
             {renderStreamIndicator('trades', 'TRADES')}
             {renderStreamIndicator('prices', 'PRICES')}
+            {showOrderbook && renderStreamIndicator('orderbook', 'BOOK')}
           </div>
           {onRefreshCharts && (
             <button
@@ -114,6 +117,17 @@ export default function TerminalHeader({ coin, onRefreshCharts, onAutoZoom, onZo
               ⊡ 50
             </button>
           )}
+          <button
+            onClick={() => updateChartSettings({ showOrderbook: !showOrderbook })}
+            className={`hidden md:block px-3 py-1.5 text-[10px] font-mono uppercase tracking-wider transition-all rounded-sm ${
+              showOrderbook
+                ? 'bg-primary/20 text-primary border-2 border-primary'
+                : 'bg-bg-secondary text-primary-muted border-2 border-frame hover:text-primary hover:bg-primary/10'
+            }`}
+            title="Toggle live orderbook overlay on the chart"
+          >
+            Orderbook
+          </button>
           <button
             onClick={toggleMultiChartView}
             className={`hidden md:block px-3 py-1.5 text-[10px] font-mono uppercase tracking-wider transition-all rounded-sm ${
