@@ -27,7 +27,7 @@ interface RenderedRow {
 
 const BAR_MAX_WIDTH_PX = 110;
 const ROW_HEIGHT_PX = 12;
-const RIGHT_OFFSET_PX = 96;
+const RIGHT_OFFSET_PX = 80;
 
 export default function OrderbookOverlay({
   coin,
@@ -73,13 +73,70 @@ export default function OrderbookOverlay({
         ? 2 * invertReference - price
         : price;
 
-    const maxBidTotal = book.bids[book.bids.length - 1]?.total ?? 0;
-    const maxAskTotal = book.asks[book.asks.length - 1]?.total ?? 0;
+    // Native tick from book gaps (used as a floor on bucket size).
+    const sample = [...book.bids.slice(0, 8), ...book.asks.slice(0, 8)]
+      .map((l) => l.price)
+      .sort((a, b) => a - b);
+    let nativeTick = Infinity;
+    for (let i = 1; i < sample.length; i++) {
+      const gap = sample[i] - sample[i - 1];
+      if (gap > 0 && gap < nativeTick) nativeTick = gap;
+    }
+    if (!Number.isFinite(nativeTick) || nativeTick <= 0) nativeTick = 0.01;
+
+    // Match bucket size to the chart's price-per-pixel so each row aligns
+    // with a price-scale gridline. Gridlines on lightweight-charts sit roughly
+    // every 50px; we target ROW_HEIGHT_PX * 4 ≈ 48px per bucket.
+    const refMid = (book.bestBid != null && book.bestAsk != null)
+      ? (book.bestBid + book.bestAsk) / 2
+      : (book.bids[0]?.price ?? book.asks[0]?.price ?? 0);
+    const probeOffset = nativeTick * 50;
+    const yMid = priceToY(flipPrice(refMid));
+    const yProbe = priceToY(flipPrice(refMid + probeOffset));
+    let pricePerPx = nativeTick / 12;
+    if (yMid != null && yProbe != null && Math.abs(yProbe - yMid) > 0.5) {
+      pricePerPx = Math.abs(probeOffset / (yProbe - yMid));
+    }
+    const targetSpan = pricePerPx * (ROW_HEIGHT_PX * 4);
+    const rawStep = Math.max(targetSpan, nativeTick);
+    const exp = Math.floor(Math.log10(rawStep));
+    const base = rawStep / Math.pow(10, exp);
+    const niceBase = base >= 5 ? 5 : base >= 2 ? 2 : 1;
+    const bucketStep = niceBase * Math.pow(10, exp);
+    const bucketDecimals = Math.max(0, -exp + (niceBase === 1 ? 0 : 0));
+
+    const aggregate = (
+      levels: typeof book.bids,
+      side: 'bid' | 'ask',
+    ): { price: number; size: number; total: number }[] => {
+      const buckets = new Map<number, number>();
+      for (const lvl of levels) {
+        const bucketed = side === 'bid'
+          ? Math.floor(lvl.price / bucketStep) * bucketStep
+          : Math.ceil(lvl.price / bucketStep) * bucketStep;
+        const key = Number(bucketed.toFixed(bucketDecimals + 2));
+        buckets.set(key, (buckets.get(key) ?? 0) + lvl.size);
+      }
+      const sorted = Array.from(buckets.entries()).sort(([a], [b]) =>
+        side === 'bid' ? b - a : a - b,
+      );
+      let running = 0;
+      return sorted.map(([price, size]) => {
+        running += size;
+        return { price, size, total: running };
+      });
+    };
+
+    const aggregatedBids = aggregate(book.bids, 'bid');
+    const aggregatedAsks = aggregate(book.asks, 'ask');
+
+    const maxBidTotal = aggregatedBids[aggregatedBids.length - 1]?.total ?? 0;
+    const maxAskTotal = aggregatedAsks[aggregatedAsks.length - 1]?.total ?? 0;
     const maxTotal = Math.max(maxBidTotal, maxAskTotal, 1);
 
     const out: RenderedRow[] = [];
 
-    for (const lvl of book.bids) {
+    for (const lvl of aggregatedBids) {
       const y = priceToY(flipPrice(lvl.price));
       if (y == null || !Number.isFinite(y)) continue;
       out.push({
@@ -92,7 +149,7 @@ export default function OrderbookOverlay({
         widthPct: Math.min(lvl.total / maxTotal, 1),
       });
     }
-    for (const lvl of book.asks) {
+    for (const lvl of aggregatedAsks) {
       const y = priceToY(flipPrice(lvl.price));
       if (y == null || !Number.isFinite(y)) continue;
       out.push({

@@ -818,7 +818,9 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
     if (!chartSettings?.showOrderbook || referenceMode) return;
 
     const { subscribeToOrderbook, unsubscribeFromOrderbook } = useOrderbookStore.getState();
-    subscribeToOrderbook(coin);
+    // nSigFigs=4 → server aggregates the book one decimal coarser, so the same
+    // ~20 returned levels span a much wider price band around mid.
+    subscribeToOrderbook(coin, 4);
 
     return () => {
       unsubscribeFromOrderbook(coin);
@@ -1666,13 +1668,10 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
     // In inverted mode bids appear above the candles (drawn in bear color region of the flip)
     const lineBidColor = inverted ? askColor : bidColor;
     const lineAskColor = inverted ? bidColor : askColor;
-    const bidTitle = inverted ? 'ASK' : 'BID';
-    const askTitle = inverted ? 'BID' : 'ASK';
-
     if (displayBid != null) {
       if (bestBidLineRef.current) {
         try {
-          bestBidLineRef.current.applyOptions({ price: displayBid, color: lineBidColor, title: bidTitle });
+          bestBidLineRef.current.applyOptions({ price: displayBid, color: lineBidColor, title: '' });
         } catch (e) {
           removeLine(bestBidLineRef);
         }
@@ -1684,7 +1683,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
           lineWidth: 1,
           lineStyle: 2,
           axisLabelVisible: true,
-          title: bidTitle,
+          title: '',
         });
       }
     } else {
@@ -1694,7 +1693,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
     if (displayAsk != null) {
       if (bestAskLineRef.current) {
         try {
-          bestAskLineRef.current.applyOptions({ price: displayAsk, color: lineAskColor, title: askTitle });
+          bestAskLineRef.current.applyOptions({ price: displayAsk, color: lineAskColor, title: '' });
         } catch (e) {
           removeLine(bestAskLineRef);
         }
@@ -1706,7 +1705,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
           lineWidth: 1,
           lineStyle: 2,
           axisLabelVisible: true,
-          title: askTitle,
+          title: '',
         });
       }
     } else {

@@ -49,6 +49,8 @@ export interface TradeSubscriptionParams {
 
 export interface OrderbookSubscriptionParams {
   coin: string;
+  nSigFigs?: 2 | 3 | 4 | 5 | null;
+  mantissa?: 2 | 5 | null;
 }
 
 export type CandleCallback = (candle: CandleData) => void;

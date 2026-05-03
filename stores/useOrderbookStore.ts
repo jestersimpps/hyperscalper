@@ -17,7 +17,7 @@ interface OrderbookStore {
   subscriptions: Record<string, { subscriptionId: string; cleanup: () => void }>;
   wsService: ExchangeWebSocketService | null;
 
-  subscribeToOrderbook: (coin: string) => void;
+  subscribeToOrderbook: (coin: string, nSigFigs?: 2 | 3 | 4 | 5 | null) => void;
   unsubscribeFromOrderbook: (coin: string) => void;
   cleanup: () => void;
 }
@@ -37,7 +37,7 @@ export const useOrderbookStore = create<OrderbookStore>((set, get) => ({
   subscriptions: {},
   wsService: null,
 
-  subscribeToOrderbook: (coin) => {
+  subscribeToOrderbook: (coin, nSigFigs) => {
     const { subscriptions } = get();
 
     if (subscriptions[coin]) {
@@ -51,7 +51,7 @@ export const useOrderbookStore = create<OrderbookStore>((set, get) => ({
       const cleanup = trackSubscription();
 
       const subscriptionId = service.subscribeToOrderbook(
-        { coin },
+        nSigFigs !== undefined ? { coin, nSigFigs } : { coin },
         (data: OrderbookData) => {
           const bestBid = data.bids[0]?.price ?? null;
           const bestAsk = data.asks[0]?.price ?? null;

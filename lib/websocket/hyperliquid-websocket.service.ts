@@ -213,8 +213,14 @@ export class HyperliquidWebSocketService implements ExchangeWebSocketService {
         return;
       }
 
+      const l2Args: { coin: string; nSigFigs?: 2 | 3 | 4 | 5 | null; mantissa?: 2 | 5 | null } = {
+        coin: params.coin,
+      };
+      if (params.nSigFigs !== undefined) l2Args.nSigFigs = params.nSigFigs;
+      if (params.mantissa !== undefined) l2Args.mantissa = params.mantissa;
+
       const unsubscribeFn = this.eventClient.l2Book(
-        { coin: params.coin },
+        l2Args,
         (book: BookSnapshot) => {
           try {
             const rawBids = book.levels?.[0] ?? [];
