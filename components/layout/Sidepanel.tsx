@@ -18,6 +18,7 @@ import { formatPrice } from '@/lib/format-utils';
 import { useAddressFromUrl } from '@/lib/hooks/use-address-from-url';
 import { usePriceVolumeAnimation } from '@/hooks/usePriceVolumeAnimation';
 import MiniPriceChart from '@/components/scanner/MiniPriceChart';
+import BtcStrip from '@/components/sidepanel/BtcStrip';
 import SymbolItem from '@/components/sidepanel/SymbolItem';
 import ScannerResultItem from '@/components/scanner/ScannerResultItem';
 import {
@@ -478,7 +479,9 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect, mobileView =
   }, [groupedScannerResults]);
 
   return (
-    <div className="p-2 h-full flex gap-2 overflow-hidden">
+    <div className="p-2 h-full flex flex-col overflow-hidden">
+      {mobileView === 'all' && <BtcStrip />}
+      <div className="flex-1 flex gap-2 overflow-hidden min-h-0">
       {/* Left Column - Scanner */}
       {settings.scanner.enabled && (mobileView === 'all' || mobileView === 'scanner') && (
         <div className={`${mobileView === 'scanner' ? 'w-full' : 'w-[200px]'} flex flex-col overflow-hidden flex-shrink-0`}>
@@ -705,6 +708,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect, mobileView =
         )}
         </div>
       )}
+      </div>
     </div>
   );
 }

@@ -52,7 +52,6 @@ interface ScalpingChartProps {
   simplifiedView?: boolean;
   hideStochastic?: boolean;
   referenceMode?: boolean;
-  showBtcReference?: boolean;
 }
 
 interface CrossoverMarker {
@@ -223,14 +222,12 @@ function createDivergenceMarkers(divergences: DivergencePoint[]): any[] {
 }
 
 
-export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartReady, onChartClick, candleData, isExternalData = false, macdCandleData, position, orders, syncZoom = false, simplifiedView: simplifiedViewProp = false, hideStochastic: hideStochasticProp = false, referenceMode = false, showBtcReference = false }: ScalpingChartProps) {
-  const btcOverlayActive = showBtcReference && coin !== 'BTC';
+export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartReady, onChartClick, candleData, isExternalData = false, macdCandleData, position, orders, syncZoom = false, simplifiedView: simplifiedViewProp = false, hideStochastic: hideStochasticProp = false, referenceMode = false }: ScalpingChartProps) {
   const simplifiedView = simplifiedViewProp || referenceMode;
   const hideStochastic = hideStochasticProp || referenceMode;
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<any>(null);
   const candleSeriesRef = useRef<any>(null);
-  const btcSeriesRef = useRef<any>(null);
   const volumeSeriesRef = useRef<any>(null);
   const ema1SeriesRef = useRef<any>(null);
   const ema2SeriesRef = useRef<any>(null);
@@ -257,7 +254,6 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
   const storeCandles = useCandleStore((state) => state.candles[candleKey]) || [];
   const storeLoading = useCandleStore((state) => state.loading[candleKey]) || false;
   const candleService = useCandleStore((state) => state.service);
-  const btcCandles = useCandleStore((state) => state.candles[`BTC-${interval}`]) || [];
   const getDecimals = useSymbolMetaStore((state) => state.getDecimals);
   const decimals = getDecimals(coin);
 
@@ -317,7 +313,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
           },
           rightPriceScale: {
             scaleMargins: {
-              top: btcOverlayActive ? 0.24 : (referenceMode ? 0.08 : 0.1),
+              top: referenceMode ? 0.08 : 0.1,
               bottom: referenceMode ? 0.08 : (hideStochastic ? 0.15 : 0.45),
             },
             minimumWidth: syncZoom ? 80 : 0,
@@ -336,23 +332,6 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
             minMove: 1 / Math.pow(10, decimals.price),
           },
         });
-
-        if (btcOverlayActive) {
-          const btcSeries = chart.addCandlestickSeries({
-            upColor: colors.statusBullish,
-            downColor: colors.statusBearish,
-            borderVisible: false,
-            wickUpColor: colors.statusBullish,
-            wickDownColor: colors.statusBearish,
-            priceScaleId: 'btc',
-            priceLineVisible: false,
-            lastValueVisible: false,
-          });
-          btcSeries.priceScale().applyOptions({
-            scaleMargins: { top: 0.02, bottom: 0.78 },
-          });
-          btcSeriesRef.current = btcSeries;
-        }
 
         const volumeSeries = chart.addHistogramSeries({
           color: colors.statusBullish,
@@ -602,7 +581,6 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
         chartRef.current.remove();
         chartRef.current = null;
         candleSeriesRef.current = null;
-        btcSeriesRef.current = null;
         volumeSeriesRef.current = null;
         ema1SeriesRef.current = null;
         ema2SeriesRef.current = null;
@@ -610,7 +588,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
         stochSeriesRefsRef.current = {};
       }
     };
-  }, [simplifiedView, macdSettings.showMultiTimeframe, stochasticSettings.showMultiVariant, enabledMacdTimeframes.join(','), Object.entries(stochasticSettings.variants).filter(([_, v]) => v.enabled).map(([k]) => k).join(','), btcOverlayActive]);
+  }, [simplifiedView, macdSettings.showMultiTimeframe, stochasticSettings.showMultiVariant, enabledMacdTimeframes.join(','), Object.entries(stochasticSettings.variants).filter(([_, v]) => v.enabled).map(([k]) => k).join(',')]);
 
   // Handle stochastic visibility toggle
   useEffect(() => {
@@ -646,7 +624,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
       chart.applyOptions({
         rightPriceScale: {
           scaleMargins: {
-            top: btcOverlayActive ? 0.24 : (referenceMode ? 0.08 : 0.1),
+            top: referenceMode ? 0.08 : 0.1,
             bottom: referenceMode ? 0.08 : 0.15,
           },
         },
@@ -721,7 +699,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
         });
       }
     }
-  }, [hideStochastic, chartReady, simplifiedView, referenceMode, btcOverlayActive]);
+  }, [hideStochastic, chartReady, simplifiedView, referenceMode]);
 
   useEffect(() => {
     if (!syncZoom || !chartRef.current || !chartReady) return;
@@ -826,20 +804,6 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
       unsubscribeFromOrderbook(coin);
     };
   }, [coin, chartSettings?.showOrderbook, referenceMode]);
-
-  useEffect(() => {
-    if (!btcOverlayActive || !candleService || isExternalData) return;
-
-    const { startTime, endTime } = getCandleTimeWindow(interval, DEFAULT_CANDLE_COUNT);
-    const { fetchCandles, subscribeToCandles, unsubscribeFromCandles } = useCandleStore.getState();
-
-    fetchCandles('BTC', interval, startTime, endTime);
-    subscribeToCandles('BTC', interval);
-
-    return () => {
-      unsubscribeFromCandles('BTC', interval);
-    };
-  }, [btcOverlayActive, interval, candleService, isExternalData]);
 
   const closePrices = useMemo(() => displayCandles.map(c => c.close), [displayCandles]);
 
@@ -975,18 +939,6 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
   useEffect(() => {
     detectDivergencesDebounced();
   }, [displayCandles, simplifiedView, stochasticSettings.showMultiVariant, stochasticSettings.showDivergence, stochasticSettings.variants, interval, candles, isExternalData, allMacdCandles, coin, chartSettings]);
-
-  useEffect(() => {
-    if (!chartReady || !btcOverlayActive || !btcSeriesRef.current || btcCandles.length === 0) return;
-
-    btcSeriesRef.current.setData(btcCandles.map(c => ({
-      time: (c.time / 1000) as any,
-      open: c.open,
-      high: c.high,
-      low: c.low,
-      close: c.close,
-    })));
-  }, [chartReady, btcOverlayActive, btcCandles]);
 
   useEffect(() => {
     if (!chartReady || !candleSeriesRef.current || displayCandles.length === 0) return;

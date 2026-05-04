@@ -79,6 +79,18 @@ function MiniPriceChart({ closePrices, signalType, invertedMode = false }: MiniP
   const options: ChartOptions<'line'> = useMemo(() => ({
     responsive: true,
     maintainAspectRatio: false,
+    animation: false,
+    animations: {
+      colors: false,
+      x: false,
+      y: false,
+    },
+    transitions: {
+      active: { animation: { duration: 0 } },
+      resize: { animation: { duration: 0 } },
+      show: { animations: { x: { from: 0 }, y: { from: 0 } } },
+      hide: { animations: { x: { to: 0 }, y: { to: 0 } } },
+    },
     plugins: {
       legend: {
         display: false
