@@ -1,6 +1,6 @@
 'use client';
 
-import { memo, useEffect, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSidebarPricesStore } from '@/stores/useSidebarPricesStore';
 import { useSymbolMetaStore } from '@/stores/useSymbolMetaStore';
@@ -8,15 +8,12 @@ import { useSymbolVolatilityStore } from '@/stores/useSymbolVolatilityStore';
 import { useTradesStore } from '@/stores/useTradesStore';
 import { formatPrice } from '@/lib/format-utils';
 import { useAddressFromUrl } from '@/lib/hooks/use-address-from-url';
-import MiniPriceChart from '@/components/scanner/MiniPriceChart';
 
 const BTC = 'BTC';
 const PRESSURE_WINDOW_MS = 5 * 60_000;
 const SPARKLINE_WINDOW_MS = 60_000;
-const BUCKET_MS = 1_000;
-const BUCKET_COUNT = PRESSURE_WINDOW_MS / BUCKET_MS;
-const SPARKLINE_BUCKET_COUNT = SPARKLINE_WINDOW_MS / BUCKET_MS;
-const SPIKE_THRESHOLD_PCT = 0.15;
+const SPARKLINE_SAMPLE_MS = 1_000;
+const SPARKLINE_SAMPLES = SPARKLINE_WINDOW_MS / SPARKLINE_SAMPLE_MS;
 
 function BtcStrip() {
   const router = useRouter();
@@ -34,6 +31,8 @@ function BtcStrip() {
   const unsubscribeFromTrades = useTradesStore((state) => state.unsubscribeFromTrades);
 
   const [now, setNow] = useState(() => Date.now());
+  const sparklineRef = useRef<number[]>([]);
+  const [sparklineTick, setSparklineTick] = useState(0);
 
   useEffect(() => {
     subscribeToTrades(BTC);
@@ -50,91 +49,65 @@ function BtcStrip() {
     return () => clearInterval(id);
   }, []);
 
-  const {
-    buyVolume,
-    sellVolume,
-    buyPct,
-    dominantSide,
-    imbalancePct,
-    rollingPrices,
-    spikePct,
-    spikeDirection,
-    spikeAgeSec,
-  } = useMemo(() => {
-    const windowEnd = Math.floor(now / BUCKET_MS) * BUCKET_MS;
-    const cutoff = windowEnd - PRESSURE_WINDOW_MS;
+  useEffect(() => {
+    const sample = () => {
+      const price = useSidebarPricesStore.getState().prices[BTC];
+      if (!price) return;
+      const buf = sparklineRef.current;
+      buf.push(price);
+      if (buf.length > SPARKLINE_SAMPLES) buf.splice(0, buf.length - SPARKLINE_SAMPLES);
+      setSparklineTick((t) => t + 1);
+    };
+    sample();
+    const id = setInterval(sample, SPARKLINE_SAMPLE_MS);
+    return () => clearInterval(id);
+  }, []);
+
+  const { buyVolume, sellVolume, buyPct, dominantSide, imbalancePct } = useMemo(() => {
+    const cutoff = now - PRESSURE_WINDOW_MS;
     let buy = 0;
     let sell = 0;
-    const lastPriceInBucket = new Array<number | null>(BUCKET_COUNT).fill(null);
     if (trades) {
       for (const t of trades) {
         if (t.time < cutoff) break;
         const notional = t.price * t.size;
         if (t.side === 'buy') buy += notional;
         else sell += notional;
-        const idx = Math.floor((t.time - cutoff) / BUCKET_MS);
-        if (idx >= 0 && idx < BUCKET_COUNT && lastPriceInBucket[idx] === null) {
-          lastPriceInBucket[idx] = t.price;
-        }
       }
     }
     const total = buy + sell;
     const pct = total > 0 ? (buy / total) * 100 : 50;
     const dom: 'buy' | 'sell' | 'flat' = total === 0 ? 'flat' : buy > sell ? 'buy' : 'sell';
     const imb = total > 0 ? Math.abs(buy - sell) / total * 100 : 0;
+    return { buyVolume: buy, sellVolume: sell, buyPct: pct, dominantSide: dom, imbalancePct: imb };
+  }, [trades, now]);
 
-    if (livePrice) lastPriceInBucket[BUCKET_COUNT - 1] = livePrice;
-
-    let firstKnown: number | null = null;
-    for (let i = 0; i < BUCKET_COUNT; i++) {
-      if (lastPriceInBucket[i] !== null) {
-        firstKnown = lastPriceInBucket[i];
-        break;
-      }
+  const sparklinePath = useMemo(() => {
+    void sparklineTick;
+    const prices = sparklineRef.current;
+    if (prices.length < 2) return null;
+    let min = prices[0];
+    let max = prices[0];
+    for (let i = 1; i < prices.length; i++) {
+      if (prices[i] < min) min = prices[i];
+      if (prices[i] > max) max = prices[i];
     }
-    const prices: number[] = new Array(BUCKET_COUNT);
-    let carry = firstKnown;
-    for (let i = 0; i < BUCKET_COUNT; i++) {
-      const v = lastPriceInBucket[i];
-      if (v !== null) carry = v;
-      prices[i] = carry ?? 0;
+    const flat = max - min === 0;
+    const range = flat ? 1 : max - min;
+    const w = 100;
+    const h = 100;
+    const padY = 10;
+    const innerH = h - padY * 2;
+    const stepX = w / (SPARKLINE_SAMPLES - 1);
+    const startX = w - (prices.length - 1) * stepX;
+    let d = '';
+    for (let i = 0; i < prices.length; i++) {
+      const x = startX + i * stepX;
+      const y = flat ? h / 2 : padY + innerH - ((prices[i] - min) / range) * innerH;
+      d += i === 0 ? `M${x.toFixed(2)},${y.toFixed(2)}` : ` L${x.toFixed(2)},${y.toFixed(2)}`;
     }
-    if (firstKnown === null) prices.length = 0;
-
-    let spike = 0;
-    let dir: 'up' | 'down' | null = null;
-    let ageSec = 0;
-    if (prices.length >= 2 && livePrice) {
-      let extremePrice = livePrice;
-      let extremeIdx = BUCKET_COUNT - 1;
-      for (let i = 0; i < prices.length; i++) {
-        if (Math.abs(livePrice - prices[i]) > Math.abs(livePrice - extremePrice)) {
-          extremePrice = prices[i];
-          extremeIdx = i;
-        }
-      }
-      if (extremePrice > 0) {
-        const move = ((livePrice - extremePrice) / extremePrice) * 100;
-        if (Math.abs(move) >= SPIKE_THRESHOLD_PCT) {
-          spike = move;
-          dir = move > 0 ? 'up' : 'down';
-          ageSec = Math.max(0, (BUCKET_COUNT - 1 - extremeIdx) * (BUCKET_MS / 1000));
-        }
-      }
-    }
-
-    return {
-      buyVolume: buy,
-      sellVolume: sell,
-      buyPct: pct,
-      dominantSide: dom,
-      imbalancePct: imb,
-      rollingPrices: prices,
-      spikePct: spike,
-      spikeDirection: dir,
-      spikeAgeSec: ageSec,
-    };
-  }, [trades, now, livePrice]);
+    return d;
+  }, [sparklineTick]);
 
   const formatNotional = (value: number) => {
     if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(2)}M`;
@@ -159,6 +132,8 @@ function BtcStrip() {
     ? 'SELL'
     : 'FLAT';
 
+  const sparklineColor = percentChange >= 0 ? 'var(--status-bullish)' : 'var(--status-bearish)';
+
   const handleClick = () => {
     if (address) router.push(`/${address}/${BTC}`);
   };
@@ -178,11 +153,22 @@ function BtcStrip() {
         </button>
 
         <div className="flex-1 min-w-0 h-12 self-center relative">
-          {rollingPrices.length >= 2 ? (
-            <MiniPriceChart
-              closePrices={rollingPrices.slice(-SPARKLINE_BUCKET_COUNT)}
-              signalType={dominantSide === 'sell' ? 'bearish' : 'bullish'}
-            />
+          {sparklinePath ? (
+            <svg
+              viewBox="0 0 100 100"
+              preserveAspectRatio="none"
+              className="w-full h-full block"
+            >
+              <path
+                d={sparklinePath}
+                fill="none"
+                stroke={sparklineColor}
+                strokeWidth={1.5}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                vectorEffect="non-scaling-stroke"
+              />
+            </svg>
           ) : (
             <div className="w-full h-full flex items-center justify-center text-[10px] text-primary-muted font-mono">
               waiting for ticks…
@@ -191,18 +177,6 @@ function BtcStrip() {
           <div className="pointer-events-none absolute top-0.5 left-1 text-[9px] font-mono text-primary-muted leading-none">
             1m
           </div>
-          {spikeDirection && (
-            <div
-              className={`pointer-events-none absolute top-0.5 right-1 px-1 py-0.5 leading-none text-[10px] font-mono font-bold border ${
-                spikeDirection === 'up'
-                  ? 'text-bullish border-bullish/60 bg-bullish/10 animate-blink-green'
-                  : 'text-bearish border-bearish/60 bg-bearish/10 animate-blink-red'
-              }`}
-              title={`BTC moved ${spikePct.toFixed(2)}% in last ${spikeAgeSec}s — watch for correlated moves`}
-            >
-              {spikeDirection === 'up' ? '▲' : '▼'} {Math.abs(spikePct).toFixed(2)}% / {spikeAgeSec}s
-            </div>
-          )}
         </div>
 
         <div className="flex-shrink-0 w-[170px] flex flex-col justify-between gap-1">

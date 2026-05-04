@@ -577,6 +577,11 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
           canvas.removeEventListener('click', containerClickHandler!);
         });
       }
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+        pendingUpdateRef.current = false;
+      }
       if (chartRef.current) {
         chartRef.current.remove();
         chartRef.current = null;
@@ -893,9 +898,10 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
     }
 
     rafRef.current = requestAnimationFrame(() => {
-      updateFn();
-      pendingUpdateRef.current = false;
       rafRef.current = null;
+      pendingUpdateRef.current = false;
+      if (!chartRef.current) return;
+      updateFn();
     });
   }, []);
 

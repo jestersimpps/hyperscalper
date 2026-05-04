@@ -130,9 +130,10 @@ export default function OrderbookOverlay({
     const aggregatedBids = aggregate(book.bids, 'bid');
     const aggregatedAsks = aggregate(book.asks, 'ask');
 
-    const maxBidTotal = aggregatedBids[aggregatedBids.length - 1]?.total ?? 0;
-    const maxAskTotal = aggregatedAsks[aggregatedAsks.length - 1]?.total ?? 0;
-    const maxTotal = Math.max(maxBidTotal, maxAskTotal, 1);
+    let maxSize = 0;
+    for (const lvl of aggregatedBids) if (lvl.size > maxSize) maxSize = lvl.size;
+    for (const lvl of aggregatedAsks) if (lvl.size > maxSize) maxSize = lvl.size;
+    if (maxSize <= 0) maxSize = 1;
 
     const out: RenderedRow[] = [];
 
@@ -146,7 +147,7 @@ export default function OrderbookOverlay({
         size: lvl.size,
         total: lvl.total,
         y,
-        widthPct: Math.min(lvl.total / maxTotal, 1),
+        widthPct: Math.min(lvl.size / maxSize, 1),
       });
     }
     for (const lvl of aggregatedAsks) {
@@ -159,7 +160,7 @@ export default function OrderbookOverlay({
         size: lvl.size,
         total: lvl.total,
         y,
-        widthPct: Math.min(lvl.total / maxTotal, 1),
+        widthPct: Math.min(lvl.size / maxSize, 1),
       });
     }
 
