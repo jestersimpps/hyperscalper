@@ -57,47 +57,47 @@ function StatisticsPanel({ groups, totalPnl }: StatisticsPanelProps) {
 
   return (
     <div className="text-[12px] space-y-1 font-mono">
-      <div className="flex justify-between">
-        <span className="text-primary-muted">TOTAL P&L:</span>
-        <span className={totalPnl >= 0 ? 'text-bullish' : 'text-bearish'}>
+      <div className="flex justify-between gap-2">
+        <span className="text-primary-muted whitespace-nowrap">TOTAL P&L:</span>
+        <span className={`min-w-0 truncate text-right ${totalPnl >= 0 ? 'text-bullish' : 'text-bearish'}`}>
           {totalPnl >= 0 ? '+' : ''}{totalPnl.toFixed(2)} USD
         </span>
       </div>
-      <div className="flex justify-between">
-        <span className="text-primary-muted">TRADES:</span>
-        <span className="text-primary">{stats.totalTrades}</span>
+      <div className="flex justify-between gap-2">
+        <span className="text-primary-muted whitespace-nowrap">TRADES:</span>
+        <span className="text-primary min-w-0 truncate text-right">{stats.totalTrades}</span>
       </div>
-      <div className="flex justify-between">
-        <span className="text-primary-muted">WIN RATE:</span>
-        <span className={stats.winRate >= 50 ? 'text-bullish' : 'text-bearish'}>
+      <div className="flex justify-between gap-2">
+        <span className="text-primary-muted whitespace-nowrap">WIN RATE:</span>
+        <span className={`min-w-0 truncate text-right ${stats.winRate >= 50 ? 'text-bullish' : 'text-bearish'}`}>
           {stats.winRate.toFixed(1)}% ({stats.winCount}W / {stats.lossCount}L)
         </span>
       </div>
-      <div className="flex justify-between">
-        <span className="text-primary-muted">AVG P&L:</span>
-        <span className={stats.averagePnl >= 0 ? 'text-bullish' : 'text-bearish'}>
+      <div className="flex justify-between gap-2">
+        <span className="text-primary-muted whitespace-nowrap">AVG P&L:</span>
+        <span className={`min-w-0 truncate text-right ${stats.averagePnl >= 0 ? 'text-bullish' : 'text-bearish'}`}>
           {stats.averagePnl >= 0 ? '+' : ''}${stats.averagePnl.toFixed(2)}
         </span>
       </div>
-      <div className="flex justify-between">
-        <span className="text-primary-muted">BEST TRADE:</span>
-        <span className="text-bullish">
+      <div className="flex justify-between gap-2">
+        <span className="text-primary-muted whitespace-nowrap">BEST TRADE:</span>
+        <span className="text-bullish min-w-0 truncate text-right">
           {stats.bestTrade ? `+$${stats.bestTrade.pnl.toFixed(2)} (${stats.bestTrade.coin})` : '--'}
         </span>
       </div>
-      <div className="flex justify-between">
-        <span className="text-primary-muted">WORST TRADE:</span>
-        <span className="text-bearish">
+      <div className="flex justify-between gap-2">
+        <span className="text-primary-muted whitespace-nowrap">WORST TRADE:</span>
+        <span className="text-bearish min-w-0 truncate text-right">
           {stats.worstTrade ? `${stats.worstTrade.pnl >= 0 ? '+' : ''}$${stats.worstTrade.pnl.toFixed(2)} (${stats.worstTrade.coin})` : '--'}
         </span>
       </div>
-      <div className="flex justify-between">
-        <span className="text-primary-muted">FEES PAID:</span>
-        <span className="text-primary">${Math.abs(stats.totalFees).toFixed(2)}</span>
+      <div className="flex justify-between gap-2">
+        <span className="text-primary-muted whitespace-nowrap">FEES PAID:</span>
+        <span className="text-primary min-w-0 truncate text-right">${Math.abs(stats.totalFees).toFixed(2)}</span>
       </div>
-      <div className="flex justify-between">
-        <span className="text-primary-muted">P&L AFTER FEES:</span>
-        <span className={totalPnl - stats.totalFees >= 0 ? 'text-bullish' : 'text-bearish'}>
+      <div className="flex justify-between gap-2">
+        <span className="text-primary-muted whitespace-nowrap">P&L AFTER FEES:</span>
+        <span className={`min-w-0 truncate text-right ${totalPnl - stats.totalFees >= 0 ? 'text-bullish' : 'text-bearish'}`}>
           {totalPnl - stats.totalFees >= 0 ? '+' : ''}{(totalPnl - stats.totalFees).toFixed(2)} USD
         </span>
       </div>
