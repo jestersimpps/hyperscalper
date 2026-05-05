@@ -36,6 +36,35 @@ const ORDER_COUNT = 5;
 const TAKE_PROFIT_PERCENT = 2;
 const MIN_NOTIONAL = 10; // Hyperliquid minimum order value in USD
 
+// Reconcile a single-order Hyperliquid response against an optimistic order.
+// Returns true when the order was confirmed, false when it was rolled back
+// (rejected by HL, missing OID, or malformed envelope).
+const reconcileSingleOrder = (
+  symbol: string,
+  tempId: string,
+  response: any,
+  successMessage: string,
+  failurePrefix: string,
+): boolean => {
+  const orderStore = useOrderStore.getState();
+  const status = response?.status === 'ok'
+    ? response?.response?.data?.statuses?.[0]
+    : null;
+
+  if (status && typeof status === 'object' && 'resting' in status && status.resting?.oid) {
+    orderStore.confirmOptimisticOrder(symbol, tempId, String(status.resting.oid));
+    toast.success(successMessage);
+    return true;
+  }
+
+  orderStore.rollbackOptimisticOrder(symbol, tempId);
+  const reason = status && typeof status === 'object' && 'error' in status
+    ? String(status.error)
+    : 'no OID returned';
+  toast.error(`${failurePrefix}: ${reason}`);
+  return false;
+};
+
 interface CloudOrderParams {
   symbol: string;
   currentPrice: number;
@@ -994,20 +1023,7 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
       }
 
       service.invalidateAccountCache();
-
-      if (response && response.status === 'ok' && response.response?.data?.statuses?.[0]) {
-        const status = response.response.data.statuses[0];
-        if ('resting' in status && status.resting?.oid) {
-          const realOid = status.resting.oid;
-          orderStore.confirmOptimisticOrder(symbol, tempId, String(realOid));
-          toast.success('Order placed');
-        } else {
-          toast.error('Order placement failed (no OID returned)');
-        }
-      } else {
-        orderStore.rollbackOptimisticOrder(symbol, tempId);
-        toast.error('Order placement failed');
-      }
+      reconcileSingleOrder(symbol, tempId, response, 'Order placed', 'Order placement failed');
     } catch (error) {
       orderStore.rollbackOptimisticOrder(symbol, tempId);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -1101,19 +1117,13 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
         console.log('[placeExitOrderAtPrice] ✅ Stop loss order placed successfully');
       }
 
-      if (response && response.status === 'ok' && response.response?.data?.statuses?.[0]) {
-        const status = response.response.data.statuses[0];
-        if ('resting' in status && status.resting?.oid) {
-          const realOid = status.resting.oid;
-          orderStore.confirmOptimisticOrder(symbol, tempId, String(realOid));
-          toast.success(`${isTakeProfit ? 'Take profit' : 'Stop loss'} order placed`);
-        } else {
-          toast.error('Exit order placement failed (no OID returned)');
-        }
-      } else {
-        orderStore.rollbackOptimisticOrder(symbol, tempId);
-        toast.error('Exit order placement failed');
-      }
+      reconcileSingleOrder(
+        symbol,
+        tempId,
+        response,
+        `${isTakeProfit ? 'Take profit' : 'Stop loss'} order placed`,
+        'Exit order placement failed',
+      );
     } catch (error) {
       orderStore.rollbackOptimisticOrder(symbol, tempId);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -1265,18 +1275,7 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
         isBuy: side === 'short',
       }, metadata);
 
-      if (slResponse?.status === 'ok' && slResponse.response?.data?.statuses?.[0]) {
-        const status = slResponse.response.data.statuses[0];
-        if ('resting' in status && status.resting?.oid) {
-          orderStore.confirmOptimisticOrder(coin, tempId, String(status.resting.oid));
-          toast.success('Stop loss moved');
-        } else {
-          toast.error('Move stop loss failed (no OID returned)');
-        }
-      } else {
-        orderStore.rollbackOptimisticOrder(coin, tempId);
-        toast.error('Move stop loss failed');
-      }
+      reconcileSingleOrder(coin, tempId, slResponse, 'Stop loss moved', 'Move stop loss failed');
     } catch (error) {
       orderStore.rollbackOptimisticOrder(coin, tempId);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
