@@ -1,13 +1,14 @@
 import { create } from 'zustand';
 import type { ExchangeWebSocketService } from '@/lib/websocket/exchange-websocket.interface';
-import { HyperliquidWebSocketService } from '@/lib/websocket/hyperliquid-websocket.service';
 import { useWebSocketStatusStore } from '@/stores/useWebSocketStatusStore';
 
 interface SidebarPricesStore {
   prices: Record<string, number>;
+  lastUpdate: number;
   isSubscribed: boolean;
   subscriptionId: string | null;
-  wsService: ExchangeWebSocketService;
+  wsService: ExchangeWebSocketService | null;
+  cleanup: (() => void) | null;
 
   subscribe: () => void;
   unsubscribe: () => void;
@@ -16,35 +17,46 @@ interface SidebarPricesStore {
 
 export const useSidebarPricesStore = create<SidebarPricesStore>((set, get) => ({
   prices: {},
+  lastUpdate: 0,
   isSubscribed: false,
   subscriptionId: null,
-  wsService: new HyperliquidWebSocketService(false),
+  wsService: null,
+  cleanup: null,
 
   subscribe: () => {
-    const { isSubscribed, wsService } = get();
+    const { isSubscribed } = get();
 
     if (isSubscribed) {
       return;
     }
 
-    const subscriptionId = wsService.subscribeToAllMids((mids) => {
-      set({ prices: mids });
-    });
+    const init = async () => {
+      const { useWebSocketService } = await import('@/lib/websocket/websocket-singleton');
+      const { service, trackSubscription } = useWebSocketService('hyperliquid');
+      const cleanup = trackSubscription();
 
-    useWebSocketStatusStore.getState().setStreamSubscriptionCount('prices', 1);
-    set({ isSubscribed: true, subscriptionId });
+      const subscriptionId = service.subscribeToAllMids((mids) => {
+        set({ prices: mids, lastUpdate: Date.now() });
+      });
+
+      useWebSocketStatusStore.getState().setStreamSubscriptionCount('prices', 1);
+      set({ isSubscribed: true, subscriptionId, wsService: service, cleanup });
+    };
+
+    init();
   },
 
   unsubscribe: () => {
-    const { subscriptionId, wsService, isSubscribed } = get();
+    const { subscriptionId, wsService, isSubscribed, cleanup } = get();
 
     if (!isSubscribed || !subscriptionId) {
       return;
     }
 
-    wsService.unsubscribe(subscriptionId);
+    if (wsService) wsService.unsubscribe(subscriptionId);
+    if (cleanup) cleanup();
     useWebSocketStatusStore.getState().setStreamSubscriptionCount('prices', 0);
-    set({ isSubscribed: false, subscriptionId: null, prices: {} });
+    set({ isSubscribed: false, subscriptionId: null, wsService: null, cleanup: null, prices: {} });
   },
 
   getPrice: (coin: string) => {

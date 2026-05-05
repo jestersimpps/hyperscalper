@@ -59,10 +59,29 @@ export class HyperliquidWebSocketService implements ExchangeWebSocketService {
 
     try {
       useWebSocketStatusStore.getState().setOverallStatus('connecting');
-      this.wsTransport = new WebSocketTransport({ url: this.wsUrl });
+      this.wsTransport = new WebSocketTransport({
+        url: this.wsUrl,
+        keepAlive: { interval: 20_000 },
+        reconnect: {
+          maxRetries: Number.POSITIVE_INFINITY,
+          connectionTimeout: 10_000,
+          connectionDelay: (attempt) => Math.min(150 * (1 << Math.min(attempt, 6)), 10_000),
+        },
+      });
       this.eventClient = new EventClient({ transport: this.wsTransport });
       this.isInitialized = true;
       useWebSocketStatusStore.getState().setOverallStatus('connected');
+
+      const socket = this.wsTransport.socket;
+      socket.addEventListener('open', () => {
+        useWebSocketStatusStore.getState().setOverallStatus('connected');
+      });
+      socket.addEventListener('close', () => {
+        useWebSocketStatusStore.getState().setOverallStatus('connecting');
+      });
+      socket.addEventListener('error', () => {
+        useWebSocketStatusStore.getState().setOverallStatus('error');
+      });
     } catch (error) {
       useWebSocketStatusStore.getState().setOverallStatus('error');
       throw error;
