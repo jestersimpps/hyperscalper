@@ -95,6 +95,12 @@ function StatisticsPanel({ groups, totalPnl }: StatisticsPanelProps) {
         <span className="text-primary-muted">FEES PAID:</span>
         <span className="text-primary">${Math.abs(stats.totalFees).toFixed(2)}</span>
       </div>
+      <div className="flex justify-between">
+        <span className="text-primary-muted">P&L AFTER FEES:</span>
+        <span className={totalPnl - stats.totalFees >= 0 ? 'text-bullish' : 'text-bearish'}>
+          {totalPnl - stats.totalFees >= 0 ? '+' : ''}{(totalPnl - stats.totalFees).toFixed(2)} USD
+        </span>
+      </div>
     </div>
   );
 }
