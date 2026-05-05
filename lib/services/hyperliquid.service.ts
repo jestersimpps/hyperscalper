@@ -287,10 +287,13 @@ export class HyperliquidService implements IHyperliquidService {
     }
 
     const triggerPriceNum = parseFloat(params.triggerPrice);
-    const slippagePercent = 0.08;
+    // Market-at-trigger: when fired, fills at the book price. `p` is HL's
+    // required worst-case execution cap, not extra slippage you pay. Wide cap
+    // (10%) keeps the order from being rejected if price gapped past trigger.
+    const SLIPPAGE_CAP = 0.10;
     const executionPriceNum = params.isBuy
-      ? triggerPriceNum * (1 + slippagePercent)
-      : triggerPriceNum * (1 - slippagePercent);
+      ? triggerPriceNum * (1 + SLIPPAGE_CAP)
+      : triggerPriceNum * (1 - SLIPPAGE_CAP);
 
     const triggerPrice = this.formatPriceCached(triggerPriceNum, metadata);
     const executionPrice = this.formatPriceCached(executionPriceNum, metadata);
@@ -307,7 +310,7 @@ export class HyperliquidService implements IHyperliquidService {
           trigger: {
             triggerPx: triggerPrice,
             isMarket: true,
-            tpsl: 'tp'
+            tpsl: 'sl'
           }
         }
       }],
