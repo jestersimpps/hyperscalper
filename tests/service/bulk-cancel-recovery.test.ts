@@ -12,17 +12,13 @@ const METADATA: SymbolMetadata = {
   timestamp: Date.now(),
 };
 
-// HL's openOrders endpoint shape (as consumed by cancelAllOrders).
-const fakeOrder = (oid: number) => ({ oid, coin: 'BTC', side: 'A', limitPx: '80000', sz: '0.001' });
+const OIDS = [100, 200, 300];
 
-describe('submitBulkCancel — recovers per-status info from ApiRequestError', () => {
+describe('cancelOrdersByOid — recovers per-status info from ApiRequestError', () => {
   let svc: HyperliquidService;
 
   beforeEach(() => {
     svc = new HyperliquidService(TEST_KEY, WALLET, true);
-    (svc as any).publicClient = {
-      frontendOpenOrders: vi.fn(async () => [fakeOrder(100), fakeOrder(200), fakeOrder(300)]),
-    };
   });
 
   it('returns BulkCancelResult with mixed statuses when HL partially fails (SDK throws)', async () => {
@@ -43,7 +39,7 @@ describe('submitBulkCancel — recovers per-status info from ApiRequestError', (
       }),
     };
 
-    const result = await svc.cancelAllOrders('BTC', METADATA);
+    const result = await svc.cancelOrdersByOid(METADATA, OIDS);
 
     expect(result.attemptedOids).toEqual(['100', '200', '300']);
     expect(result.response.response.data.statuses).toEqual([
@@ -60,7 +56,7 @@ describe('submitBulkCancel — recovers per-status info from ApiRequestError', (
     };
     (svc as any).walletClient = { cancel: vi.fn(async () => okResponse) };
 
-    const result = await svc.cancelAllOrders('BTC', METADATA);
+    const result = await svc.cancelOrdersByOid(METADATA, OIDS);
 
     expect(result.attemptedOids).toEqual(['100', '200', '300']);
     expect(result.response.response.data.statuses).toEqual(['success', 'success', 'success']);
@@ -73,7 +69,7 @@ describe('submitBulkCancel — recovers per-status info from ApiRequestError', (
       }),
     };
 
-    await expect(svc.cancelAllOrders('BTC', METADATA)).rejects.toThrow('network blew up');
+    await expect(svc.cancelOrdersByOid(METADATA, OIDS)).rejects.toThrow('network blew up');
   });
 
   it('rethrows ApiRequestError with status="err" (top-level error, no per-order data)', async () => {
@@ -86,6 +82,15 @@ describe('submitBulkCancel — recovers per-status info from ApiRequestError', (
       }),
     };
 
-    await expect(svc.cancelAllOrders('BTC', METADATA)).rejects.toThrow();
+    await expect(svc.cancelOrdersByOid(METADATA, OIDS)).rejects.toThrow();
+  });
+
+  it('returns empty result when no oids passed (no HTTP roundtrip)', async () => {
+    const cancelMock = vi.fn();
+    (svc as any).walletClient = { cancel: cancelMock };
+    const result = await svc.cancelOrdersByOid(METADATA, []);
+    expect(cancelMock).not.toHaveBeenCalled();
+    expect(result.attemptedOids).toEqual([]);
+    expect(result.response.response.data.statuses).toEqual([]);
   });
 });

@@ -3,6 +3,7 @@ import { HyperliquidService } from '@/lib/services/hyperliquid.service';
 import { useOrderStore } from './useOrderStore';
 import { usePositionStore } from './usePositionStore';
 import { useSettingsStore } from './useSettingsStore';
+import { useSidebarPricesStore } from './useSidebarPricesStore';
 import { isEntryOrder, isExitOrder, isTpFor, isSlFor } from '@/lib/utils/order-classification';
 import type { BulkCancelResult } from '@/lib/services/types';
 import type { Order } from '@/models/Order';
@@ -35,6 +36,22 @@ const reconcileBulkCancel = (
 const ORDER_COUNT = 5;
 const TAKE_PROFIT_PERCENT = 2;
 const MIN_NOTIONAL = 10; // Hyperliquid minimum order value in USD
+
+// Resolve live mid from the WS-streamed sidebar store first (zero latency,
+// no HTTP), fall back to a one-shot allMids fetch when WS hasn't seeded
+// the coin yet. Throws if no source has a price — refusing to dispatch is
+// safer than letting bad math route an order to the wrong place.
+const getLiveMid = async (service: HyperliquidService, symbol: string): Promise<number> => {
+  let mid = useSidebarPricesStore.getState().prices[symbol] ?? 0;
+  if (!mid || mid <= 0) {
+    const allMids = await service.getAllMids();
+    mid = parseFloat(allMids[symbol] || '0');
+  }
+  if (!mid || mid <= 0) {
+    throw new Error(`No live mid for ${symbol} — refusing to dispatch order`);
+  }
+  return mid;
+};
 
 // Reconcile a single-order Hyperliquid response against an optimistic order.
 // Returns true when the order was confirmed, false when it was rolled back
@@ -931,21 +948,24 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
       throw new Error('Service not initialized');
     }
 
-    const { symbol, price, isBuy, percentage, currentPrice } = params;
+    const { symbol, price, isBuy, percentage } = params;
 
-    const useTriggerOrder = (isBuy && price > currentPrice) || (!isBuy && price < currentPrice);
+    const liveMid = await getLiveMid(service, symbol);
+
+    const useTriggerOrder = (isBuy && price > liveMid) || (!isBuy && price < liveMid);
     const orderType = useTriggerOrder ? 'TRIGGER MARKET' : 'LIMIT';
 
     console.log('[placeLimitOrderAtPrice] Starting:', {
       symbol,
       price,
-      currentPrice,
+      liveMid,
+      staleCurrentPrice: params.currentPrice,
       isBuy,
       percentage,
       orderType,
       reason: isBuy
-        ? (price > currentPrice ? 'LONG above current (breakout entry)' : 'LONG below current (pullback entry)')
-        : (price < currentPrice ? 'SHORT below current (breakdown entry)' : 'SHORT above current (rally entry)')
+        ? (price > liveMid ? 'LONG above current (breakout entry)' : 'LONG below current (pullback entry)')
+        : (price < liveMid ? 'SHORT below current (breakdown entry)' : 'SHORT above current (rally entry)')
     });
 
     const tempId = `temp_${Date.now()}_${Math.random()}`;
@@ -1152,9 +1172,9 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
     }));
 
     try {
-      const [positions, allMids, metadata] = await Promise.all([
+      const [positions, currentPrice, metadata] = await Promise.all([
         service.getOpenPositions(),
-        service.getAllMids(),
+        getLiveMid(service, symbol),
         service.getMetadataCache(symbol)
       ]);
 
@@ -1167,7 +1187,6 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
       const fullSize = Math.abs(parseFloat(position.position.szi));
       const sizeToClose = percentage === 100 ? undefined : ((fullSize * percentage) / 100).toString();
 
-      const currentPrice = parseFloat(allMids[symbol] || '0');
       const isLong = parseFloat(position.position.szi) > 0;
       const slippage = 0.005;
       const closePrice = isLong
@@ -1209,9 +1228,9 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
     const tempId = `temp_${Date.now()}_sl`;
 
     try {
-      const [positions, allMids, metadata] = await Promise.all([
+      const [positions, currentPrice, metadata] = await Promise.all([
         service.getOpenPositions(),
-        service.getAllMids(),
+        getLiveMid(service, coin),
         service.getMetadataCache(coin)
       ]);
 
@@ -1223,7 +1242,6 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
 
       const szi = parseFloat(assetPosition.position.szi);
       const entryPrice = parseFloat(assetPosition.position.entryPx || '0');
-      const currentPrice = parseFloat(allMids[coin] || '0');
       const side: 'long' | 'short' = szi > 0 ? 'long' : 'short';
       const size = Math.abs(szi);
 
@@ -1313,7 +1331,7 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
 
     try {
       const metadata = await service.getMetadataCache(symbol);
-      const result = await service.cancelEntryOrders(symbol, metadata);
+      const result = await service.cancelOrdersByOid(metadata, confirmedEntries.map(o => o.oid));
       const { failedCount } = reconcileBulkCancel(symbol, result, removedSnapshot);
       if (failedCount > 0) {
         toast.error(`${failedCount} entry order(s) failed to cancel`);
@@ -1357,7 +1375,7 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
 
     try {
       const metadata = await service.getMetadataCache(symbol);
-      const result = await service.cancelExitOrders(symbol, metadata);
+      const result = await service.cancelOrdersByOid(metadata, confirmedExits.map(o => o.oid));
       const { failedCount } = reconcileBulkCancel(symbol, result, removedSnapshot);
       if (failedCount > 0) {
         toast.error(`${failedCount} exit order(s) failed to cancel`);
@@ -1414,7 +1432,7 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
 
     try {
       const metadata = await service.getMetadataCache(symbol);
-      const result = await service.cancelTPOrders(symbol, metadata);
+      const result = await service.cancelOrdersByOid(metadata, confirmedTps.map(o => o.oid));
       const { failedCount } = reconcileBulkCancel(symbol, result, removedSnapshot);
       if (failedCount > 0) {
         toast.error(`${failedCount} take profit order(s) failed to cancel`);
@@ -1471,7 +1489,7 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
 
     try {
       const metadata = await service.getMetadataCache(symbol);
-      const result = await service.cancelSLOrders(symbol, metadata);
+      const result = await service.cancelOrdersByOid(metadata, confirmedSls.map(o => o.oid));
       const { failedCount } = reconcileBulkCancel(symbol, result, removedSnapshot);
       if (failedCount > 0) {
         toast.error(`${failedCount} stop loss order(s) failed to cancel`);
@@ -1514,7 +1532,7 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
 
     try {
       const metadata = await service.getMetadataCache(symbol);
-      const result = await service.cancelAllOrders(symbol, metadata);
+      const result = await service.cancelOrdersByOid(metadata, confirmedAll.map(o => o.oid));
       const { failedCount } = reconcileBulkCancel(symbol, result, removedSnapshot);
       if (failedCount > 0) {
         toast.error(`${failedCount} order(s) failed to cancel`);

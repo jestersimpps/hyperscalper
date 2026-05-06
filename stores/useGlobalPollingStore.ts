@@ -72,6 +72,9 @@ export const useGlobalPollingStore = create<GlobalPollingStore>((set, get) => ({
 
       if (positionsData) {
         positionStore.updatePositionsFromGlobalPoll(positionsData);
+        // Seed leverage cache so subsequent setLeverage calls for these
+        // coins skip the signed updateLeverage HTTP roundtrip.
+        service.seedLeverageFromPositions(positionsData);
       }
 
       set({ lastFastPollTime: Date.now() });

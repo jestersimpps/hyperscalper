@@ -10,6 +10,7 @@ export interface FakeServiceOptions {
   accountValue?: number;
   metadata?: Partial<SymbolMetadata>;
   orderResponse?: any;
+  mids?: Record<string, string>;
 }
 
 export const DEFAULT_METADATA: SymbolMetadata = {
@@ -32,6 +33,8 @@ export function createFakeService(opts: FakeServiceOptions = {}) {
   const metadata: SymbolMetadata = { ...DEFAULT_METADATA, ...(opts.metadata || {}) };
   const accountValue = opts.accountValue ?? 1000;
   const orderResponse = opts.orderResponse ?? DEFAULT_ORDER_RESPONSE;
+  // Default mid that matches the existing dispatch tests' currentPrice=100
+  const mids: Record<string, string> = opts.mids ?? { BTC: '100', ETH: '100' };
   const calls: RecordedOrderCall[] = [];
 
   const record = (method: string, ...args: unknown[]) => {
@@ -47,6 +50,7 @@ export function createFakeService(opts: FakeServiceOptions = {}) {
       marginUsed: '0',
       accountValue: String(accountValue),
     })),
+    getAllMids: vi.fn(async () => mids),
     getMetadataCache: vi.fn(async (_coin: string) => metadata),
     setLeverage: vi.fn(async (..._args: unknown[]) => null),
     invalidateAccountCache: vi.fn(),

@@ -39,7 +39,6 @@ import type {
 } from './types';
 import { metadataCache, type SymbolMetadata } from './metadata-cache.service';
 import { accountCache } from './account-cache.service';
-import { isRawEntryOrder, isRawExitOrder } from '@/lib/utils/order-classification';
 
 export class HyperliquidService implements IHyperliquidService {
   public publicClient: PublicClient;
@@ -48,6 +47,7 @@ export class HyperliquidService implements IHyperliquidService {
   private isTestnet: boolean;
   private wsTransport: WebSocketTransport | null = null;
   private userAddress: string | null = null;
+  private leverageCache: Map<string, number> = new Map();
 
   constructor(privateKey: string | null, walletAddress: string, isTestnet: boolean = false) {
     this.isTestnet = isTestnet;
@@ -492,112 +492,18 @@ export class HyperliquidService implements IHyperliquidService {
     }
   }
 
-  async cancelAllOrders(coin: string, metadata: SymbolMetadata): Promise<BulkCancelResult> {
+  // Cancel a list of oids that the caller has already classified. Avoids
+  // a redundant frontendOpenOrders HTTP fetch — the store already polls
+  // open orders every ~1s and has them classified client-side.
+  async cancelOrdersByOid(metadata: SymbolMetadata, oids: Array<string | number>): Promise<BulkCancelResult> {
     this.ensureWalletClient();
     if (!metadata) {
       throw new Error('Metadata is a required parameter');
     }
-
-    const orders = await this.getOpenOrders();
-    const coinOrders = orders.filter(order => order.coin === coin);
-
-    return this.submitBulkCancel(coinOrders, metadata);
-  }
-
-  async cancelEntryOrders(coin: string, metadata: SymbolMetadata): Promise<BulkCancelResult> {
-    this.ensureWalletClient();
-    if (!metadata) {
-      throw new Error('Metadata is a required parameter');
-    }
-
-    const orders = await this.getOpenOrders();
-    const coinOrders = orders.filter(order => order.coin === coin);
-    const entryOrders = coinOrders.filter(isRawEntryOrder);
-
-    return this.submitBulkCancel(entryOrders, metadata);
-  }
-
-  async cancelExitOrders(coin: string, metadata: SymbolMetadata): Promise<BulkCancelResult> {
-    this.ensureWalletClient();
-    if (!metadata) {
-      throw new Error('Metadata is a required parameter');
-    }
-
-    const orders = await this.getOpenOrders();
-    const coinOrders = orders.filter(order => order.coin === coin);
-    const exitOrders = coinOrders.filter(isRawExitOrder);
-
-    return this.submitBulkCancel(exitOrders, metadata);
-  }
-
-  async cancelTPOrders(coin: string, metadata: SymbolMetadata): Promise<BulkCancelResult> {
-    this.ensureWalletClient();
-    if (!metadata) {
-      throw new Error('Metadata is a required parameter');
-    }
-
-    const [orders, positions] = await Promise.all([
-      this.getOpenOrders(),
-      this.getOpenPositions()
-    ]);
-
-    const position = positions.find(p => p.position.coin === coin);
-    if (!position) {
+    if (oids.length === 0) {
       return this.emptyBulkCancelResult();
     }
-
-    const positionSize = parseFloat(position.position.szi);
-    const isLong = positionSize > 0;
-    const entryPrice = parseFloat(position.position.entryPx || '0');
-
-    const coinOrders = orders.filter(order => order.coin === coin);
-    const tpOrders = coinOrders.filter(order => {
-      const orderPrice = parseFloat(order.limitPx || order.triggerPx || '0');
-      const isBuyOrder = order.side?.toUpperCase() === 'B';
-
-      if (isLong) {
-        return !isBuyOrder && orderPrice > entryPrice;
-      } else {
-        return isBuyOrder && orderPrice < entryPrice;
-      }
-    });
-
-    return this.submitBulkCancel(tpOrders, metadata);
-  }
-
-  async cancelSLOrders(coin: string, metadata: SymbolMetadata): Promise<BulkCancelResult> {
-    this.ensureWalletClient();
-    if (!metadata) {
-      throw new Error('Metadata is a required parameter');
-    }
-
-    const [orders, positions] = await Promise.all([
-      this.getOpenOrders(),
-      this.getOpenPositions()
-    ]);
-
-    const position = positions.find(p => p.position.coin === coin);
-    if (!position) {
-      return this.emptyBulkCancelResult();
-    }
-
-    const positionSize = parseFloat(position.position.szi);
-    const isLong = positionSize > 0;
-    const entryPrice = parseFloat(position.position.entryPx || '0');
-
-    const coinOrders = orders.filter(order => order.coin === coin);
-    const slOrders = coinOrders.filter(order => {
-      const orderPrice = parseFloat(order.limitPx || order.triggerPx || '0');
-      const isBuyOrder = order.side?.toUpperCase() === 'B';
-
-      if (isLong) {
-        return !isBuyOrder && orderPrice < entryPrice;
-      } else {
-        return isBuyOrder && orderPrice > entryPrice;
-      }
-    });
-
-    return this.submitBulkCancel(slOrders, metadata);
+    return this.submitBulkCancel(oids.map(o => ({ oid: o })), metadata);
   }
 
   async openLong(params: LongParams, metadata: SymbolMetadata): Promise<OrderResponse> {
@@ -647,15 +553,36 @@ export class HyperliquidService implements IHyperliquidService {
     if (!metadata) {
       throw new Error('Metadata is a required parameter');
     }
+    // Skip the signed updateLeverage HTTP call when the value is already set.
+    // Saves ~80-200ms per order and halves request volume on rapid clicking.
+    if (this.leverageCache.get(coin) === leverage) {
+      return null;
+    }
     try {
-      return await (this.walletClient as any).updateLeverage({
+      const result = await (this.walletClient as any).updateLeverage({
         asset: metadata.coinIndex,
         isCross,
         leverage
       });
+      this.leverageCache.set(coin, leverage);
+      return result;
     } catch (error) {
       return null;
     }
+  }
+
+  // Seed the leverage cache from a positions snapshot so we skip the very first
+  // setLeverage call for any coin where a position already exists.
+  seedLeverageFromPositions(positions: AssetPosition[]): void {
+    for (const p of positions) {
+      const lev = parseFloat((p.position.leverage as any)?.value || '0');
+      if (lev > 0) this.leverageCache.set(p.position.coin, lev);
+    }
+  }
+
+  invalidateLeverageCache(coin?: string): void {
+    if (coin) this.leverageCache.delete(coin);
+    else this.leverageCache.clear();
   }
 
   async closePosition(params: ClosePositionParams, price: string, metadata: SymbolMetadata, positionData: AssetPosition): Promise<OrderResponse> {

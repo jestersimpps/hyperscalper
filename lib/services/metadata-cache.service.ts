@@ -13,6 +13,11 @@ export class MetadataCache {
   private static instance: MetadataCache;
   private cache: Map<string, SymbolMetadata> = new Map();
   private readonly TTL = 60000;
+  // Cache + in-flight dedupe for the universe fetch. Multiple coin lookups
+  // that all miss the per-coin cache used to each fetch the entire 230-perp
+  // universe — now they share one HTTP roundtrip.
+  private universePromise: Promise<Awaited<ReturnType<HyperliquidService['publicClient']['meta']>>> | null = null;
+  private universeFetchedAt: number = 0;
 
   private constructor() {}
 
@@ -23,13 +28,28 @@ export class MetadataCache {
     return MetadataCache.instance;
   }
 
+  private async getUniverse(service: HyperliquidService) {
+    if (this.universePromise && Date.now() - this.universeFetchedAt < this.TTL) {
+      return this.universePromise;
+    }
+    this.universePromise = service.publicClient.meta();
+    this.universeFetchedAt = Date.now();
+    try {
+      return await this.universePromise;
+    } catch (err) {
+      // Don't poison the cache on failure
+      this.universePromise = null;
+      throw err;
+    }
+  }
+
   async getMetadata(coin: string, service: HyperliquidService): Promise<SymbolMetadata> {
     const cached = this.cache.get(coin);
     if (cached && Date.now() - cached.timestamp < this.TTL) {
       return cached;
     }
 
-    const meta = await service.publicClient.meta();
+    const meta = await this.getUniverse(service);
     const coinIndex = meta.universe.findIndex(u => u.name === coin);
     if (coinIndex === -1) {
       throw new Error(`Coin ${coin} not found`);
@@ -91,6 +111,8 @@ export class MetadataCache {
 
   clear(): void {
     this.cache.clear();
+    this.universePromise = null;
+    this.universeFetchedAt = 0;
   }
 }
 

@@ -125,11 +125,7 @@ export interface IHyperliquidService {
   getAccountBalance(user?: string): Promise<AccountBalance>;
   getOpenOrders(user?: string): Promise<FrontendOrder[]>;
   cancelOrder(coin: string, orderId: number, metadata: SymbolMetadata): Promise<CancelResponse>;
-  cancelAllOrders(coin: string, metadata: SymbolMetadata): Promise<BulkCancelResult>;
-  cancelEntryOrders(coin: string, metadata: SymbolMetadata): Promise<BulkCancelResult>;
-  cancelExitOrders(coin: string, metadata: SymbolMetadata): Promise<BulkCancelResult>;
-  cancelTPOrders(coin: string, metadata: SymbolMetadata): Promise<BulkCancelResult>;
-  cancelSLOrders(coin: string, metadata: SymbolMetadata): Promise<BulkCancelResult>;
+  cancelOrdersByOid(metadata: SymbolMetadata, oids: Array<string | number>): Promise<BulkCancelResult>;
 
   openLong(params: LongParams, metadata: SymbolMetadata): Promise<OrderResponse>;
   openShort(params: ShortParams, metadata: SymbolMetadata): Promise<OrderResponse>;

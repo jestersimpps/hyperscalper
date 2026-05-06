@@ -21,33 +21,3 @@ export const isSlFor = (order: Order, position: Position): boolean => {
   return order.side === 'buy' && order.price > position.entryPrice;
 };
 
-interface RawHyperliquidOrder {
-  isPositionTpsl?: boolean;
-  isTrigger?: boolean;
-  reduceOnly?: boolean;
-  orderType?: string;
-}
-
-export const isRawEntryOrder = (order: RawHyperliquidOrder): boolean => {
-  if (order.isPositionTpsl) return false;
-
-  const ot = order.orderType?.toLowerCase() || '';
-  if (ot.includes('stop')) return false;
-  if (ot.includes('tp')) return false;
-
-  if (order.isTrigger && order.reduceOnly && ot.includes('market')) return false;
-
-  return true;
-};
-
-export const isRawExitOrder = (order: RawHyperliquidOrder): boolean => {
-  if (order.isPositionTpsl) return true;
-
-  const ot = order.orderType?.toLowerCase() || '';
-  if (ot.includes('stop')) return true;
-  if (ot.includes('tp')) return true;
-
-  if (order.isTrigger && order.reduceOnly && ot.includes('market')) return true;
-
-  return false;
-};
