@@ -138,8 +138,41 @@ function BtcStrip() {
     if (address) router.push(`/${address}/${BTC}`);
   };
 
+  const pressureBlock = (
+    <div className="flex flex-col gap-1">
+      <div className="flex items-center justify-between text-[10px] font-mono leading-none">
+        <span className="text-primary-muted uppercase tracking-wider">Pressure 5m</span>
+        <span className={`${dominantColor} font-bold tabular-nums`}>
+          {dominantLabel}
+          {dominantSide !== 'flat' && ` ${imbalancePct.toFixed(0)}%`}
+        </span>
+      </div>
+      <div
+        className="relative h-2 bg-bg-secondary border border-frame overflow-hidden"
+        title={`Buy ${formatNotional(buyVolume)} · Sell ${formatNotional(sellVolume)}`}
+      >
+        <div
+          className="absolute inset-y-0 left-0 bg-bullish/70 transition-all duration-500"
+          style={{ width: `${buyPct}%` }}
+        />
+        <div
+          className="absolute inset-y-0 right-0 bg-bearish/70 transition-all duration-500"
+          style={{ width: `${100 - buyPct}%` }}
+        />
+        <div
+          className="absolute inset-y-0 w-px bg-primary/40"
+          style={{ left: '50%' }}
+        />
+      </div>
+      <div className="flex items-center justify-between text-[10px] font-mono leading-none tabular-nums">
+        <span className="text-bullish">{formatNotional(buyVolume)}</span>
+        <span className="text-bearish">{formatNotional(sellVolume)}</span>
+      </div>
+    </div>
+  );
+
   return (
-    <div className="terminal-border p-2 mb-2 flex-shrink-0">
+    <div className="terminal-border p-2 mb-2 flex-shrink-0 @container">
       <div className="flex items-stretch gap-3">
         <button
           type="button"
@@ -152,62 +185,38 @@ function BtcStrip() {
           <span className={`text-[10px] font-mono ${changeColor}`}>{changeText}</span>
         </button>
 
-        <div className="flex-1 min-w-0 h-12 self-center relative">
-          {sparklinePath ? (
-            <svg
-              viewBox="0 0 100 100"
-              preserveAspectRatio="none"
-              className="w-full h-full block"
-            >
-              <path
-                d={sparklinePath}
-                fill="none"
-                stroke={sparklineColor}
-                strokeWidth={1.5}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                vectorEffect="non-scaling-stroke"
-              />
-            </svg>
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-[10px] text-primary-muted font-mono">
-              waiting for ticks…
+        <div className="flex-1 min-w-0 flex flex-col gap-1.5 justify-center">
+          <div className="relative h-10 @[420px]:h-12">
+            {sparklinePath ? (
+              <svg
+                viewBox="0 0 100 100"
+                preserveAspectRatio="none"
+                className="w-full h-full block"
+              >
+                <path
+                  d={sparklinePath}
+                  fill="none"
+                  stroke={sparklineColor}
+                  strokeWidth={1.5}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  vectorEffect="non-scaling-stroke"
+                />
+              </svg>
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-[10px] text-primary-muted font-mono">
+                waiting for ticks…
+              </div>
+            )}
+            <div className="pointer-events-none absolute top-0.5 left-1 text-[9px] font-mono text-primary-muted leading-none">
+              1m
             </div>
-          )}
-          <div className="pointer-events-none absolute top-0.5 left-1 text-[9px] font-mono text-primary-muted leading-none">
-            1m
           </div>
+          <div className="@[420px]:hidden">{pressureBlock}</div>
         </div>
 
-        <div className="flex-shrink-0 w-[170px] flex flex-col justify-between gap-1">
-          <div className="flex items-center justify-between text-[10px] font-mono leading-none">
-            <span className="text-primary-muted uppercase tracking-wider">Pressure 5m</span>
-            <span className={`${dominantColor} font-bold`}>
-              {dominantLabel}
-              {dominantSide !== 'flat' && ` ${imbalancePct.toFixed(0)}%`}
-            </span>
-          </div>
-          <div
-            className="relative h-3 bg-bg-secondary border border-frame overflow-hidden"
-            title={`Buy ${formatNotional(buyVolume)} · Sell ${formatNotional(sellVolume)}`}
-          >
-            <div
-              className="absolute inset-y-0 left-0 bg-bullish/70 transition-all duration-500"
-              style={{ width: `${buyPct}%` }}
-            />
-            <div
-              className="absolute inset-y-0 right-0 bg-bearish/70 transition-all duration-500"
-              style={{ width: `${100 - buyPct}%` }}
-            />
-            <div
-              className="absolute inset-y-0 w-px bg-primary/60"
-              style={{ left: '50%' }}
-            />
-          </div>
-          <div className="flex items-center justify-between text-[10px] font-mono leading-none tabular-nums">
-            <span className="text-bullish">{formatNotional(buyVolume)}</span>
-            <span className="text-bearish">{formatNotional(sellVolume)}</span>
-          </div>
+        <div className="hidden @[420px]:flex flex-shrink-0 w-[170px] flex-col justify-center">
+          {pressureBlock}
         </div>
       </div>
     </div>
