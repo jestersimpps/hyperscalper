@@ -267,6 +267,7 @@ const mergeSettings = (storedSettings: any): AppSettings => {
         playTradeSound: storedSettings.theme?.playTradeSound ?? DEFAULT_SETTINGS.theme.playTradeSound,
       },
       chart: {
+        showSignalMarkers: storedSettings.chart?.showSignalMarkers ?? DEFAULT_SETTINGS.chart.showSignalMarkers,
         showPivotMarkers: storedSettings.chart?.showPivotMarkers ?? DEFAULT_SETTINGS.chart.showPivotMarkers,
         schmecklesMode: storedSettings.chart?.schmecklesMode ?? DEFAULT_SETTINGS.chart.schmecklesMode,
         invertedMode: storedSettings.chart?.invertedMode ?? DEFAULT_SETTINGS.chart.invertedMode,

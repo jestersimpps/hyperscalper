@@ -206,6 +206,7 @@ export interface ThemeSettings {
 }
 
 export interface ChartSettings {
+  showSignalMarkers: boolean;
   showPivotMarkers: boolean;
   schmecklesMode: boolean;
   invertedMode: boolean;
@@ -410,6 +411,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     playTradeSound: false,
   },
   chart: {
+    showSignalMarkers: true,
     showPivotMarkers: true,
     schmecklesMode: false,
     invertedMode: false,

@@ -1007,9 +1007,12 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
           ema3SeriesRef.current?.setData([]);
         }
 
-        const allMarkers = crossoverMarkers.length > 0
-          ? [...pivotMarkers, ...divergenceMarkers, ...crossoverMarkers, ...macdReversalMarkers, ...rsiReversalMarkers]
-          : [...pivotMarkers, ...divergenceMarkers, ...macdReversalMarkers, ...rsiReversalMarkers];
+        const showSignals = chartSettings?.showSignalMarkers !== false;
+        const allMarkers = showSignals
+          ? (crossoverMarkers.length > 0
+              ? [...pivotMarkers, ...divergenceMarkers, ...crossoverMarkers, ...macdReversalMarkers, ...rsiReversalMarkers]
+              : [...pivotMarkers, ...divergenceMarkers, ...macdReversalMarkers, ...rsiReversalMarkers])
+          : [];
 
         candleSeriesRef.current?.setMarkers(allMarkers.sort((a, b) => a.time - b.time));
       });
@@ -1022,6 +1025,8 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
           time: (lastCandle.time / 1000) as any,
           value: ema1[ema1.length - 1],
         });
+      } else {
+        ema1SeriesRef.current?.setData([]);
       }
 
       if (emaSettings.ema2.enabled && ema2.length > 0) {
@@ -1029,6 +1034,8 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
           time: (lastCandle.time / 1000) as any,
           value: ema2[ema2.length - 1],
         });
+      } else {
+        ema2SeriesRef.current?.setData([]);
       }
 
       if (emaSettings.ema3.enabled && ema3.length > 0) {
@@ -1036,6 +1043,8 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
           time: (lastCandle.time / 1000) as any,
           value: ema3[ema3.length - 1],
         });
+      } else {
+        ema3SeriesRef.current?.setData([]);
       }
 
     }
@@ -1143,7 +1152,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
     if (slowestVariant) {
       const variantName = slowestVariant[0];
       const { stochData, offset } = slowestVariant[1];
-      const stochMarkers = chartSettings?.showPivotMarkers
+      const stochMarkers = (chartSettings?.showSignalMarkers !== false && chartSettings?.showPivotMarkers)
         ? createStochasticPivotMarkers(stochData, displayStochCandles.slice(offset))
         : [];
       stochSeriesRefsRef.current[variantName].d.setMarkers(stochMarkers);

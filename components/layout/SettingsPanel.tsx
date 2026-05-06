@@ -2006,6 +2006,25 @@ export default function SettingsPanel() {
                   <div className="p-3 bg-bg-primary border border-frame rounded">
                     <label className="flex items-center justify-between cursor-pointer">
                       <div>
+                        <span className="text-primary-muted text-xs font-mono block">SHOW CHART MARKERS</span>
+                        <span className="text-primary-muted text-[10px] block mt-1">
+                          Master toggle for all signal dots (EMA crossovers, MACD/RSI reversals, divergences, pivots)
+                        </span>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={Boolean(settings.chart?.showSignalMarkers ?? true)}
+                        onChange={(e) => {
+                          const { updateSettings } = useSettingsStore.getState();
+                          updateSettings({ chart: { ...settings.chart, showSignalMarkers: e.target.checked } });
+                        }}
+                        className="w-4 h-4 accent-primary cursor-pointer"
+                      />
+                    </label>
+                  </div>
+                  <div className="p-3 bg-bg-primary border border-frame rounded">
+                    <label className="flex items-center justify-between cursor-pointer">
+                      <div>
                         <span className="text-primary-muted text-xs font-mono block">SHOW PIVOT MARKERS</span>
                         <span className="text-primary-muted text-[10px] block mt-1">
                           Display red and green dots at pivot highs/lows on price and stochastic charts
