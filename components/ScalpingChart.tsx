@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, useMemo, useCallback } from 'react';
 import type { CandleData, TimeInterval } from '@/types';
 import type { Position } from '@/models/Position';
 import type { Order } from '@/models/Order';
@@ -239,11 +239,9 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
   const resistanceLineSeriesRef = useRef<any[]>([]);
   const positionLineRef = useRef<any>(null);
   const breakevenBandSeriesRef = useRef<any>(null);
-  const orderLinesRef = useRef<any[]>([]);
+  const orderLinesRef = useRef<Map<string, { line: any; sig: string }>>(new Map());
   const bestBidLineRef = useRef<any>(null);
   const bestAskLineRef = useRef<any>(null);
-  const optimisticLinesRef = useRef<{ line: any; visibleColor: string; hiddenColor: string }[]>([]);
-  const blinkIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const cachedTrendlinesRef = useRef<{ supportLine: any[]; resistanceLine: any[] }>({ supportLine: [], resistanceLine: [] });
   const lastTrendlineCalculationRef = useRef<number>(0);
   const [chartReady, setChartReady] = useState(false);
@@ -1466,119 +1464,113 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
     };
   }, [position, chartReady, chartSettings?.invertedMode, displayCandles, candles, decimals.price]);
 
-  // Order price lines overlay
-  useEffect(() => {
+  // Order price lines overlay (diffed against existing lines)
+  useLayoutEffect(() => {
     if (!chartReady || !candleSeriesRef.current) return;
 
-    if (blinkIntervalRef.current) {
-      clearInterval(blinkIntervalRef.current);
-      blinkIntervalRef.current = null;
-    }
-    optimisticLinesRef.current = [];
+    const colors = getThemeColors();
 
-    // Remove existing order lines
-    orderLinesRef.current.forEach((line) => {
-      try {
-        candleSeriesRef.current.removePriceLine(line);
-      } catch (e) {
-        // Ignore errors
+    const fadeColor = (hexColor: string, opacity: number): string => {
+      const r = parseInt(hexColor.slice(1, 3), 16);
+      const g = parseInt(hexColor.slice(3, 5), 16);
+      const b = parseInt(hexColor.slice(5, 7), 16);
+      return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+    };
+
+    const computeLineOptions = (order: Order) => {
+      const isBuy = order.side === 'buy';
+      const baseColor = isBuy ? colors.statusBullish : colors.statusBearish;
+      const isOptimistic = order.isOptimistic || false;
+      const isPending = order.isPendingCancellation || false;
+
+      const color = isPending
+        ? '#808080'
+        : isOptimistic
+          ? fadeColor(baseColor, 0.5)
+          : baseColor;
+
+      const lineStyle = isOptimistic ? 2 : 1;
+
+      let displayPrice = order.price;
+      let displaySide = order.side;
+      if (chartSettings?.invertedMode && displayCandles.length > 0) {
+        const referencePrice = candles[0]?.close || displayCandles[0]?.close;
+        displayPrice = 2 * referencePrice - order.price;
+        displaySide = isBuy ? 'sell' : 'buy';
       }
-    });
-    orderLinesRef.current = [];
 
-    // Create new order lines if orders exist
-    if (orders && orders.length > 0) {
-      const colors = getThemeColors();
+      const title = isOptimistic
+        ? `PENDING ${displaySide.toUpperCase()} ${order.orderType.toUpperCase()}`
+        : isPending
+          ? `CANCELLING ${displaySide.toUpperCase()} ${order.orderType.toUpperCase()}`
+          : `${displaySide.toUpperCase()} ${order.orderType.toUpperCase()}`;
 
-      const fadeColor = (hexColor: string, opacity: number): string => {
-        const r = parseInt(hexColor.slice(1, 3), 16);
-        const g = parseInt(hexColor.slice(3, 5), 16);
-        const b = parseInt(hexColor.slice(5, 7), 16);
-        return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+      return {
+        opts: { price: displayPrice, color, lineWidth: 2 as const, lineStyle, axisLabelVisible: true, title },
+        sig: `${displayPrice}|${color}|${lineStyle}|${title}`,
       };
+    };
 
+    const seenIds = new Set<string>();
+
+    if (orders && orders.length > 0) {
       orders.forEach((order) => {
-        const isBuy = order.side === 'buy';
-        const baseColor = isBuy ? colors.statusBullish : colors.statusBearish;
-        const isOptimistic = order.isOptimistic || false;
-        const isPending = order.isPendingCancellation || false;
+        const id = order.tempId || order.oid;
+        if (!id) return;
+        seenIds.add(id);
 
-        const color = isPending
-          ? '#808080'
-          : isOptimistic
-            ? fadeColor(baseColor, 0.5)
-            : baseColor;
+        const { opts, sig } = computeLineOptions(order);
+        const existing = orderLinesRef.current.get(id);
 
-        const lineStyle = isOptimistic ? 2 : 1;
-
-        let displayPrice = order.price;
-        let displaySide = order.side;
-        if (chartSettings?.invertedMode && displayCandles.length > 0) {
-          const referencePrice = candles[0]?.close || displayCandles[0]?.close;
-          displayPrice = 2 * referencePrice - order.price;
-          displaySide = isBuy ? 'sell' : 'buy';
-        }
-
-        const title = isOptimistic
-          ? `PENDING ${displaySide.toUpperCase()} ${order.orderType.toUpperCase()}`
-          : isPending
-            ? `CANCELLING ${displaySide.toUpperCase()} ${order.orderType.toUpperCase()}`
-            : `${displaySide.toUpperCase()} ${order.orderType.toUpperCase()}`;
-
-        const orderLine = candleSeriesRef.current.createPriceLine({
-          price: displayPrice,
-          color,
-          lineWidth: 2,
-          lineStyle,
-          axisLabelVisible: true,
-          title,
-        });
-
-        orderLinesRef.current.push(orderLine);
-
-        if (isOptimistic && !isPending) {
-          optimisticLinesRef.current.push({
-            line: orderLine,
-            visibleColor: color,
-            hiddenColor: fadeColor(baseColor, 0),
-          });
-        }
-      });
-
-      if (optimisticLinesRef.current.length > 0) {
-        let visible = true;
-        blinkIntervalRef.current = setInterval(() => {
-          visible = !visible;
-          for (const o of optimisticLinesRef.current) {
+        if (existing) {
+          if (existing.sig !== sig) {
             try {
-              o.line.applyOptions({ color: visible ? o.visibleColor : o.hiddenColor });
+              existing.line.applyOptions(opts);
+              existing.sig = sig;
             } catch (e) {
-              // Ignore errors on stale lines
+              // ignore
             }
           }
-        }, 400);
-      }
-    }
-
-    // Cleanup on unmount or orders change
-    return () => {
-      if (blinkIntervalRef.current) {
-        clearInterval(blinkIntervalRef.current);
-        blinkIntervalRef.current = null;
-      }
-      optimisticLinesRef.current = [];
-      orderLinesRef.current.forEach((line) => {
-        if (candleSeriesRef.current) {
+        } else {
           try {
-            candleSeriesRef.current.removePriceLine(line);
+            const line = candleSeriesRef.current.createPriceLine(opts);
+            orderLinesRef.current.set(id, { line, sig });
           } catch (e) {
-            // Ignore errors during cleanup
+            return;
           }
         }
       });
-      orderLinesRef.current = [];
+    }
+
+    // Remove lines whose order is no longer present
+    orderLinesRef.current.forEach((entry, id) => {
+      if (!seenIds.has(id)) {
+        try {
+          candleSeriesRef.current.removePriceLine(entry.line);
+        } catch (e) {
+          // ignore
+        }
+        orderLinesRef.current.delete(id);
+      }
+    });
+
+  }, [orders, chartReady, chartSettings?.invertedMode]);
+
+  useEffect(() => {
+    return () => {
+      const series = candleSeriesRef.current;
+      if (series) {
+        orderLinesRef.current.forEach((entry) => {
+          try {
+            series.removePriceLine(entry.line);
+          } catch (e) {
+            // ignore
+          }
+        });
+      }
+      orderLinesRef.current.clear();
     };
-  }, [orders, chartReady, chartSettings?.invertedMode, displayCandles.length, candles]);
+  }, []);
 
   const orderbookSnapshot = useOrderbookStore((state) => state.books[coin]);
 

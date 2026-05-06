@@ -171,17 +171,52 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
     const batchTempId = `batch_${Date.now()}`;
     const optimisticOrders: any[] = [];
 
+    const priceLevels: number[] = [];
+    for (let i = 1; i <= ORDER_COUNT; i++) {
+      const level = currentPrice - (2 * priceInterval * i / ORDER_COUNT);
+      priceLevels.push(level);
+    }
+
+    const previewOrders: any[] = priceLevels.map((level, i) => ({
+      oid: `${batchTempId}_limit_${i}`,
+      coin: symbol,
+      side: 'buy',
+      price: level,
+      size: 0,
+      orderType: 'limit',
+      timestamp: Date.now(),
+      isOptimistic: true,
+      tempId: `${batchTempId}_limit_${i}`,
+    }));
+    previewOrders.push({
+      oid: `${batchTempId}_sl`,
+      coin: symbol,
+      side: 'sell',
+      price: currentPrice - (8 * priceInterval),
+      size: 0,
+      orderType: 'stop',
+      timestamp: Date.now(),
+      isOptimistic: true,
+      tempId: `${batchTempId}_sl`,
+    });
+    previewOrders.push({
+      oid: `${batchTempId}_tp`,
+      coin: symbol,
+      side: 'sell',
+      price: currentPrice * (1 + TAKE_PROFIT_PERCENT / 100),
+      size: 0,
+      orderType: 'tp',
+      timestamp: Date.now(),
+      isOptimistic: true,
+      tempId: `${batchTempId}_tp`,
+    });
+    orderStore.addOptimisticOrders(symbol, previewOrders);
+
     try {
       const [accountBalance, metadata] = await Promise.all([
         service.getAccountBalanceCached(),
         service.getMetadataCache(symbol)
       ]);
-
-      const priceLevels: number[] = [];
-      for (let i = 1; i <= ORDER_COUNT; i++) {
-        const level = currentPrice - (2 * priceInterval * i / ORDER_COUNT);
-        priceLevels.push(level);
-      }
 
       const leverage = useSettingsStore.getState().settings.orders.leverage;
       await service.setLeverage(symbol, leverage, metadata);
@@ -198,7 +233,7 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
       let totalCoinSize = 0;
       let anyBumped = false;
 
-      for (const level of priceLevels) {
+      priceLevels.forEach((level, i) => {
         const formattedPrice = service.formatPriceCached(level, metadata);
         const coinSize = cloudSize / level;
         const { size: formattedSize, wasBumped } = service.ensureMinNotional(coinSize, level, metadata, MIN_NOTIONAL);
@@ -206,7 +241,7 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
 
         totalCoinSize += parseFloat(formattedSize);
 
-        const tempId = `${batchTempId}_limit_${optimisticOrders.length}`;
+        const tempId = `${batchTempId}_limit_${i}`;
         optimisticOrders.push({
           oid: tempId,
           coin: symbol,
@@ -218,6 +253,10 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
           isOptimistic: true,
           tempId,
         });
+        orderStore.updateOptimisticOrder(symbol, tempId, {
+          price: parseFloat(formattedPrice),
+          size: parseFloat(formattedSize),
+        });
 
         batchOrders.push({
           a: metadata.coinIndex,
@@ -227,7 +266,7 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
           r: false,
           t: { limit: { tif: 'Gtc' as const } }
         });
-      }
+      });
 
       const formattedTotalSize = service.formatSizeCached(totalCoinSize, metadata);
       const stopLossPrice = currentPrice - (8 * priceInterval);
@@ -243,6 +282,10 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
         timestamp: Date.now(),
         isOptimistic: true,
         tempId: slTempId,
+      });
+      orderStore.updateOptimisticOrder(symbol, slTempId, {
+        price: parseFloat(formattedStopLoss),
+        size: totalCoinSize,
       });
 
       batchOrders.push({
@@ -268,6 +311,10 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
         isOptimistic: true,
         tempId: tpTempId,
       });
+      orderStore.updateOptimisticOrder(symbol, tpTempId, {
+        price: parseFloat(formattedTakeProfit),
+        size: totalCoinSize,
+      });
 
       batchOrders.push({
         a: metadata.coinIndex,
@@ -277,8 +324,6 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
         r: true,
         t: { trigger: { triggerPx: formattedTakeProfit, isMarket: true, tpsl: 'tp' as const } }
       });
-
-      orderStore.addOptimisticOrders(symbol, optimisticOrders);
 
       const response = await service.placeBatchMixedOrders(batchOrders);
 
@@ -299,7 +344,7 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
         toast.success('Buy cloud placed');
       }
     } catch (error) {
-      optimisticOrders.forEach(order => {
+      previewOrders.forEach(order => {
         orderStore.rollbackOptimisticOrder(symbol, order.tempId);
       });
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -330,17 +375,52 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
     const batchTempId = `batch_${Date.now()}`;
     const optimisticOrders: any[] = [];
 
+    const priceLevels: number[] = [];
+    for (let i = 1; i <= ORDER_COUNT; i++) {
+      const level = currentPrice + (2 * priceInterval * i / ORDER_COUNT);
+      priceLevels.push(level);
+    }
+
+    const previewOrders: any[] = priceLevels.map((level, i) => ({
+      oid: `${batchTempId}_limit_${i}`,
+      coin: symbol,
+      side: 'sell',
+      price: level,
+      size: 0,
+      orderType: 'limit',
+      timestamp: Date.now(),
+      isOptimistic: true,
+      tempId: `${batchTempId}_limit_${i}`,
+    }));
+    previewOrders.push({
+      oid: `${batchTempId}_sl`,
+      coin: symbol,
+      side: 'buy',
+      price: currentPrice + (8 * priceInterval),
+      size: 0,
+      orderType: 'stop',
+      timestamp: Date.now(),
+      isOptimistic: true,
+      tempId: `${batchTempId}_sl`,
+    });
+    previewOrders.push({
+      oid: `${batchTempId}_tp`,
+      coin: symbol,
+      side: 'buy',
+      price: currentPrice * (1 - TAKE_PROFIT_PERCENT / 100),
+      size: 0,
+      orderType: 'tp',
+      timestamp: Date.now(),
+      isOptimistic: true,
+      tempId: `${batchTempId}_tp`,
+    });
+    orderStore.addOptimisticOrders(symbol, previewOrders);
+
     try {
       const [accountBalance, metadata] = await Promise.all([
         service.getAccountBalanceCached(),
         service.getMetadataCache(symbol)
       ]);
-
-      const priceLevels: number[] = [];
-      for (let i = 1; i <= ORDER_COUNT; i++) {
-        const level = currentPrice + (2 * priceInterval * i / ORDER_COUNT);
-        priceLevels.push(level);
-      }
 
       const leverage = useSettingsStore.getState().settings.orders.leverage;
       await service.setLeverage(symbol, leverage, metadata);
@@ -356,7 +436,7 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
       let totalCoinSize = 0;
       let anyBumped = false;
 
-      for (const level of priceLevels) {
+      priceLevels.forEach((level, i) => {
         const formattedPrice = service.formatPriceCached(level, metadata);
         const coinSize = cloudSize / level;
         const { size: formattedSize, wasBumped } = service.ensureMinNotional(coinSize, level, metadata, MIN_NOTIONAL);
@@ -364,7 +444,7 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
 
         totalCoinSize += parseFloat(formattedSize);
 
-        const tempId = `${batchTempId}_limit_${optimisticOrders.length}`;
+        const tempId = `${batchTempId}_limit_${i}`;
         optimisticOrders.push({
           oid: tempId,
           coin: symbol,
@@ -376,6 +456,10 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
           isOptimistic: true,
           tempId,
         });
+        orderStore.updateOptimisticOrder(symbol, tempId, {
+          price: parseFloat(formattedPrice),
+          size: parseFloat(formattedSize),
+        });
 
         batchOrders.push({
           a: metadata.coinIndex,
@@ -385,7 +469,7 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
           r: false,
           t: { limit: { tif: 'Gtc' as const } }
         });
-      }
+      });
 
       const formattedTotalSize = service.formatSizeCached(totalCoinSize, metadata);
       const stopLossPrice = currentPrice + (8 * priceInterval);
@@ -401,6 +485,10 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
         timestamp: Date.now(),
         isOptimistic: true,
         tempId: slTempId,
+      });
+      orderStore.updateOptimisticOrder(symbol, slTempId, {
+        price: parseFloat(formattedStopLoss),
+        size: totalCoinSize,
       });
 
       batchOrders.push({
@@ -426,6 +514,10 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
         isOptimistic: true,
         tempId: tpTempId,
       });
+      orderStore.updateOptimisticOrder(symbol, tpTempId, {
+        price: parseFloat(formattedTakeProfit),
+        size: totalCoinSize,
+      });
 
       batchOrders.push({
         a: metadata.coinIndex,
@@ -435,8 +527,6 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
         r: true,
         t: { trigger: { triggerPx: formattedTakeProfit, isMarket: true, tpsl: 'tp' as const } }
       });
-
-      orderStore.addOptimisticOrders(symbol, optimisticOrders);
 
       const response = await service.placeBatchMixedOrders(batchOrders);
 
@@ -457,7 +547,7 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
         toast.success('Sell cloud placed');
       }
     } catch (error) {
-      optimisticOrders.forEach(order => {
+      previewOrders.forEach(order => {
         orderStore.rollbackOptimisticOrder(symbol, order.tempId);
       });
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -486,6 +576,32 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
       isExecuting: { ...state.isExecuting, [`smLong_${symbol}`]: true },
       errors: { ...state.errors, [`smLong_${symbol}`]: null },
     }));
+
+    const previewOrders: any[] = [
+      {
+        oid: `${batchTempId}_sl`,
+        coin: symbol,
+        side: 'sell',
+        price: currentPrice - (8 * priceInterval),
+        size: 0,
+        orderType: 'stop',
+        timestamp: Date.now(),
+        isOptimistic: true,
+        tempId: `${batchTempId}_sl`,
+      },
+      {
+        oid: `${batchTempId}_tp`,
+        coin: symbol,
+        side: 'sell',
+        price: currentPrice * (1 + TAKE_PROFIT_PERCENT / 100),
+        size: 0,
+        orderType: 'tp',
+        timestamp: Date.now(),
+        isOptimistic: true,
+        tempId: `${batchTempId}_tp`,
+      },
+    ];
+    orderStore.addOptimisticOrders(symbol, previewOrders);
 
     try {
       const [accountBalance, metadata] = await Promise.all([
@@ -520,6 +636,10 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
         isOptimistic: true,
         tempId: slTempId,
       });
+      orderStore.updateOptimisticOrder(symbol, slTempId, {
+        price: parseFloat(formattedStopLoss),
+        size: parseFloat(formattedSize),
+      });
 
       const takeProfitPrice = currentPrice * (1 + TAKE_PROFIT_PERCENT / 100);
       const formattedTakeProfit = service.formatPriceCached(takeProfitPrice, metadata);
@@ -535,8 +655,10 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
         isOptimistic: true,
         tempId: tpTempId,
       });
-
-      orderStore.addOptimisticOrders(symbol, optimisticOrders);
+      orderStore.updateOptimisticOrder(symbol, tpTempId, {
+        price: parseFloat(formattedTakeProfit),
+        size: parseFloat(formattedSize),
+      });
 
       const slippage = 0.005;
       const marketBuyPrice = service.formatPriceCached(currentPrice * (1 + slippage), metadata);
@@ -574,7 +696,7 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
       service.invalidateAccountCache();
       toast.success(wasBumped ? 'Market long placed (size bumped to meet $10 minimum)' : 'Market long placed');
     } catch (error) {
-      optimisticOrders.forEach(order => {
+      previewOrders.forEach(order => {
         orderStore.rollbackOptimisticOrder(symbol, order.tempId);
       });
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -603,6 +725,32 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
       isExecuting: { ...state.isExecuting, [`smShort_${symbol}`]: true },
       errors: { ...state.errors, [`smShort_${symbol}`]: null },
     }));
+
+    const previewOrders: any[] = [
+      {
+        oid: `${batchTempId}_sl`,
+        coin: symbol,
+        side: 'buy',
+        price: currentPrice + (8 * priceInterval),
+        size: 0,
+        orderType: 'stop',
+        timestamp: Date.now(),
+        isOptimistic: true,
+        tempId: `${batchTempId}_sl`,
+      },
+      {
+        oid: `${batchTempId}_tp`,
+        coin: symbol,
+        side: 'buy',
+        price: currentPrice * (1 - TAKE_PROFIT_PERCENT / 100),
+        size: 0,
+        orderType: 'tp',
+        timestamp: Date.now(),
+        isOptimistic: true,
+        tempId: `${batchTempId}_tp`,
+      },
+    ];
+    orderStore.addOptimisticOrders(symbol, previewOrders);
 
     try {
       const [accountBalance, metadata] = await Promise.all([
@@ -637,6 +785,10 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
         isOptimistic: true,
         tempId: slTempId,
       });
+      orderStore.updateOptimisticOrder(symbol, slTempId, {
+        price: parseFloat(formattedStopLoss),
+        size: parseFloat(formattedSize),
+      });
 
       const takeProfitPrice = currentPrice * (1 - TAKE_PROFIT_PERCENT / 100);
       const formattedTakeProfit = service.formatPriceCached(takeProfitPrice, metadata);
@@ -652,8 +804,10 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
         isOptimistic: true,
         tempId: tpTempId,
       });
-
-      orderStore.addOptimisticOrders(symbol, optimisticOrders);
+      orderStore.updateOptimisticOrder(symbol, tpTempId, {
+        price: parseFloat(formattedTakeProfit),
+        size: parseFloat(formattedSize),
+      });
 
       const slippage = 0.005;
       const marketSellPrice = service.formatPriceCached(currentPrice * (1 - slippage), metadata);
@@ -691,7 +845,7 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
       service.invalidateAccountCache();
       toast.success(wasBumped ? 'Market short placed (size bumped to meet $10 minimum)' : 'Market short placed');
     } catch (error) {
-      optimisticOrders.forEach(order => {
+      previewOrders.forEach(order => {
         orderStore.rollbackOptimisticOrder(symbol, order.tempId);
       });
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -720,6 +874,32 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
       isExecuting: { ...state.isExecuting, [`bigLong_${symbol}`]: true },
       errors: { ...state.errors, [`bigLong_${symbol}`]: null },
     }));
+
+    const previewOrders: any[] = [
+      {
+        oid: `${batchTempId}_sl`,
+        coin: symbol,
+        side: 'sell',
+        price: currentPrice - (8 * priceInterval),
+        size: 0,
+        orderType: 'stop',
+        timestamp: Date.now(),
+        isOptimistic: true,
+        tempId: `${batchTempId}_sl`,
+      },
+      {
+        oid: `${batchTempId}_tp`,
+        coin: symbol,
+        side: 'sell',
+        price: currentPrice * (1 + TAKE_PROFIT_PERCENT / 100),
+        size: 0,
+        orderType: 'tp',
+        timestamp: Date.now(),
+        isOptimistic: true,
+        tempId: `${batchTempId}_tp`,
+      },
+    ];
+    orderStore.addOptimisticOrders(symbol, previewOrders);
 
     try {
       const [accountBalance, metadata] = await Promise.all([
@@ -754,6 +934,10 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
         isOptimistic: true,
         tempId: slTempId,
       });
+      orderStore.updateOptimisticOrder(symbol, slTempId, {
+        price: parseFloat(formattedStopLoss),
+        size: parseFloat(formattedSize),
+      });
 
       const takeProfitPrice = currentPrice * (1 + TAKE_PROFIT_PERCENT / 100);
       const formattedTakeProfit = service.formatPriceCached(takeProfitPrice, metadata);
@@ -769,8 +953,10 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
         isOptimistic: true,
         tempId: tpTempId,
       });
-
-      orderStore.addOptimisticOrders(symbol, optimisticOrders);
+      orderStore.updateOptimisticOrder(symbol, tpTempId, {
+        price: parseFloat(formattedTakeProfit),
+        size: parseFloat(formattedSize),
+      });
 
       const slippage = 0.005;
       const marketBuyPrice = service.formatPriceCached(currentPrice * (1 + slippage), metadata);
@@ -808,7 +994,7 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
       service.invalidateAccountCache();
       toast.success(wasBumped ? 'Big long placed (size bumped to meet $10 minimum)' : 'Big long placed');
     } catch (error) {
-      optimisticOrders.forEach(order => {
+      previewOrders.forEach(order => {
         orderStore.rollbackOptimisticOrder(symbol, order.tempId);
       });
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -837,6 +1023,32 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
       isExecuting: { ...state.isExecuting, [`bigShort_${symbol}`]: true },
       errors: { ...state.errors, [`bigShort_${symbol}`]: null },
     }));
+
+    const previewOrders: any[] = [
+      {
+        oid: `${batchTempId}_sl`,
+        coin: symbol,
+        side: 'buy',
+        price: currentPrice + (8 * priceInterval),
+        size: 0,
+        orderType: 'stop',
+        timestamp: Date.now(),
+        isOptimistic: true,
+        tempId: `${batchTempId}_sl`,
+      },
+      {
+        oid: `${batchTempId}_tp`,
+        coin: symbol,
+        side: 'buy',
+        price: currentPrice * (1 - TAKE_PROFIT_PERCENT / 100),
+        size: 0,
+        orderType: 'tp',
+        timestamp: Date.now(),
+        isOptimistic: true,
+        tempId: `${batchTempId}_tp`,
+      },
+    ];
+    orderStore.addOptimisticOrders(symbol, previewOrders);
 
     try {
       const [accountBalance, metadata] = await Promise.all([
@@ -871,6 +1083,10 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
         isOptimistic: true,
         tempId: slTempId,
       });
+      orderStore.updateOptimisticOrder(symbol, slTempId, {
+        price: parseFloat(formattedStopLoss),
+        size: parseFloat(formattedSize),
+      });
 
       const takeProfitPrice = currentPrice * (1 - TAKE_PROFIT_PERCENT / 100);
       const formattedTakeProfit = service.formatPriceCached(takeProfitPrice, metadata);
@@ -886,8 +1102,10 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
         isOptimistic: true,
         tempId: tpTempId,
       });
-
-      orderStore.addOptimisticOrders(symbol, optimisticOrders);
+      orderStore.updateOptimisticOrder(symbol, tpTempId, {
+        price: parseFloat(formattedTakeProfit),
+        size: parseFloat(formattedSize),
+      });
 
       const slippage = 0.005;
       const marketSellPrice = service.formatPriceCached(currentPrice * (1 - slippage), metadata);
@@ -925,7 +1143,7 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
       service.invalidateAccountCache();
       toast.success(wasBumped ? 'Big short placed (size bumped to meet $10 minimum)' : 'Big short placed');
     } catch (error) {
-      optimisticOrders.forEach(order => {
+      previewOrders.forEach(order => {
         orderStore.rollbackOptimisticOrder(symbol, order.tempId);
       });
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -950,26 +1168,11 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
 
     const { symbol, price, isBuy, percentage } = params;
 
-    const liveMid = await getLiveMid(service, symbol);
-
-    const useTriggerOrder = (isBuy && price > liveMid) || (!isBuy && price < liveMid);
-    const orderType = useTriggerOrder ? 'TRIGGER MARKET' : 'LIMIT';
-
-    console.log('[placeLimitOrderAtPrice] Starting:', {
-      symbol,
-      price,
-      liveMid,
-      staleCurrentPrice: params.currentPrice,
-      isBuy,
-      percentage,
-      orderType,
-      reason: isBuy
-        ? (price > liveMid ? 'LONG above current (breakout entry)' : 'LONG below current (pullback entry)')
-        : (price < liveMid ? 'SHORT below current (breakdown entry)' : 'SHORT above current (rally entry)')
-    });
-
     const tempId = `temp_${Date.now()}_${Math.random()}`;
     const orderStore = useOrderStore.getState();
+
+    const cachedMid = useSidebarPricesStore.getState().prices[symbol] ?? params.currentPrice ?? price;
+    const initialUseTrigger = (isBuy && price > cachedMid) || (!isBuy && price < cachedMid);
 
     orderStore.addOptimisticOrder(symbol, {
       oid: tempId,
@@ -977,7 +1180,7 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
       side: isBuy ? 'buy' : 'sell',
       price,
       size: 0,
-      orderType: useTriggerOrder ? 'trigger' : 'limit',
+      orderType: initialUseTrigger ? 'trigger' : 'limit',
       timestamp: Date.now(),
       isOptimistic: true,
       tempId: tempId,
@@ -989,6 +1192,30 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
     }));
 
     try {
+      const liveMid = await getLiveMid(service, symbol);
+
+      const useTriggerOrder = (isBuy && price > liveMid) || (!isBuy && price < liveMid);
+      const orderType = useTriggerOrder ? 'TRIGGER MARKET' : 'LIMIT';
+
+      if (useTriggerOrder !== initialUseTrigger) {
+        orderStore.updateOptimisticOrder(symbol, tempId, {
+          orderType: useTriggerOrder ? 'trigger' : 'limit',
+        });
+      }
+
+      console.log('[placeLimitOrderAtPrice] Starting:', {
+        symbol,
+        price,
+        liveMid,
+        staleCurrentPrice: params.currentPrice,
+        isBuy,
+        percentage,
+        orderType,
+        reason: isBuy
+          ? (price > liveMid ? 'LONG above current (breakout entry)' : 'LONG below current (pullback entry)')
+          : (price < liveMid ? 'SHORT below current (breakdown entry)' : 'SHORT above current (rally entry)')
+      });
+
       const [accountBalance, metadata] = await Promise.all([
         service.getAccountBalanceCached(),
         service.getMetadataCache(symbol)

@@ -89,6 +89,12 @@ function SymbolView({ coin }: SymbolViewProps) {
     subscribeToOrders(coin);
     setActiveSymbol(coin);
 
+    const tradingService = useTradingStore.getState().service;
+    if (tradingService) {
+      tradingService.getMetadataCache(coin).catch(() => {});
+      tradingService.getAccountBalanceCached().catch(() => {});
+    }
+
     return () => {
       unsubscribeFromTrades(coin);
       unsubscribeFromOrders(coin);
