@@ -15,7 +15,8 @@ import {
   PerpsMeta,
   AllMids,
   SuccessResponse,
-  Fill
+  Fill,
+  ApiRequestError
 } from '@nktkas/hyperliquid';
 import { privateKeyToAccount } from 'viem/accounts';
 import toast from 'react-hot-toast';
@@ -370,94 +371,6 @@ export class HyperliquidService implements IHyperliquidService {
     return index;
   }
 
-  private async getSizeDecimals(coin: string): Promise<number> {
-    const meta = await this.publicClient.meta();
-    const asset = meta.universe.find(u => u.name === coin);
-    if (!asset) {
-      throw new Error(`Coin ${coin} not found`);
-    }
-    return asset.szDecimals;
-  }
-
-  private async getTickSize(coin: string): Promise<number> {
-    const book = await this.publicClient.l2Book({ coin });
-    const bids = book.levels[0];
-
-    if (!bids || bids.length < 2) {
-      return 0.01;
-    }
-
-    const price1 = parseFloat(bids[0].px);
-    const price2 = parseFloat(bids[1].px);
-    let diff = Math.abs(price1 - price2);
-
-    if (diff === 0 && bids.length >= 3) {
-      const price3 = parseFloat(bids[2].px);
-      diff = Math.abs(price1 - price3);
-    }
-
-    if (diff === 0) return 0.01;
-
-    const isCloseTo = (value: number, target: number): boolean => {
-      return Math.abs(value - target) < target * 0.1;
-    };
-
-    if (diff >= 10 || isCloseTo(diff, 10)) return 10;
-    if (diff >= 5 || isCloseTo(diff, 5)) return 5;
-    if (diff >= 1 || isCloseTo(diff, 1)) return 1;
-    if (diff >= 0.5 || isCloseTo(diff, 0.5)) return 0.5;
-    if (diff >= 0.1 || isCloseTo(diff, 0.1)) return 0.1;
-    if (diff >= 0.05 || isCloseTo(diff, 0.05)) return 0.05;
-    if (diff >= 0.01 || isCloseTo(diff, 0.01)) return 0.01;
-    if (diff >= 0.005 || isCloseTo(diff, 0.005)) return 0.005;
-    if (diff >= 0.001 || isCloseTo(diff, 0.001)) return 0.001;
-    if (diff >= 0.0005 || isCloseTo(diff, 0.0005)) return 0.0005;
-    if (diff >= 0.0001 || isCloseTo(diff, 0.0001)) return 0.0001;
-    if (diff >= 0.00005 || isCloseTo(diff, 0.00005)) return 0.00005;
-    if (diff >= 0.00001 || isCloseTo(diff, 0.00001)) return 0.00001;
-
-    return 0.00001;
-  }
-
-  private roundToTickSize(price: number, tickSize: number): number {
-    const rounded = Math.round(price / tickSize) * tickSize;
-    const decimals = this.getDecimalsFromTickSize(tickSize);
-    return parseFloat(rounded.toFixed(decimals));
-  }
-
-  private getDecimalsFromTickSize(tickSize: number): number {
-    if (tickSize >= 1) return 0;
-    if (tickSize >= 0.1) return 1;
-    if (tickSize >= 0.01) return 2;
-    if (tickSize >= 0.001) return 3;
-    if (tickSize >= 0.0001) return 4;
-    if (tickSize >= 0.00001) return 5;
-    return 6;
-  }
-
-  async formatPrice(price: number, coin: string): Promise<string> {
-    const tickSize = await this.getTickSize(coin);
-    const rounded = this.roundToTickSize(price, tickSize);
-    const decimals = this.getDecimalsFromTickSize(tickSize);
-    return rounded.toFixed(decimals);
-  }
-
-  async formatSize(size: number, coin: string): Promise<string> {
-    const decimals = await this.getSizeDecimals(coin);
-    return size.toFixed(decimals);
-  }
-
-  private async getMarketPrice(coin: string, isBuy: boolean): Promise<string> {
-    const book = await this.publicClient.l2Book({ coin });
-    const levels = isBuy ? book.levels[1] : book.levels[0];
-    if (!levels || levels.length === 0) {
-      throw new Error(`No market price available for ${coin}`);
-    }
-    const price = parseFloat(levels[0].px);
-    const slippage = isBuy ? 1.005 : 0.995;
-    return await this.formatPrice(price * slippage, coin);
-  }
-
   async getAccountState(user?: string): Promise<PerpsClearinghouseState> {
     const address = (user || this.userAddress) as `0x${string}`;
     if (!address) {
@@ -564,8 +477,19 @@ export class HyperliquidService implements IHyperliquidService {
       o: typeof o.oid === 'number' ? o.oid : parseInt(o.oid as string, 10),
     }));
 
-    const response = await this.walletClient!.cancel({ cancels });
-    return { response, attemptedOids };
+    // SDK throws ApiRequestError when ANY cancel in the batch fails, even if
+    // others succeeded. Recover the per-status array from err.response so the
+    // caller can restore only the truly-failed oids instead of rolling back
+    // the whole batch.
+    try {
+      const response = await this.walletClient!.cancel({ cancels });
+      return { response, attemptedOids };
+    } catch (err) {
+      if (err instanceof ApiRequestError && err.response?.status === 'ok') {
+        return { response: err.response as CancelResponse, attemptedOids };
+      }
+      throw err;
+    }
   }
 
   async cancelAllOrders(coin: string, metadata: SymbolMetadata): Promise<BulkCancelResult> {

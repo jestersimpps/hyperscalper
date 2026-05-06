@@ -138,8 +138,6 @@ export interface IHyperliquidService {
   setLeverage(coin: string, leverage: number, metadata: SymbolMetadata, isCross?: boolean): Promise<SuccessResponse | null>;
 
   getCoinIndex(coin: string): Promise<number>;
-  formatPrice(price: number, coin: string): Promise<string>;
-  formatSize(size: number, coin: string): Promise<string>;
   getMeta(): Promise<PerpsMeta>;
   getAllMids(): Promise<AllMids>;
   getMetaAndAssetCtxs(): Promise<MetaAndAssetCtxs>;

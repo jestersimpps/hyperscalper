@@ -14,7 +14,6 @@ export interface FakeServiceOptions {
 
 export const DEFAULT_METADATA: SymbolMetadata = {
   coinIndex: 42,
-  tickSize: 0.01,
   sizeDecimals: 3,
   timestamp: Date.now(),
 };

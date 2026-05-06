@@ -8,7 +8,6 @@ const WALLET = '0xf39Fd6e51aad88F6F4ce6aB8827279cfFFb92266';
 
 const METADATA: SymbolMetadata = {
   coinIndex: 5,
-  tickSize: 0.01,
   sizeDecimals: 3,
   timestamp: Date.now(),
 };
@@ -90,7 +89,8 @@ describe('HyperliquidService — wire payloads', () => {
       expect(o.t).toEqual({
         trigger: { triggerPx: '100.00', isMarket: true, tpsl: 'sl' },
       });
-      expect(o.p).toBe('90.00');
+      // 100 × 0.9 = 90; szDecimals=3 → maxDecimals=3, sig-figs of 90 → 3 decimals → "90.000"
+      expect(o.p).toBe('90.000');
       expect(o.b).toBe(false);
     });
   });
@@ -103,13 +103,14 @@ describe('HyperliquidService — wire payloads', () => {
       );
 
       const payload = order.mock.calls[0][0];
+      // szDecimals=3 → maxDecimals=3, sig-figs of 95 → 3 decimals → "95.000"
       expect(payload.orders[0]).toEqual({
         a: 5,
         b: false,
-        p: '95.00',
+        p: '95.000',
         s: '1.000',
         r: true, // reduce-only
-        t: { trigger: { triggerPx: '95.00', isMarket: true, tpsl: 'sl' } },
+        t: { trigger: { triggerPx: '95.000', isMarket: true, tpsl: 'sl' } },
       });
     });
   });
@@ -121,6 +122,7 @@ describe('HyperliquidService — wire payloads', () => {
         METADATA,
       );
 
+      // szDecimals=3 → maxDecimals=3, sig-figs of 110 → 2 decimals → "110.00"
       expect(order.mock.calls[0][0].orders[0]).toEqual({
         a: 5,
         b: false,
