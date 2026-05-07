@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { HyperliquidService } from '@/lib/services/hyperliquid.service';
+import { useGlobalPollingStore } from './useGlobalPollingStore';
 
 interface VolatilityData {
   blocks: number;
@@ -18,7 +19,6 @@ interface SymbolVolatilityStore {
   subscribe: (symbols: string[]) => void;
   unsubscribe: (symbols: string[]) => void;
   getVolatility: (symbol: string) => VolatilityData | null;
-  fetchAllVolatility: () => Promise<void>;
   updateFromGlobalPoll: (data: { meta: any; assetCtxs: any[] }) => void;
 }
 
@@ -58,7 +58,10 @@ export const useSymbolVolatilityStore = create<SymbolVolatilityStore>((set, get)
       subscribedSymbols: new Set([...state.subscribedSymbols, ...newSymbols])
     }));
 
-    get().fetchAllVolatility();
+    const snapshot = useGlobalPollingStore.getState().lastMetaSnapshot;
+    if (snapshot) {
+      get().updateFromGlobalPoll(snapshot);
+    }
   },
 
   unsubscribe: (symbols: string[]) => {
@@ -71,64 +74,6 @@ export const useSymbolVolatilityStore = create<SymbolVolatilityStore>((set, get)
 
   getVolatility: (symbol: string) => {
     return get().volatility[symbol] || null;
-  },
-
-  fetchAllVolatility: async () => {
-    const { service, subscribedSymbols } = get();
-
-    if (!service || subscribedSymbols.size === 0) {
-      return;
-    }
-
-    try {
-      const { meta, assetCtxs } = await service.getMetaAndAssetCtxs();
-
-      const newVolatility: Record<string, VolatilityData> = {};
-
-      meta.universe.forEach((universeItem, index) => {
-        const symbol = universeItem.name;
-
-        if (!subscribedSymbols.has(symbol)) {
-          return;
-        }
-
-        const assetCtx = assetCtxs[index];
-        if (!assetCtx) {
-          return;
-        }
-
-        const currentPrice = parseFloat(assetCtx.markPx);
-        const prevDayPrice = parseFloat(assetCtx.prevDayPx);
-
-        if (!currentPrice || !prevDayPrice || prevDayPrice === 0) {
-          newVolatility[symbol] = {
-            blocks: 0,
-            percentChange: 0,
-            currentPrice: currentPrice || 0,
-            prevDayPrice: prevDayPrice || 0,
-            lastUpdate: Date.now()
-          };
-          return;
-        }
-
-        const percentChange = ((currentPrice - prevDayPrice) / prevDayPrice) * 100;
-        const blocks = calculateBlocksFromPercentChange(percentChange);
-
-        newVolatility[symbol] = {
-          blocks,
-          percentChange,
-          currentPrice,
-          prevDayPrice,
-          lastUpdate: Date.now()
-        };
-      });
-
-      set((state) => ({
-        volatility: { ...state.volatility, ...newVolatility }
-      }));
-    } catch (error) {
-      console.error('[SymbolVolatilityStore] Error fetching volatility:', error);
-    }
   },
 
   updateFromGlobalPoll: (data: { meta: any; assetCtxs: any[] }) => {

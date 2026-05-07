@@ -168,9 +168,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect, mobileView =
   const invertedMode = settings.chart.invertedMode;
   const topSymbols = useTopSymbolsStore((state) => state.symbols);
   const isLoadingTopSymbols = useTopSymbolsStore((state) => state.isLoading);
-  const startAutoRefresh = useTopSymbolsStore((state) => state.startAutoRefresh);
-  const stopAutoRefresh = useTopSymbolsStore((state) => state.stopAutoRefresh);
-  const fetchTopSymbols = useTopSymbolsStore((state) => state.fetchTopSymbols);
+  const refreshTopSymbols = useTopSymbolsStore((state) => state.refreshTopSymbols);
   const pinnedSymbols = settings.pinnedSymbols;
   const subscribe = useSidebarPricesStore((state) => state.subscribe);
   const unsubscribe = useSidebarPricesStore((state) => state.unsubscribe);
@@ -230,14 +228,6 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect, mobileView =
       stopAutoScan();
     };
   }, [settings.scanner.enabled, settings.scanner.scanInterval]);
-
-  useEffect(() => {
-    startAutoRefresh();
-
-    return () => {
-      stopAutoRefresh();
-    };
-  }, []);
 
   useEffect(() => {
     subscribe();
@@ -572,7 +562,7 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect, mobileView =
               <div className="flex items-center justify-between">
                 <span className="text-primary text-xs font-bold tracking-wider">█ SYMBOLS</span>
                 <button
-                  onClick={fetchTopSymbols}
+                  onClick={refreshTopSymbols}
                   disabled={isLoadingTopSymbols}
                   className="px-2 py-1 text-xs bg-primary/10 hover:bg-primary/20 active:bg-primary/30 active:scale-95 text-primary border border-primary rounded disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 cursor-pointer transition-all"
                   title="Refresh symbols list"

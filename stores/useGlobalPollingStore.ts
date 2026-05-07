@@ -20,6 +20,7 @@ interface GlobalPollingStore {
   fastFetchInFlight: boolean;
   slowFetchInFlight: boolean;
   candleFetchInFlight: boolean;
+  lastMetaSnapshot: { meta: any; assetCtxs: any[] } | null;
 
   setService: (service: HyperliquidService) => void;
   startGlobalPolling: () => void;
@@ -29,6 +30,7 @@ interface GlobalPollingStore {
   fetchFastData: () => Promise<void>;
   fetchSlowData: () => Promise<void>;
   fetchCandleData: () => Promise<void>;
+  triggerSlowPoll: () => Promise<void>;
 }
 
 export const useGlobalPollingStore = create<GlobalPollingStore>((set, get) => ({
@@ -44,6 +46,7 @@ export const useGlobalPollingStore = create<GlobalPollingStore>((set, get) => ({
   fastFetchInFlight: false,
   slowFetchInFlight: false,
   candleFetchInFlight: false,
+  lastMetaSnapshot: null,
 
   setService: (service: HyperliquidService) => {
     set({ service });
@@ -111,7 +114,7 @@ export const useGlobalPollingStore = create<GlobalPollingStore>((set, get) => ({
         }
       }
 
-      set({ lastSlowPollTime: Date.now() });
+      set({ lastSlowPollTime: Date.now(), lastMetaSnapshot: metaData ?? get().lastMetaSnapshot });
     } catch {
       // swallow - next tick will retry
     } finally {
@@ -179,6 +182,10 @@ export const useGlobalPollingStore = create<GlobalPollingStore>((set, get) => ({
     } finally {
       set({ candleFetchInFlight: false });
     }
+  },
+
+  triggerSlowPoll: async () => {
+    await get().fetchSlowData();
   },
 
   startGlobalPolling: () => {

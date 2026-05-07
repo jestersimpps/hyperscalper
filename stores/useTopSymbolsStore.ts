@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { HyperliquidService } from '@/lib/services/hyperliquid.service';
+import { useGlobalPollingStore } from './useGlobalPollingStore';
 
 export interface SymbolWithVolume {
   name: string;
@@ -12,62 +13,31 @@ interface TopSymbolsStore {
   error: string | null;
   service: HyperliquidService | null;
   setService: (service: HyperliquidService) => void;
-  fetchTopSymbols: () => Promise<void>;
-  startAutoRefresh: () => void;
-  stopAutoRefresh: () => void;
+  refreshTopSymbols: () => Promise<void>;
   updateFromGlobalPoll: (data: { meta: any; assetCtxs: any[] }) => void;
 }
 
-export const useTopSymbolsStore = create<TopSymbolsStore>((set, get) => ({
+export const useTopSymbolsStore = create<TopSymbolsStore>((set) => ({
   symbols: [],
   isLoading: false,
   error: null,
   service: null,
 
   setService: (service: HyperliquidService) => {
-    const prevService = get().service;
     set({ service });
-    if (service && service !== prevService && get().symbols.length === 0) {
-      get().fetchTopSymbols();
-    }
   },
 
-  fetchTopSymbols: async () => {
-    const { service } = get();
-    if (!service) {
-      return;
-    }
-
+  refreshTopSymbols: async () => {
     set({ isLoading: true, error: null });
-
     try {
-      const { meta, assetCtxs } = await service.getMetaAndAssetCtxs();
-
-      const symbolsWithVolume: SymbolWithVolume[] = meta.universe
-        .map((u, index) => ({
-          name: u.name,
-          volume: parseFloat(assetCtxs[index]?.dayNtlVlm || '0'),
-          isDelisted: u.isDelisted,
-        }))
-        .filter((s) => !s.isDelisted)
-        .sort((a, b) => b.volume - a.volume)
-        .slice(0, 20)
-        .map(({ name, volume }) => ({ name, volume }));
-
-      set({ symbols: symbolsWithVolume, isLoading: false });
+      await useGlobalPollingStore.getState().triggerSlowPoll();
+      set({ isLoading: false });
     } catch (error) {
       set({
         error: error instanceof Error ? error.message : 'Unknown error',
         isLoading: false,
       });
     }
-  },
-
-  startAutoRefresh: () => {
-    get().fetchTopSymbols();
-  },
-
-  stopAutoRefresh: () => {
   },
 
   updateFromGlobalPoll: (data: { meta: any; assetCtxs: any[] }) => {
