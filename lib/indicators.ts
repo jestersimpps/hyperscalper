@@ -1,5 +1,386 @@
-import type { CandleData as FullCandleData } from '@/types';
+import type { CandleData as FullCandleData, Trade as ExchangeTrade } from '@/types';
+import type { OrderbookLevel } from '@/lib/websocket/exchange-websocket.interface';
 import { createMemoizedFunction, createCandleBasedMemoization } from './memoization';
+
+export interface ForecastBiasInputs {
+  obImb: number;
+  flowImb: number;
+  scannerBias: number;
+  stochZ: number;
+  toxicity: number;
+  btcObImb: number;
+}
+
+export interface ForecastFanPoint {
+  time: number;
+  median: number;
+  upper1: number;
+  lower1: number;
+  upper2: number;
+  lower2: number;
+}
+
+export type VolMode = 'ewma' | 'short' | 'max' | 'avg';
+
+export interface ForecastFanOptions {
+  horizon: number;
+  intervalMs: number;
+  lookback?: number;
+  ewmaLambda?: number;
+  volMode?: VolMode;
+  biases?: Partial<ForecastBiasInputs>;
+  weights?: Partial<{ obImb: number; flowImb: number; scannerBias: number; stochZ: number; btcObImb: number }>;
+  maxTiltSigmaFraction?: number;
+}
+
+export interface TradeFlowResult {
+  imbalance: number;
+  toxicity: number;
+}
+
+const DEFAULT_FORECAST_WEIGHTS = { obImb: 0.30, flowImb: 0.30, scannerBias: 0.15, stochZ: 0.10, btcObImb: 0.15 };
+
+const clamp1 = (x: number) => (Number.isFinite(x) ? Math.max(-1, Math.min(1, x)) : 0);
+
+// Distance-weighted: a level at the touch dominates; deep levels (potential spoofs) decay.
+// Weight = 1 / (1 + bps_from_mid). Falls back to flat weighting when mid is unknown.
+export function computeOrderbookImbalance(
+  bids: OrderbookLevel[],
+  asks: OrderbookLevel[],
+  depth = 10,
+  mid?: number,
+): number {
+  if (!bids?.length || !asks?.length) return 0;
+  const useDistance = !!mid && mid > 0;
+  let bidSum = 0;
+  let askSum = 0;
+  const bidLimit = Math.min(depth, bids.length);
+  const askLimit = Math.min(depth, asks.length);
+  for (let i = 0; i < bidLimit; i++) {
+    const lvl = bids[i];
+    if (useDistance) {
+      const bps = Math.abs(mid! - lvl.price) / mid! * 10_000;
+      bidSum += lvl.size / (1 + bps);
+    } else {
+      bidSum += lvl.size;
+    }
+  }
+  for (let i = 0; i < askLimit; i++) {
+    const lvl = asks[i];
+    if (useDistance) {
+      const bps = Math.abs(lvl.price - mid!) / mid! * 10_000;
+      askSum += lvl.size / (1 + bps);
+    } else {
+      askSum += lvl.size;
+    }
+  }
+  const total = bidSum + askSum;
+  if (total <= 0) return 0;
+  return clamp1((bidSum - askSum) / total);
+}
+
+// Time-decayed flow: each trade weighted exp(-age / halfLife).
+// Returns both signed imbalance (-1..+1) and toxicity (|imbalance|, 0..1) for the tilt gate.
+export function computeTradeFlow(
+  trades: ExchangeTrade[],
+  windowSize = 50,
+  halfLifeSeconds = 5,
+  nowMs: number = Date.now(),
+): TradeFlowResult {
+  if (!trades?.length) return { imbalance: 0, toxicity: 0 };
+  const slice = trades.slice(0, Math.min(windowSize, trades.length));
+  const decay = Math.log(2) / Math.max(halfLifeSeconds, 0.1);
+  let buy = 0;
+  let sell = 0;
+  for (const t of slice) {
+    const ageS = Math.max(0, (nowMs - t.time) / 1000);
+    const w = Math.exp(-decay * ageS);
+    const v = t.size * w;
+    if (t.side === 'buy') buy += v;
+    else sell += v;
+  }
+  const total = buy + sell;
+  if (total <= 0) return { imbalance: 0, toxicity: 0 };
+  const imbalance = clamp1((buy - sell) / total);
+  return { imbalance, toxicity: Math.abs(imbalance) };
+}
+
+// Back-compat thin wrapper for callers that only need the signed imbalance.
+export function computeTradeFlowImbalance(trades: ExchangeTrade[], windowSize = 50): number {
+  return computeTradeFlow(trades, windowSize).imbalance;
+}
+
+export function computeScannerBias(
+  divergences: DivergencePoint[] | undefined,
+  emaAlignments: { alignmentType: 'bullish' | 'bearish'; barsAgo: number }[] | undefined,
+): number {
+  let score = 0;
+  let weight = 0;
+  if (divergences?.length) {
+    const latest = divergences[divergences.length - 1];
+    const sign = latest.type === 'bullish' || latest.type === 'hidden-bullish' ? 1 : -1;
+    score += sign * 0.6;
+    weight += 0.6;
+  }
+  if (emaAlignments?.length) {
+    const a = emaAlignments[0];
+    const sign = a.alignmentType === 'bullish' ? 1 : -1;
+    const recencyDecay = Math.max(0, 1 - a.barsAgo / 20);
+    score += sign * 0.4 * recencyDecay;
+    weight += 0.4 * recencyDecay;
+  }
+  if (weight <= 0) return 0;
+  return clamp1(score / Math.max(weight, 0.0001));
+}
+
+export function calculateForecastFan(
+  candles: FullCandleData[],
+  options: ForecastFanOptions,
+): ForecastFanPoint[] {
+  const horizon = Math.max(1, options.horizon);
+  const intervalMs = options.intervalMs;
+  const lookback = Math.max(20, options.lookback ?? 60);
+  const lambda = options.ewmaLambda ?? 0.94;
+  const weights = { ...DEFAULT_FORECAST_WEIGHTS, ...(options.weights ?? {}) };
+  const biases: ForecastBiasInputs = {
+    obImb: clamp1(options.biases?.obImb ?? 0),
+    flowImb: clamp1(options.biases?.flowImb ?? 0),
+    scannerBias: clamp1(options.biases?.scannerBias ?? 0),
+    stochZ: clamp1(options.biases?.stochZ ?? 0),
+    toxicity: Math.max(0, Math.min(1, options.biases?.toxicity ?? 0)),
+    btcObImb: clamp1(options.biases?.btcObImb ?? 0),
+  };
+  const tiltCap = options.maxTiltSigmaFraction ?? 0.5;
+
+  if (!candles || candles.length < 5 || intervalMs <= 0) return [];
+
+  const closes = candles.map(c => c.close).filter(c => Number.isFinite(c) && c > 0);
+  if (closes.length < 5) return [];
+
+  const startIdx = Math.max(1, closes.length - lookback);
+  const returns: number[] = [];
+  for (let i = startIdx; i < closes.length; i++) {
+    returns.push(Math.log(closes[i] / closes[i - 1]));
+  }
+  if (returns.length < 3) return [];
+
+  // Drop historical mean drift on short horizons — it's noise. Tilt + scanner carry direction.
+  // EWMA vol baseline.
+  let ewmaVar = returns[0] * returns[0];
+  for (let i = 1; i < returns.length; i++) {
+    ewmaVar = lambda * ewmaVar + (1 - lambda) * returns[i] * returns[i];
+  }
+  const sigmaEwma = Math.sqrt(Math.max(ewmaVar, 1e-12));
+
+  // Short-window realized variance (~last 5 returns) catches live bursts EWMA hasn't absorbed yet.
+  const shortWindow = Math.min(5, returns.length);
+  let shortVar = 0;
+  for (let i = returns.length - shortWindow; i < returns.length; i++) {
+    shortVar += returns[i] * returns[i];
+  }
+  shortVar /= shortWindow;
+  const sigmaShort = Math.sqrt(Math.max(shortVar, 1e-12));
+
+  const volMode: VolMode = options.volMode ?? 'max';
+  let sigma: number;
+  switch (volMode) {
+    case 'ewma':
+      sigma = sigmaEwma;
+      break;
+    case 'short':
+      sigma = sigmaShort;
+      break;
+    case 'avg':
+      sigma = (sigmaEwma + sigmaShort) / 2;
+      break;
+    case 'max':
+    default:
+      sigma = Math.max(sigmaEwma, sigmaShort);
+      break;
+  }
+
+  const tiltUnit =
+    weights.obImb * biases.obImb +
+    weights.flowImb * biases.flowImb +
+    weights.scannerBias * biases.scannerBias +
+    weights.stochZ * biases.stochZ +
+    weights.btcObImb * biases.btcObImb;
+  // Toxicity gate: balanced flow → suppress tilt; one-sided flow → keep it.
+  // sqrt curve so even modest one-sidedness keeps some bias.
+  const toxicityGate = Math.sqrt(biases.toxicity);
+  const tilt = clamp1(tiltUnit) * tiltCap * sigma * toxicityGate;
+
+  const drift = tilt;
+
+  const lastCandle = candles[candles.length - 1];
+  const lastClose = lastCandle.close;
+  const lastTimeMs = lastCandle.time;
+
+  const out: ForecastFanPoint[] = [];
+  for (let k = 1; k <= horizon; k++) {
+    const sqrtK = Math.sqrt(k);
+    const driftK = drift * k;
+    out.push({
+      time: lastTimeMs + intervalMs * k,
+      median: lastClose * Math.exp(driftK),
+      upper1: lastClose * Math.exp(driftK + sigma * sqrtK),
+      lower1: lastClose * Math.exp(driftK - sigma * sqrtK),
+      upper2: lastClose * Math.exp(driftK + 2 * sigma * sqrtK),
+      lower2: lastClose * Math.exp(driftK - 2 * sigma * sqrtK),
+    });
+  }
+  return out;
+}
+
+export interface ForecastTuningResult {
+  volMode: VolMode;
+  stochWeight: number;
+  scannerWeight: number;
+  tiltCap: number;
+  hitRate: number;
+  coverage1: number;
+  score: number;
+  sampleSize: number;
+}
+
+// Backtest the candle-derivable subset of the forecast model. Sweeps vol mode + stoch/scanner
+// weights + tilt cap; returns the best config by joint score (directional hit rate at k=H minus
+// calibration penalty). Orderbook + flow weights are not tuned (no historical data) — they ride
+// at their live defaults. Scanner bias is approximated by EMA-slope sign at each bar, which is
+// the dominant component of the live scanner signal we *can* derive from candles alone.
+export function tuneForecastFromCandles(
+  candles: FullCandleData[],
+  horizon = 5,
+  minHistory = 100,
+): ForecastTuningResult | null {
+  if (!candles || candles.length < minHistory + horizon + 10) return null;
+
+  const closes: number[] = [];
+  for (const c of candles) {
+    if (Number.isFinite(c.close) && c.close > 0) closes.push(c.close);
+  }
+  if (closes.length < minHistory + horizon + 10) return null;
+
+  const N = closes.length;
+  const lookback = 60;
+  const lambda = 0.94;
+  const shortWin = 5;
+  const stochPeriod = 14;
+  const emaPeriod = 21;
+
+  const ema = calculateEMA(closes, emaPeriod);
+  const stochValues: number[] = new Array(N).fill(50);
+  for (let i = stochPeriod - 1; i < N; i++) {
+    let lo = closes[i - stochPeriod + 1];
+    let hi = lo;
+    for (let j = i - stochPeriod + 2; j <= i; j++) {
+      const v = closes[j];
+      if (v < lo) lo = v;
+      if (v > hi) hi = v;
+    }
+    stochValues[i] = hi === lo ? 50 : ((closes[i] - lo) / (hi - lo)) * 100;
+  }
+
+  const VOL_MODES: VolMode[] = ['ewma', 'short', 'max', 'avg'];
+  const STOCH_WEIGHTS = [0.0, 0.2, 0.4];
+  const SCANNER_WEIGHTS = [0.0, 0.2, 0.4];
+  const TILT_CAPS = [0.25, 0.5, 1.0];
+
+  type BarPrecompute = {
+    sigmaEwma: number;
+    sigmaShort: number;
+    stochZ: number;
+    scannerBias: number;
+    actualLogReturn: number;
+  };
+
+  const precomputed: (BarPrecompute | null)[] = new Array(N).fill(null);
+  for (let i = minHistory; i < N - horizon; i++) {
+    const startIdx = Math.max(1, i - lookback + 1);
+    let ewmaVar = 0;
+    let firstSet = false;
+    for (let j = startIdx; j <= i; j++) {
+      const r = Math.log(closes[j] / closes[j - 1]);
+      if (!firstSet) {
+        ewmaVar = r * r;
+        firstSet = true;
+      } else {
+        ewmaVar = lambda * ewmaVar + (1 - lambda) * r * r;
+      }
+    }
+    const sigmaEwma = Math.sqrt(Math.max(ewmaVar, 1e-12));
+
+    let shortVar = 0;
+    let n = 0;
+    for (let j = Math.max(1, i - shortWin + 1); j <= i; j++) {
+      const r = Math.log(closes[j] / closes[j - 1]);
+      shortVar += r * r;
+      n++;
+    }
+    shortVar = n > 0 ? shortVar / n : 0;
+    const sigmaShort = Math.sqrt(Math.max(shortVar, 1e-12));
+
+    const stochZ = (stochValues[i] - 50) / 50;
+
+    // EMA-slope proxy for scanner bias: rate of change of the EMA, normalized to roughly [-1, 1]
+    // by recent vol. This stands in for the live scanner's EMA-alignment signal.
+    const emaNow = ema[i];
+    const emaPrev = ema[Math.max(0, i - 5)];
+    const slope = emaPrev > 0 ? (emaNow - emaPrev) / emaPrev / 5 : 0;
+    const scannerBias = clamp1(slope / Math.max(sigmaEwma, 1e-9));
+
+    const actualLogReturn = Math.log(closes[i + horizon] / closes[i]);
+
+    precomputed[i] = { sigmaEwma, sigmaShort, stochZ, scannerBias, actualLogReturn };
+  }
+
+  let best: ForecastTuningResult | null = null;
+  const sqrtH = Math.sqrt(horizon);
+
+  for (const volMode of VOL_MODES) {
+    for (const stochW of STOCH_WEIGHTS) {
+      for (const scannerW of SCANNER_WEIGHTS) {
+        for (const tiltCap of TILT_CAPS) {
+          let hits = 0;
+          let total = 0;
+          let inside1 = 0;
+          for (let i = minHistory; i < N - horizon; i++) {
+            const p = precomputed[i];
+            if (!p) continue;
+            let sigma: number;
+            switch (volMode) {
+              case 'ewma': sigma = p.sigmaEwma; break;
+              case 'short': sigma = p.sigmaShort; break;
+              case 'avg': sigma = (p.sigmaEwma + p.sigmaShort) / 2; break;
+              default: sigma = Math.max(p.sigmaEwma, p.sigmaShort);
+            }
+            const tiltUnit = stochW * p.stochZ + scannerW * p.scannerBias;
+            const tilt = clamp1(tiltUnit) * tiltCap * sigma;
+            const predicted = tilt * horizon;
+            const actual = p.actualLogReturn;
+            if (Math.abs(actual) > 1e-12) {
+              if (Math.sign(predicted) === Math.sign(actual)) hits++;
+            } else {
+              hits += 0.5;
+            }
+            total++;
+            const band = sigma * sqrtH;
+            if (Math.abs(actual - predicted) <= band) inside1++;
+          }
+          if (total === 0) continue;
+          const hitRate = hits / total;
+          const coverage1 = inside1 / total;
+          const calibPenalty = Math.abs(coverage1 - 0.68);
+          const score = hitRate - 0.5 * calibPenalty;
+          if (!best || score > best.score) {
+            best = { volMode, stochWeight: stochW, scannerWeight: scannerW, tiltCap, hitRate, coverage1, score, sampleSize: total };
+          }
+        }
+      }
+    }
+  }
+  return best;
+}
 
 export interface Pivot {
   index: number;

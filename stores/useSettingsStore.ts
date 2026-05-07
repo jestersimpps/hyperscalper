@@ -271,7 +271,7 @@ const mergeSettings = (storedSettings: any): AppSettings => {
         showPivotMarkers: storedSettings.chart?.showPivotMarkers ?? DEFAULT_SETTINGS.chart.showPivotMarkers,
         schmecklesMode: storedSettings.chart?.schmecklesMode ?? DEFAULT_SETTINGS.chart.schmecklesMode,
         invertedMode: storedSettings.chart?.invertedMode ?? DEFAULT_SETTINGS.chart.invertedMode,
-        showOrderbook: storedSettings.chart?.showOrderbook ?? DEFAULT_SETTINGS.chart.showOrderbook,
+        showForecast: storedSettings.chart?.showForecast ?? DEFAULT_SETTINGS.chart.showForecast,
       },
       pinnedSymbols: storedSettings.pinnedSymbols ?? DEFAULT_SETTINGS.pinnedSymbols,
     };

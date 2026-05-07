@@ -9,10 +9,12 @@ import { useSettingsStore } from '@/stores/useSettingsStore';
 import { useSymbolMetaStore } from '@/stores/useSymbolMetaStore';
 import { useChartSyncStore } from '@/stores/useChartSyncStore';
 import { useOrderbookStore } from '@/stores/useOrderbookStore';
+import { useTradesStore } from '@/stores/useTradesStore';
+import { useScannerStore } from '@/stores/useScannerStore';
+import { INTERVAL_TO_MS } from '@/lib/time-utils';
 import { getThemeColors } from '@/lib/theme-utils';
 import { useDebouncedCallback, useThrottledCallback } from '@/lib/performance-utils';
 import ChartLegend from '@/components/ChartLegend';
-import OrderbookOverlay from '@/components/OrderbookOverlay';
 import {
   calculateEMA,
   calculateMACD,
@@ -28,14 +30,26 @@ import {
   detectRsiReversals,
   calculateTrendlines,
   calculatePivotLines,
+  calculateForecastFan,
+  computeOrderbookImbalance,
+  computeTradeFlow,
+  computeScannerBias,
+  tuneForecastFromCandles,
   type StochasticData,
   type DivergencePoint,
   type ReversalMarker,
+  type ForecastTuningResult,
 } from '@/lib/indicators';
 import { getCandleTimeWindow } from '@/lib/time-utils';
 import { DEFAULT_CANDLE_COUNT } from '@/lib/constants';
 import { invertCandles } from '@/lib/candle-utils';
 import { calculateBreakevenPrice } from '@/lib/breakeven-utils';
+import {
+  projectEMAAlongPath,
+  projectRSIAlongPath,
+  projectStochAlongPath,
+  projectMACDAlongPath,
+} from '@/lib/projections';
 
 interface ScalpingChartProps {
   coin: string;
@@ -234,14 +248,24 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
   const ema3SeriesRef = useRef<any>(null);
   const stochSeriesRefsRef = useRef<Record<string, { k?: any; d: any }>>({});
   const macdSeriesRefsRef = useRef<Record<string, { line: any; signal: any; histogram: any }>>({});
+  const forecastSeriesRef = useRef<{ median: any; markers: any[] } | null>(null);
+  const projectionSeriesRef = useRef<{
+    ema1: any;
+    ema2: any;
+    ema3: any;
+    rsi: any;
+    stoch: Record<string, any>;
+    macd: any;
+    support: any;
+    resistance: any;
+  } | null>(null);
+  const smoothedDeltasRef = useRef<number[] | null>(null);
   const stochReferenceLinesRef = useRef<any[]>([]);
   const supportLineSeriesRef = useRef<any[]>([]);
   const resistanceLineSeriesRef = useRef<any[]>([]);
   const positionLineRef = useRef<any>(null);
   const breakevenBandSeriesRef = useRef<any>(null);
   const orderLinesRef = useRef<Map<string, { line: any; sig: string }>>(new Map());
-  const bestBidLineRef = useRef<any>(null);
-  const bestAskLineRef = useRef<any>(null);
   const cachedTrendlinesRef = useRef<{ supportLine: any[]; resistanceLine: any[] }>({ supportLine: [], resistanceLine: [] });
   const lastTrendlineCalculationRef = useRef<number>(0);
   const [chartReady, setChartReady] = useState(false);
@@ -367,6 +391,52 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
           priceLineVisible: false,
         });
 
+        const forecastMedianSeries = chart.addLineSeries({
+          color: 'transparent',
+          lineWidth: 1,
+          lineStyle: 0,
+          lastValueVisible: false,
+          priceLineVisible: false,
+          crosshairMarkerVisible: false,
+          autoscaleInfoProvider: () => null,
+        });
+
+        const forecastArrowMarkerSeries = Array.from({ length: 5 }, () =>
+          chart.addLineSeries({
+            color: 'transparent',
+            lineWidth: 1,
+            lastValueVisible: false,
+            priceLineVisible: false,
+            crosshairMarkerVisible: false,
+            autoscaleInfoProvider: () => null,
+          }),
+        );
+
+        const makeProjection = (color: string) =>
+          chart.addLineSeries({
+            color,
+            lineWidth: 2,
+            lineStyle: 1,
+            lastValueVisible: false,
+            priceLineVisible: false,
+            crosshairMarkerVisible: false,
+            autoscaleInfoProvider: () => null,
+          });
+
+        const projectionColor = colors.primaryMuted;
+        const projectionEma1Series = makeProjection(projectionColor);
+        const projectionEma2Series = makeProjection(projectionColor);
+        const projectionEma3Series = makeProjection(projectionColor);
+        const projectionRsiSeries = makeProjection(projectionColor);
+        const projectionStochSeriesByVariant: Record<string, any> = {
+          ultraFast: makeProjection(projectionColor),
+          fast: makeProjection(projectionColor),
+          medium: makeProjection(projectionColor),
+          slow: makeProjection(projectionColor),
+        };
+        const projectionMacdSeries = makeProjection(projectionColor);
+        const projectionSupportSeries = makeProjection(projectionColor);
+        const projectionResistanceSeries = makeProjection(projectionColor);
 
         // Stochastic series for variants
         const variantColors: Record<string, string> = {
@@ -500,7 +570,17 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
         ema1SeriesRef.current = ema1Series;
         ema2SeriesRef.current = ema2Series;
         ema3SeriesRef.current = ema3Series;
-
+        forecastSeriesRef.current = { median: forecastMedianSeries, markers: forecastArrowMarkerSeries };
+        projectionSeriesRef.current = {
+          ema1: projectionEma1Series,
+          ema2: projectionEma2Series,
+          ema3: projectionEma3Series,
+          rsi: projectionRsiSeries,
+          stoch: projectionStochSeriesByVariant,
+          macd: projectionMacdSeries,
+          support: projectionSupportSeries,
+          resistance: projectionResistanceSeries,
+        };
         resizeHandler = () => {
           if (chartContainerRef.current && chartRef.current) {
             chartRef.current.applyOptions({
@@ -560,6 +640,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
           }
         }
       } catch (error) {
+        console.error('[chart-init]', error);
       }
     };
 
@@ -589,6 +670,8 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
         ema2SeriesRef.current = null;
         ema3SeriesRef.current = null;
         stochSeriesRefsRef.current = {};
+        forecastSeriesRef.current = null;
+        projectionSeriesRef.current = null;
       }
     };
   }, [simplifiedView, macdSettings.showMultiTimeframe, stochasticSettings.showMultiVariant, enabledMacdTimeframes.join(','), Object.entries(stochasticSettings.variants).filter(([_, v]) => v.enabled).map(([k]) => k).join(',')]);
@@ -795,18 +878,48 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
     };
   }, [coin, interval, chartReady, isExternalData, candleService, simplifiedView, enabledMacdTimeframes.join(','), macdSettings.showMultiTimeframe, stochasticSettings.showMultiVariant]);
 
+  const showForecast = !!chartSettings?.showForecast && !referenceMode;
+
   useEffect(() => {
-    if (!chartSettings?.showOrderbook || referenceMode) return;
+    if (!showForecast) return;
 
     const { subscribeToOrderbook, unsubscribeFromOrderbook } = useOrderbookStore.getState();
-    // nSigFigs=4 → server aggregates the book one decimal coarser, so the same
-    // ~20 returned levels span a much wider price band around mid.
+    const { subscribeToTrades, unsubscribeFromTrades } = useTradesStore.getState();
     subscribeToOrderbook(coin, 4);
+    subscribeToTrades(coin);
+    const isBtc = coin === 'BTC';
+    if (!isBtc) subscribeToOrderbook('BTC', 4);
 
     return () => {
       unsubscribeFromOrderbook(coin);
+      unsubscribeFromTrades(coin);
+      if (!isBtc) unsubscribeFromOrderbook('BTC');
     };
-  }, [coin, chartSettings?.showOrderbook, referenceMode]);
+  }, [coin, showForecast]);
+
+  const forecastTuningRef = useRef<ForecastTuningResult | null>(null);
+  const tunedForKeyRef = useRef<string | null>(null);
+
+  const hasEnoughCandlesForTune = displayCandles.length >= 150;
+  useEffect(() => {
+    if (!showForecast) {
+      forecastTuningRef.current = null;
+      tunedForKeyRef.current = null;
+      return;
+    }
+    if (!hasEnoughCandlesForTune) return;
+    const key = `${coin}-${interval}`;
+    if (tunedForKeyRef.current === key) return;
+    forecastTuningRef.current = tuneForecastFromCandles(displayCandles, 5, 100);
+    tunedForKeyRef.current = key;
+  }, [coin, interval, showForecast, hasEnoughCandlesForTune, displayCandles]);
+
+  const orderbookSnapshot = useOrderbookStore((state) => state.books[coin]);
+  const btcOrderbookSnapshot = useOrderbookStore((state) => state.books['BTC']);
+  const recentTrades = useTradesStore((state) => state.trades[coin]);
+  const scannerResult = useScannerStore((state) =>
+    state.results.find((r) => r.symbol === coin)
+  );
 
   const closePrices = useMemo(() => displayCandles.map(c => c.close), [displayCandles]);
 
@@ -882,6 +995,76 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
     }
     return [];
   }, [emaSettings.ema1.enabled, emaSettings.ema2.enabled, emaSettings.ema3.enabled, ema1, ema2, ema3, displayCandles]);
+
+  const forecastFan = useMemo(() => {
+    if (!showForecast || displayCandles.length < 5) return [];
+    const intervalMs = INTERVAL_TO_MS[interval];
+    if (!intervalMs) return [];
+
+    const bestBid = orderbookSnapshot?.bestBid ?? null;
+    const bestAsk = orderbookSnapshot?.bestAsk ?? null;
+    const mid = bestBid != null && bestAsk != null ? (bestBid + bestAsk) / 2 : undefined;
+
+    const obImb = computeOrderbookImbalance(
+      orderbookSnapshot?.bids ?? [],
+      orderbookSnapshot?.asks ?? [],
+      10,
+      mid,
+    );
+    const isBtc = coin === 'BTC';
+    const btcMid = !isBtc && btcOrderbookSnapshot?.bestBid != null && btcOrderbookSnapshot?.bestAsk != null
+      ? (btcOrderbookSnapshot.bestBid + btcOrderbookSnapshot.bestAsk) / 2
+      : undefined;
+    const btcObImb = isBtc ? 0 : computeOrderbookImbalance(
+      btcOrderbookSnapshot?.bids ?? [],
+      btcOrderbookSnapshot?.asks ?? [],
+      10,
+      btcMid,
+    );
+    const flow = computeTradeFlow(recentTrades ?? []);
+    const scannerBias = computeScannerBias(
+      scannerResult?.divergences as DivergencePoint[] | undefined,
+      scannerResult?.emaAlignments,
+    );
+    const stoch = calculateStochasticMemoized(displayCandles, 14, 3, 3);
+    const lastK = stoch.length > 0 ? stoch[stoch.length - 1].k : 50;
+    const stochZ = (lastK - 50) / 50;
+
+    const tuned = forecastTuningRef.current;
+    return calculateForecastFan(displayCandles, {
+      horizon: 10,
+      intervalMs,
+      volMode: tuned?.volMode,
+      maxTiltSigmaFraction: tuned?.tiltCap,
+      weights: tuned
+        ? { obImb: 0.30, flowImb: 0.30, scannerBias: tuned.scannerWeight, stochZ: tuned.stochWeight, btcObImb: isBtc ? 0 : 0.15 }
+        : (isBtc ? { btcObImb: 0 } : undefined),
+      biases: {
+        obImb,
+        flowImb: flow.imbalance,
+        scannerBias,
+        stochZ,
+        toxicity: flow.toxicity,
+        btcObImb,
+      },
+    });
+  }, [
+    showForecast,
+    displayCandles,
+    interval,
+    coin,
+    orderbookSnapshot?.bids,
+    orderbookSnapshot?.asks,
+    orderbookSnapshot?.bestBid,
+    orderbookSnapshot?.bestAsk,
+    btcOrderbookSnapshot?.bids,
+    btcOrderbookSnapshot?.asks,
+    btcOrderbookSnapshot?.bestBid,
+    btcOrderbookSnapshot?.bestAsk,
+    recentTrades,
+    scannerResult?.divergences,
+    scannerResult?.emaAlignments,
+  ]);
 
   const rafRef = useRef<number | null>(null);
   const pendingUpdateRef = useRef(false);
@@ -1053,6 +1236,90 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
       onPriceUpdate(lastCandle.close);
     }
   }, [displayCandles, chartReady, onPriceUpdate, ema1, ema2, ema3, macdResult, rsi, emaSettings.ema1.enabled, emaSettings.ema2.enabled, emaSettings.ema3.enabled, stochasticSettings.showMultiVariant, stochasticSettings.showDivergence, stochasticSettings.variants, interval, allMacdCandles, coin, isExternalData, chartSettings]);
+
+  useEffect(() => {
+    if (!chartReady || !forecastSeriesRef.current) return;
+    const ref = forecastSeriesRef.current;
+
+    if (!showForecast || forecastFan.length === 0 || displayCandles.length === 0) {
+      ref.median.setData([]);
+      ref.markers.forEach((s) => {
+        s.setData([]);
+        s.setMarkers([]);
+      });
+      return;
+    }
+
+    updateChartWithRAF(() => {
+      const ref2 = forecastSeriesRef.current;
+      if (!ref2) return;
+      const colors = getThemeColors();
+      const lastCandle = displayCandles[displayCandles.length - 1];
+
+      const intervalSec = Math.max(1, INTERVAL_TO_MS[interval] / 1000);
+      const lookback = Math.min(50, displayCandles.length);
+      const recent = displayCandles.slice(-lookback);
+      const volPerSec = recent
+        .map((c) => (c.volume ?? 0) / intervalSec)
+        .filter((v) => Number.isFinite(v) && v > 0)
+        .sort((a, b) => a - b);
+      const currentVps = (lastCandle.volume ?? 0) / intervalSec;
+      let strength = 0.2;
+      if (volPerSec.length >= 5 && currentVps > 0) {
+        const idx = volPerSec.findIndex((v) => v >= currentVps);
+        strength = idx === -1 ? 1 : idx / volPerSec.length;
+      }
+      strength = Math.max(0.05, Math.min(1, strength));
+
+      const baseHorizon = forecastFan.length;
+      const maxExtension = baseHorizon;
+      const extraBars = Math.round(strength * maxExtension);
+
+      const median: { time: any; value: number }[] = [
+        { time: (lastCandle.time / 1000) as any, value: lastCandle.close },
+      ];
+      for (const p of forecastFan) {
+        median.push({ time: (p.time / 1000) as any, value: p.median });
+      }
+
+      let tipTimeMs = forecastFan[baseHorizon - 1].time;
+      let tipMedian = forecastFan[baseHorizon - 1].median;
+      if (extraBars > 0 && baseHorizon >= 2) {
+        const stepRatio = forecastFan[baseHorizon - 1].median / forecastFan[baseHorizon - 2].median;
+        const stepMs = forecastFan[baseHorizon - 1].time - forecastFan[baseHorizon - 2].time;
+        for (let i = 1; i <= extraBars; i++) {
+          tipTimeMs += stepMs;
+          tipMedian *= stepRatio;
+          median.push({ time: (tipTimeMs / 1000) as any, value: tipMedian });
+        }
+      }
+      ref2.median.setData(median);
+
+      const tip = { time: tipTimeMs, median: tipMedian };
+
+      const goingUp = tip.median >= lastCandle.close;
+      const arrowColor = goingUp ? colors.statusBullish : colors.statusBearish;
+      const tipTime = (tip.time / 1000) as any;
+
+
+      ref2.markers.forEach((s, i) => {
+        if (i === 0) {
+          s.setData([{ time: tipTime, value: tip.median }]);
+          s.setMarkers([
+            {
+              time: tipTime,
+              position: goingUp ? 'aboveBar' : 'belowBar',
+              shape: goingUp ? 'arrowUp' : 'arrowDown',
+              color: arrowColor,
+            },
+          ]);
+        } else {
+          s.setData([]);
+          s.setMarkers([]);
+        }
+      });
+    });
+  }, [chartReady, showForecast, forecastFan, displayCandles, interval, updateChartWithRAF]);
 
 
   // MACD multi-timeframe data update
@@ -1286,6 +1553,168 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
     lastTrendlineCalculationRef.current = currentLength;
     return newTrendlines;
   }, [displayCandles.length, displayCandles]);
+
+  useEffect(() => {
+    console.log('[projections] effect fired', { chartReady, hasRef: !!projectionSeriesRef.current, showForecast, candles: displayCandles.length });
+    if (!chartReady || !projectionSeriesRef.current) return;
+    const ref = projectionSeriesRef.current;
+    const clearAll = () => {
+      ref.ema1.setData([]);
+      ref.ema2.setData([]);
+      ref.ema3.setData([]);
+      ref.rsi.setData([]);
+      Object.values(ref.stoch).forEach((s) => s.setData([]));
+      ref.macd.setData([]);
+      ref.support.setData([]);
+      ref.resistance.setData([]);
+    };
+
+    if (!showForecast || displayCandles.length === 0) {
+      clearAll();
+      smoothedDeltasRef.current = null;
+      return;
+    }
+
+    const intervalMs = INTERVAL_TO_MS[interval];
+    if (!intervalMs) {
+      clearAll();
+      return;
+    }
+
+    const run = () => {
+      const ref2 = projectionSeriesRef.current;
+      if (!ref2) return;
+      const horizon = forecastFan.length;
+      if (horizon === 0) {
+        clearAll();
+        return;
+      }
+      const lastCandle = displayCandles[displayCandles.length - 1];
+      const startTimeMs = lastCandle.time;
+      const liveMedians = forecastFan.map((p) => p.median);
+      const liveAnchor = lastCandle.close;
+      const liveDeltas = liveMedians.map((m) => m / liveAnchor - 1);
+      const SMOOTH_ALPHA = 0.05;
+      const prev = smoothedDeltasRef.current;
+      const smoothedDeltas =
+        prev && prev.length === liveDeltas.length
+          ? liveDeltas.map((d, k) => SMOOTH_ALPHA * d + (1 - SMOOTH_ALPHA) * prev[k])
+          : liveDeltas.slice();
+      smoothedDeltasRef.current = smoothedDeltas;
+      const baseDelta = smoothedDeltas[0];
+      const forecastCloses = smoothedDeltas.map((d) => liveAnchor * (1 + d - baseDelta));
+      type Pt = { time: number; value: number };
+      const SPLINE_SMOOTH_ALPHA = 0.45;
+      const smoothPts = (pts: Pt[]): Pt[] => {
+        if (pts.length < 2) return pts;
+        const out: Pt[] = [{ ...pts[0] }];
+        for (let i = 1; i < pts.length; i++) {
+          const prev = out[i - 1].value;
+          out.push({ time: pts[i].time, value: SPLINE_SMOOTH_ALPHA * pts[i].value + (1 - SPLINE_SMOOTH_ALPHA) * prev });
+        }
+        for (let i = pts.length - 2; i >= 0; i--) {
+          const next = out[i + 1].value;
+          out[i] = { time: out[i].time, value: SPLINE_SMOOTH_ALPHA * out[i].value + (1 - SPLINE_SMOOTH_ALPHA) * next };
+        }
+        return out;
+      };
+      const toSeriesData = (pts: Pt[]) =>
+        smoothPts(pts).map((p) => ({ time: (p.time / 1000) as any, value: p.value }));
+      const prepend = (pts: Pt[]) => [
+        { time: (startTimeMs / 1000) as any, value: lastCandle.close },
+        ...toSeriesData(pts),
+      ];
+
+      const debug: Record<string, number> = {};
+      const setWithLog = (name: string, series: any, data: any[]) => {
+        debug[name] = data.length;
+        series.setData(data);
+      };
+
+      const easeInOut = (t: number) => (t < 0.5 ? 2 * t * t : 1 - 2 * (1 - t) * (1 - t));
+      const sCurveFromClose = (endValue: number | null | undefined) => {
+        if (endValue == null || !Number.isFinite(endValue) || horizon <= 0) return [];
+        const out: any[] = [{ time: (startTimeMs / 1000) as any, value: lastCandle.close }];
+        for (let k = 1; k <= horizon; k++) {
+          const t = k / horizon;
+          const v = lastCandle.close + (endValue - lastCandle.close) * easeInOut(t);
+          out.push({ time: ((startTimeMs + intervalMs * k) / 1000) as any, value: v });
+        }
+        return out;
+      };
+      const emaEndpoint = (emaArr: number[], period: number) => {
+        const pts = projectEMAAlongPath(emaArr, period, forecastCloses, startTimeMs, intervalMs);
+        return pts[pts.length - 1]?.value;
+      };
+
+      setWithLog('ema1', ref2.ema1,
+        emaSettings.ema1.enabled && ema1.length >= 1
+          ? sCurveFromClose(emaEndpoint(ema1, emaSettings.ema1.period))
+          : []);
+      setWithLog('ema2', ref2.ema2,
+        emaSettings.ema2.enabled && ema2.length >= 1
+          ? sCurveFromClose(emaEndpoint(ema2, emaSettings.ema2.period))
+          : []);
+      setWithLog('ema3', ref2.ema3,
+        emaSettings.ema3.enabled && ema3.length >= 1
+          ? sCurveFromClose(emaEndpoint(ema3, emaSettings.ema3.period))
+          : []);
+
+      setWithLog('rsi', ref2.rsi, closePrices.length >= 15
+        ? prepend(projectRSIAlongPath(closePrices, forecastCloses, startTimeMs, intervalMs))
+        : []);
+
+      const variantNames = ['ultraFast', 'fast', 'medium', 'slow'] as const;
+      let totalStochPts = 0;
+      for (const variantName of variantNames) {
+        const series = ref2.stoch[variantName];
+        if (!series) continue;
+        const variantConfig = stochasticSettings.variants?.[variantName];
+        if (!variantConfig?.enabled || displayCandles.length < variantConfig.period) {
+          series.setData([]);
+          continue;
+        }
+        const data = prepend(projectStochAlongPath(
+          displayCandles,
+          forecastCloses,
+          startTimeMs,
+          intervalMs,
+          variantConfig.period,
+          variantConfig.smoothK,
+        ));
+        series.setData(data);
+        totalStochPts += data.length;
+      }
+      debug.stoch = totalStochPts;
+
+      const macdInterval = macdSettings.timeframes?.[interval as keyof typeof macdSettings.timeframes];
+      setWithLog('macd', ref2.macd, macdInterval?.enabled && closePrices.length >= macdInterval.slowPeriod
+        ? prepend(projectMACDAlongPath(
+            closePrices,
+            forecastCloses,
+            startTimeMs,
+            intervalMs,
+            macdInterval.fastPeriod,
+            macdInterval.slowPeriod,
+          ))
+        : []);
+
+      ref2.support.setData([]);
+      ref2.resistance.setData([]);
+      debug.support = 0;
+      debug.resistance = 0;
+      console.log('[projections]', debug, {
+        forecastLen: forecastFan.length,
+        emaEnabled: [emaSettings.ema1.enabled, emaSettings.ema2.enabled, emaSettings.ema3.enabled],
+        macdEnabled: macdInterval?.enabled,
+        closesLen: closePrices.length,
+        candlesLen: displayCandles.length,
+        stochVariantsEnabled: Object.entries(stochasticSettings.variants ?? {}).filter(([, v]: any) => v?.enabled).map(([k]) => k),
+      });
+    };
+    const raf = requestAnimationFrame(run);
+    return () => cancelAnimationFrame(raf);
+  }, [chartReady, showForecast, forecastFan, displayCandles, interval, ema1, ema2, ema3, trendlines, closePrices, emaSettings, macdSettings, stochasticSettings, updateChartWithRAF]);
 
   useEffect(() => {
     if (!chartReady || !chartRef.current || trendlines.supportLine.length === 0) {
@@ -1581,109 +2010,6 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
     };
   }, []);
 
-  const orderbookSnapshot = useOrderbookStore((state) => state.books[coin]);
-
-  const priceToY = useCallback((price: number): number | null => {
-    const series = candleSeriesRef.current;
-    if (!series) return null;
-    const y = series.priceToCoordinate(price);
-    return y == null ? null : Number(y);
-  }, []);
-
-  useEffect(() => {
-    if (!chartReady || !candleSeriesRef.current) return;
-
-    const showOrderbook = !!chartSettings?.showOrderbook && !referenceMode;
-    const series = candleSeriesRef.current;
-    const colors = getThemeColors();
-    const inverted = !!chartSettings?.invertedMode;
-    const bidColor = inverted ? colors.statusBearish : colors.statusBullish;
-    const askColor = inverted ? colors.statusBullish : colors.statusBearish;
-
-    const removeLine = (ref: React.MutableRefObject<any>) => {
-      if (ref.current) {
-        try {
-          series.removePriceLine(ref.current);
-        } catch (e) {
-          // Ignore stale-line errors
-        }
-        ref.current = null;
-      }
-    };
-
-    if (!showOrderbook || !orderbookSnapshot) {
-      removeLine(bestBidLineRef);
-      removeLine(bestAskLineRef);
-      return;
-    }
-
-    const { bestBid, bestAsk } = orderbookSnapshot;
-    const refPrice = inverted && candles.length > 0
-      ? (candles[0]?.close ?? displayCandles[0]?.close ?? 0)
-      : 0;
-    const flip = (p: number) => (inverted && refPrice > 0 ? 2 * refPrice - p : p);
-    const displayBid = bestBid != null ? flip(bestBid) : null;
-    const displayAsk = bestAsk != null ? flip(bestAsk) : null;
-    // In inverted mode bids appear above the candles (drawn in bear color region of the flip)
-    const lineBidColor = inverted ? askColor : bidColor;
-    const lineAskColor = inverted ? bidColor : askColor;
-    if (displayBid != null) {
-      if (bestBidLineRef.current) {
-        try {
-          bestBidLineRef.current.applyOptions({ price: displayBid, color: lineBidColor, title: '' });
-        } catch (e) {
-          removeLine(bestBidLineRef);
-        }
-      }
-      if (!bestBidLineRef.current) {
-        bestBidLineRef.current = series.createPriceLine({
-          price: displayBid,
-          color: lineBidColor,
-          lineWidth: 1,
-          lineStyle: 2,
-          axisLabelVisible: true,
-          title: '',
-        });
-      }
-    } else {
-      removeLine(bestBidLineRef);
-    }
-
-    if (displayAsk != null) {
-      if (bestAskLineRef.current) {
-        try {
-          bestAskLineRef.current.applyOptions({ price: displayAsk, color: lineAskColor, title: '' });
-        } catch (e) {
-          removeLine(bestAskLineRef);
-        }
-      }
-      if (!bestAskLineRef.current) {
-        bestAskLineRef.current = series.createPriceLine({
-          price: displayAsk,
-          color: lineAskColor,
-          lineWidth: 1,
-          lineStyle: 2,
-          axisLabelVisible: true,
-          title: '',
-        });
-      }
-    } else {
-      removeLine(bestAskLineRef);
-    }
-
-    return () => {
-      removeLine(bestBidLineRef);
-      removeLine(bestAskLineRef);
-    };
-  }, [
-    chartReady,
-    chartSettings?.showOrderbook,
-    chartSettings?.invertedMode,
-    referenceMode,
-    orderbookSnapshot?.bestBid,
-    orderbookSnapshot?.bestAsk,
-  ]);
-
   const variantColorVars: Record<string, string> = {
     ultraFast: '#FF10FF',
     fast: '#00D9FF',
@@ -1709,14 +2035,6 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
       )}
       <div className="relative flex-1 min-h-0">
         <div ref={chartContainerRef} className="absolute inset-0" />
-        <OrderbookOverlay
-          coin={coin}
-          priceToY={priceToY}
-          chartReady={chartReady}
-          enabled={!!chartSettings?.showOrderbook && !referenceMode}
-          inverted={!!chartSettings?.invertedMode}
-          invertReference={candles[0]?.close ?? null}
-        />
       </div>
       <div className="mt-1 flex gap-3 text-[9px] items-center">
         <ChartLegend className="flex-shrink-0" />

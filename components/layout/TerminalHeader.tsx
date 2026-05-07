@@ -17,7 +17,7 @@ export default function TerminalHeader({ coin, onRefreshCharts, onAutoZoom, onZo
   const streams = useWebSocketStatusStore((state) => state.streams);
   const isMultiChartView = useSettingsStore((state) => state.isMultiChartView);
   const toggleMultiChartView = useSettingsStore((state) => state.toggleMultiChartView);
-  const showOrderbook = useSettingsStore((state) => state.settings.chart.showOrderbook);
+  const showForecast = useSettingsStore((state) => state.settings.chart.showForecast);
   const updateChartSettings = useSettingsStore((state) => state.updateChartSettings);
 
   useEffect(() => {
@@ -88,7 +88,6 @@ export default function TerminalHeader({ coin, onRefreshCharts, onAutoZoom, onZo
             {renderStreamIndicator('candles', 'CANDLES')}
             {renderStreamIndicator('trades', 'TRADES')}
             {renderStreamIndicator('prices', 'PRICES')}
-            {showOrderbook && renderStreamIndicator('orderbook', 'BOOK')}
           </div>
           {onRefreshCharts && (
             <button
@@ -118,15 +117,15 @@ export default function TerminalHeader({ coin, onRefreshCharts, onAutoZoom, onZo
             </button>
           )}
           <button
-            onClick={() => updateChartSettings({ showOrderbook: !showOrderbook })}
+            onClick={() => updateChartSettings({ showForecast: !showForecast })}
             className={`hidden md:block px-3 py-1.5 text-[10px] font-mono uppercase tracking-wider transition-all rounded-sm ${
-              showOrderbook
+              showForecast
                 ? 'bg-primary/20 text-primary border-2 border-primary'
                 : 'bg-bg-secondary text-primary-muted border-2 border-frame hover:text-primary hover:bg-primary/10'
             }`}
-            title="Toggle live orderbook overlay on the chart"
+            title="Toggle predicted price fan (median + 1σ/2σ bands) extending forward from the last candle"
           >
-            Orderbook
+            Forecast
           </button>
           <button
             onClick={toggleMultiChartView}
