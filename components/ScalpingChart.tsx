@@ -268,6 +268,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
   const orderLinesRef = useRef<Map<string, { line: any; sig: string }>>(new Map());
   const cachedTrendlinesRef = useRef<{ supportLine: any[]; resistanceLine: any[] }>({ supportLine: [], resistanceLine: [] });
   const lastTrendlineCalculationRef = useRef<number>(0);
+  const lastSeriesKeyRef = useRef<string>('');
   const [chartReady, setChartReady] = useState(false);
   const [divergencePoints, setDivergencePoints] = useState<DivergencePoint[]>([]);
   const candlesBufferRef = useRef<CandleData[]>([]);
@@ -1165,7 +1166,10 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
     const seriesLastTime = existingSeriesData.length > 0
       ? (existingSeriesData[existingSeriesData.length - 1].time as number)
       : null;
-    const canUpdateInPlace = seriesLastTime !== null && newBarTime >= seriesLastTime;
+    const seriesKey = `${coin}-${interval}`;
+    const keyChanged = lastSeriesKeyRef.current !== seriesKey;
+    if (keyChanged) lastSeriesKeyRef.current = seriesKey;
+    const canUpdateInPlace = !keyChanged && seriesLastTime !== null && newBarTime >= seriesLastTime;
 
     if (!canUpdateInPlace) {
       updateChartWithRAF(() => {
@@ -1572,7 +1576,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
     cachedTrendlinesRef.current = newTrendlines;
     lastTrendlineCalculationRef.current = currentLength;
     return newTrendlines;
-  }, [displayCandles.length, displayCandles]);
+  }, [displayCandles.length, displayCandles, coin, interval]);
 
   useEffect(() => {
     console.log('[projections] effect fired', { chartReady, hasRef: !!projectionSeriesRef.current, showForecast, candles: displayCandles.length });
