@@ -878,6 +878,18 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
     };
   }, [coin, interval, chartReady, isExternalData, candleService, simplifiedView, enabledMacdTimeframes.join(','), macdSettings.showMultiTimeframe, stochasticSettings.showMultiVariant]);
 
+  const lastFitKeyRef = useRef<string>('');
+  useEffect(() => {
+    if (!chartReady || !chartRef.current || displayCandles.length === 0) return;
+    const key = `${coin}-${interval}`;
+    if (lastFitKeyRef.current === key) return;
+    lastFitKeyRef.current = key;
+    try {
+      chartRef.current.timeScale().fitContent();
+      candleSeriesRef.current?.priceScale().applyOptions({ autoScale: true });
+    } catch (e) {}
+  }, [coin, interval, chartReady, displayCandles.length]);
+
   const showForecast = !!chartSettings?.showForecast && !referenceMode;
 
   useEffect(() => {
@@ -1529,8 +1541,16 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
     };
   }, [chartReady, stochasticSettings.showMultiVariant, Object.entries(stochasticSettings.variants).filter(([_, v]) => v.enabled).map(([k]) => k).join(',')]);
 
+  const trendlineCacheKeyRef = useRef<string>('');
   const trendlines = useMemo(() => {
     const currentLength = displayCandles.length;
+    const cacheKey = `${coin}-${interval}`;
+
+    if (trendlineCacheKeyRef.current !== cacheKey) {
+      trendlineCacheKeyRef.current = cacheKey;
+      cachedTrendlinesRef.current = { supportLine: [], resistanceLine: [] };
+      lastTrendlineCalculationRef.current = 0;
+    }
 
     if (currentLength < 30) {
       cachedTrendlinesRef.current = { supportLine: [], resistanceLine: [] };
