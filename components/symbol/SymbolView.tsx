@@ -24,8 +24,11 @@ interface SymbolViewProps {
   coin: string;
 }
 
+const CHART_INTERVALS: TimeInterval[] = ['1m', '5m', '15m', '1h'];
+
 function SymbolView({ coin }: SymbolViewProps) {
   const [currentPrice, setCurrentPrice] = useState(0);
+  const [chartInterval, setChartInterval] = useState<TimeInterval>('1m');
   const [newTradeKeys, setNewTradeKeys] = useState<Set<string>>(new Set());
   const chartRef = useRef<any>(null);
   const crosshairStateRef = useRef({ active: false, type: null as any });
@@ -555,11 +558,26 @@ function SymbolView({ coin }: SymbolViewProps) {
           <div className="terminal-border p-1.5 flex flex-col flex-1 min-h-0">
             <div className="flex items-center gap-3 mb-0.5">
               <span className="text-[10px] text-primary-muted uppercase tracking-wider">█ SCALPING CHART</span>
+              <div className="flex items-center gap-0.5">
+                {CHART_INTERVALS.map((tf) => (
+                  <button
+                    key={tf}
+                    onClick={() => setChartInterval(tf)}
+                    className={`px-1.5 py-0.5 text-[10px] uppercase tracking-wider transition-colors ${
+                      chartInterval === tf
+                        ? 'bg-primary/20 text-primary'
+                        : 'text-primary-muted hover:text-primary'
+                    }`}
+                  >
+                    {tf}
+                  </button>
+                ))}
+              </div>
             </div>
             <div className={`flex-1 min-h-0 ${crosshairActive ? 'cursor-crosshair' : ''}`}>
               <ScalpingChart
                 coin={coin}
-                interval="1m"
+                interval={chartInterval}
                 onPriceUpdate={setCurrentPrice}
                 onChartReady={(chart) => { chartRef.current = chart; }}
 onChartClick={async (data) => {
