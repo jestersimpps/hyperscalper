@@ -1,3 +1,5 @@
+import type { TimeInterval } from '@/types';
+
 export interface StochasticVariantConfig {
   enabled: boolean;
   period: number;
@@ -211,6 +213,7 @@ export interface ChartSettings {
   schmecklesMode: boolean;
   invertedMode: boolean;
   showForecast: boolean;
+  defaultInterval: TimeInterval;
 }
 
 export interface AppSettings {
@@ -416,6 +419,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     schmecklesMode: false,
     invertedMode: false,
     showForecast: false,
+    defaultInterval: '1m',
   },
   pinnedSymbols: [],
 };

@@ -28,7 +28,6 @@ const CHART_INTERVALS: TimeInterval[] = ['1m', '5m', '15m', '1h'];
 
 function SymbolView({ coin }: SymbolViewProps) {
   const [currentPrice, setCurrentPrice] = useState(0);
-  const [chartInterval, setChartInterval] = useState<TimeInterval>('1m');
   const [newTradeKeys, setNewTradeKeys] = useState<Set<string>>(new Set());
   const chartRef = useRef<any>(null);
   const crosshairStateRef = useRef({ active: false, type: null as any });
@@ -43,6 +42,8 @@ function SymbolView({ coin }: SymbolViewProps) {
   const playTradeSound = useSettingsStore((state) => state.settings.theme.playTradeSound);
   const orderSettings = useSettingsStore((state) => state.settings.orders);
   const invertedMode = useSettingsStore((state) => state.settings.chart.invertedMode);
+  const chartInterval = useSettingsStore((state) => state.settings.chart.defaultInterval);
+  const updateChartSettings = useSettingsStore((state) => state.updateChartSettings);
 
   const position = usePositionStore((state) => state.positions[coin]);
 
@@ -562,7 +563,11 @@ function SymbolView({ coin }: SymbolViewProps) {
                 {CHART_INTERVALS.map((tf) => (
                   <button
                     key={tf}
-                    onClick={() => setChartInterval(tf)}
+                    onClick={() => {
+                      if (tf === chartInterval) return;
+                      updateChartSettings({ defaultInterval: tf });
+                      handleRefreshCharts();
+                    }}
                     className={`px-1.5 py-0.5 text-[10px] uppercase tracking-wider transition-colors ${
                       chartInterval === tf
                         ? 'bg-primary/20 text-primary'
