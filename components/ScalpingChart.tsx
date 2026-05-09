@@ -1101,8 +1101,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
 
   const detectDivergencesDebounced = useDebouncedCallback(() => {
     if (!simplifiedView && stochasticSettings.showMultiVariant && stochasticSettings.showDivergence && displayCandles.length >= 50) {
-      const stochCandles = interval === '1m' ? candles : (isExternalData ? allMacdCandles['1m'] : useCandleStore.getState().candles[`${coin}-1m`]);
-      const displayStochCandles = invertCandles(stochCandles, chartSettings?.invertedMode ?? false);
+      const displayStochCandles = displayCandles;
 
       if (displayStochCandles && displayStochCandles.length >= 50) {
         let currentDivergences: DivergencePoint[] = [];
@@ -1404,10 +1403,9 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
     // Multi-variant stochastic for normal view
     if (!stochasticSettings.showMultiVariant) return;
 
-    const stochCandles = interval === '1m' ? candles : (isExternalData ? allMacdCandles['1m'] : useCandleStore.getState().candles[`${coin}-1m`]);
-    if (!stochCandles || stochCandles.length === 0) return;
+    if (!displayCandles || displayCandles.length === 0) return;
 
-    const displayStochCandles = invertCandles(stochCandles, chartSettings?.invertedMode ?? false);
+    const displayStochCandles = displayCandles;
 
     const colors = getThemeColors();
     const enabledVariants = Object.entries(stochasticSettings.variants).filter(([_, config]) => config.enabled);
