@@ -846,40 +846,32 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
   useEffect(() => {
     if (!chartReady || isExternalData || !candleService) return;
 
-    const { startTime, endTime } = getCandleTimeWindow(interval, DEFAULT_CANDLE_COUNT);
     const { fetchCandles, subscribeToCandles } = useCandleStore.getState();
-    fetchCandles(coin, interval, startTime, endTime);
-    subscribeToCandles(coin, interval);
+    const macdSubs: TimeInterval[] = [];
 
-    // Fetch MACD data (skip in simplified view)
+    // Primary interval (1m/5m/15m/1h) is fetched+subscribed by SymbolView.
+    // Only fetch MACD extras and the 1m stoch feed here.
     if (!simplifiedView && macdSettings.showMultiTimeframe) {
       enabledMacdTimeframes.forEach(tf => {
         const { startTime: tfStart, endTime: tfEnd } = getCandleTimeWindow(tf, DEFAULT_CANDLE_COUNT);
         fetchCandles(coin, tf, tfStart, tfEnd);
         subscribeToCandles(coin, tf);
+        macdSubs.push(tf);
       });
     }
 
-    // Fetch 1m data for stochastics (skip in simplified view - use chart's own data)
+    let needsStoch1m = false;
     if (!simplifiedView && stochasticSettings.showMultiVariant && interval !== '1m') {
       const { startTime: stochStart, endTime: stochEnd } = getCandleTimeWindow('1m', DEFAULT_CANDLE_COUNT);
       fetchCandles(coin, '1m', stochStart, stochEnd);
       subscribeToCandles(coin, '1m');
+      needsStoch1m = true;
     }
 
     return () => {
       const { unsubscribeFromCandles } = useCandleStore.getState();
-      unsubscribeFromCandles(coin, interval);
-
-      if (!simplifiedView && macdSettings.showMultiTimeframe) {
-        enabledMacdTimeframes.forEach(tf => {
-          unsubscribeFromCandles(coin, tf);
-        });
-      }
-
-      if (!simplifiedView && stochasticSettings.showMultiVariant && interval !== '1m') {
-        unsubscribeFromCandles(coin, '1m');
-      }
+      macdSubs.forEach(tf => unsubscribeFromCandles(coin, tf));
+      if (needsStoch1m) unsubscribeFromCandles(coin, '1m');
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- enabledMacdTimeframes intentionally tracked via stable string key
   }, [coin, interval, chartReady, isExternalData, candleService, simplifiedView, enabledMacdTimeframesKey, macdSettings.showMultiTimeframe, stochasticSettings.showMultiVariant]);
