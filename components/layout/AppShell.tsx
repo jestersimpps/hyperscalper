@@ -41,10 +41,11 @@ export default function AppShell({ selectedSymbol, children }: AppShellProps) {
   const orderSettings = useSettingsStore((state) => state.settings.orders);
   const scannerEnabled = useSettingsStore((state) => state.settings.scanner.enabled);
   const invertedMode = useSettingsStore((state) => state.settings.chart.invertedMode);
+  const chartInterval = useSettingsStore((state) => state.settings.chart.defaultInterval);
   const togglePanel = useSettingsStore((state) => state.togglePanel);
   const mobileActiveTab = useSettingsStore((state) => state.mobileActiveTab);
 
-  const candleKey = `${coin}-1m`;
+  const candleKey = `${coin}-${chartInterval}`;
   const candles = useCandleStore((state) => state.candles[candleKey]) || [];
   const buyCloud = useTradingStore((state) => state.buyCloud);
   const sellCloud = useTradingStore((state) => state.sellCloud);

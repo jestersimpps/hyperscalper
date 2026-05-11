@@ -1662,7 +1662,7 @@ function getExtremeLines(
   lowestPriceCandle: FullCandleData;
   secondLowestPriceCandle: FullCandleData | null;
 } {
-  let candles = [...historicalPrices];
+  const candles = [...historicalPrices];
   candles.splice(candles.length - 3, 3);
 
   const highestPrice = Math.max(...candles.map(x => x.high));
@@ -1840,11 +1840,11 @@ function getExtremeSupportResistanceLines(
   }[];
 } {
   const endTime = historicalPrices[historicalPrices.length - 1].time;
-  let output = {
+  const output = {
     support: [] as any[],
     resistance: [] as any[]
   };
-  let candles = [...historicalPrices];
+  const candles = [...historicalPrices];
   const fullWidthLines = getExtremeLines(candles, endTime);
 
   output.support.push({

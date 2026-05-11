@@ -13,6 +13,7 @@ import { useTradesStore } from '@/stores/useTradesStore';
 import { useScannerStore } from '@/stores/useScannerStore';
 import { INTERVAL_TO_MS } from '@/lib/time-utils';
 import { getThemeColors } from '@/lib/theme-utils';
+import { formatSize } from '@/lib/format-utils';
 import { useDebouncedCallback, useThrottledCallback } from '@/lib/performance-utils';
 import ChartLegend from '@/components/ChartLegend';
 import {
@@ -266,6 +267,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
   const positionLineRef = useRef<any>(null);
   const breakevenBandSeriesRef = useRef<any>(null);
   const orderLinesRef = useRef<Map<string, { line: any; sig: string }>>(new Map());
+  const wallLinesRef = useRef<any[]>([]);
   const cachedTrendlinesRef = useRef<{ supportLine: any[]; resistanceLine: any[] }>({ supportLine: [], resistanceLine: [] });
   const lastTrendlineCalculationRef = useRef<number>(0);
   const lastSeriesKeyRef = useRef<string>('');
@@ -303,7 +305,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
     let mounted = true;
     let resizeHandler: (() => void) | null = null;
     let containerClickHandler: ((event: MouseEvent) => void) | null = null;
-    let canvasElements: HTMLCanvasElement[] = [];
+    const canvasElements: HTMLCanvasElement[] = [];
 
       const initChart = async () => {
       if (!chartContainerRef.current || !mounted) return;
@@ -892,23 +894,32 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
   }, [coin, interval, chartReady, displayCandles.length]);
 
   const showForecast = !!chartSettings?.showForecast && !referenceMode;
+  const showWalls = chartSettings?.showWalls !== false && !simplifiedView && !referenceMode;
 
   useEffect(() => {
     if (!showForecast) return;
 
-    const { subscribeToOrderbook, unsubscribeFromOrderbook } = useOrderbookStore.getState();
     const { subscribeToTrades, unsubscribeFromTrades } = useTradesStore.getState();
-    subscribeToOrderbook(coin, 4);
     subscribeToTrades(coin);
-    const isBtc = coin === 'BTC';
-    if (!isBtc) subscribeToOrderbook('BTC', 4);
+
+    return () => {
+      unsubscribeFromTrades(coin);
+    };
+  }, [coin, showForecast]);
+
+  useEffect(() => {
+    if (!showForecast && !showWalls) return;
+
+    const { subscribeToOrderbook, unsubscribeFromOrderbook } = useOrderbookStore.getState();
+    subscribeToOrderbook(coin, 4);
+    const subscribeBtc = showForecast && coin !== 'BTC';
+    if (subscribeBtc) subscribeToOrderbook('BTC', 4);
 
     return () => {
       unsubscribeFromOrderbook(coin);
-      unsubscribeFromTrades(coin);
-      if (!isBtc) unsubscribeFromOrderbook('BTC');
+      if (subscribeBtc) unsubscribeFromOrderbook('BTC');
     };
-  }, [coin, showForecast]);
+  }, [coin, showForecast, showWalls]);
 
   const forecastTuningRef = useRef<ForecastTuningResult | null>(null);
   const tunedForKeyRef = useRef<string | null>(null);
@@ -1104,7 +1115,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
       const displayStochCandles = displayCandles;
 
       if (displayStochCandles && displayStochCandles.length >= 50) {
-        let currentDivergences: DivergencePoint[] = [];
+        const currentDivergences: DivergencePoint[] = [];
 
         Object.entries(stochasticSettings.variants).forEach(([variantName, variantConfig]) => {
           if (!variantConfig.enabled) return;
@@ -1803,6 +1814,108 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
       resistanceLineSeriesRef.current = [];
     };
   }, [chartReady, trendlines]);
+
+  useEffect(() => {
+    const series = candleSeriesRef.current;
+    if (!series) return;
+
+    wallLinesRef.current.forEach((line) => {
+      try { series.removePriceLine(line); } catch (e) {}
+    });
+    wallLinesRef.current = [];
+
+    if (!chartReady || !showWalls || !orderbookSnapshot) return;
+    const { bids, asks, bestBid, bestAsk } = orderbookSnapshot;
+    if (!bids?.length || !asks?.length) return;
+
+    const sample = [...bids.slice(0, 8), ...asks.slice(0, 8)]
+      .map((l) => l.price)
+      .sort((a, b) => a - b);
+    let nativeTick = Infinity;
+    for (let i = 1; i < sample.length; i++) {
+      const gap = sample[i] - sample[i - 1];
+      if (gap > 0 && gap < nativeTick) nativeTick = gap;
+    }
+    if (!Number.isFinite(nativeTick) || nativeTick <= 0) nativeTick = 0.01;
+
+    const refMid = (bestBid != null && bestAsk != null)
+      ? (bestBid + bestAsk) / 2
+      : (bids[0]?.price ?? asks[0]?.price ?? 0);
+
+    const rawStep = nativeTick * 8;
+    const exp = Math.floor(Math.log10(rawStep));
+    const base = rawStep / Math.pow(10, exp);
+    const niceBase = base >= 5 ? 5 : base >= 2 ? 2 : 1;
+    const bucketStep = niceBase * Math.pow(10, exp);
+    const decimalsForKey = Math.max(0, -exp + 2);
+
+    const bucketize = (
+      levels: typeof bids,
+      side: 'bid' | 'ask',
+    ): { price: number; size: number }[] => {
+      const buckets = new Map<number, number>();
+      for (const lvl of levels) {
+        const bucketed = side === 'bid'
+          ? Math.floor(lvl.price / bucketStep) * bucketStep
+          : Math.ceil(lvl.price / bucketStep) * bucketStep;
+        const key = Number(bucketed.toFixed(decimalsForKey));
+        buckets.set(key, (buckets.get(key) ?? 0) + lvl.size);
+      }
+      return Array.from(buckets.entries()).map(([price, size]) => ({ price, size }));
+    };
+
+    const topN = 3;
+    const topBids = bucketize(bids, 'bid')
+      .sort((a, b) => b.size - a.size)
+      .slice(0, topN);
+    const topAsks = bucketize(asks, 'ask')
+      .sort((a, b) => b.size - a.size)
+      .slice(0, topN);
+
+    const colors = getThemeColors();
+    const inverted = !!chartSettings?.invertedMode;
+    const bullColor = inverted ? colors.statusBearish : colors.statusBullish;
+    const bearColor = inverted ? colors.statusBullish : colors.statusBearish;
+    const referencePrice = inverted && candles.length > 0 ? candles[0].close : null;
+    const flipPrice = (price: number) =>
+      referencePrice != null ? 2 * referencePrice - price : price;
+
+    const drawWall = (price: number, size: number, side: 'buy' | 'sell') => {
+      if (!Number.isFinite(price) || price <= 0 || size <= 0) return;
+      const displayPrice = flipPrice(price);
+      const displaySide = inverted ? (side === 'buy' ? 'sell' : 'buy') : side;
+      const color = displaySide === 'buy' ? bullColor : bearColor;
+      const label = `${displaySide === 'buy' ? 'BUY' : 'SELL'} ${formatSize(size, decimals.size)}`;
+      try {
+        const line = series.createPriceLine({
+          price: displayPrice,
+          color,
+          lineWidth: 3,
+          lineStyle: 0,
+          axisLabelVisible: true,
+          title: label,
+        });
+        wallLinesRef.current.push(line);
+      } catch (e) {}
+    };
+
+    topBids.forEach((b) => drawWall(b.price, b.size, 'buy'));
+    topAsks.forEach((a) => drawWall(a.price, a.size, 'sell'));
+
+    return () => {
+      wallLinesRef.current.forEach((line) => {
+        try { series.removePriceLine(line); } catch (e) {}
+      });
+      wallLinesRef.current = [];
+    };
+  }, [
+    chartReady,
+    showWalls,
+    orderbookSnapshot,
+    chartSettings?.invertedMode,
+    candles,
+    decimals.size,
+  ]);
 
   // Position price line overlay
   useEffect(() => {

@@ -213,6 +213,7 @@ export interface ChartSettings {
   schmecklesMode: boolean;
   invertedMode: boolean;
   showForecast: boolean;
+  showWalls: boolean;
   defaultInterval: TimeInterval;
 }
 
@@ -419,6 +420,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     schmecklesMode: false,
     invertedMode: false,
     showForecast: false,
+    showWalls: true,
     defaultInterval: '1m',
   },
   pinnedSymbols: [],

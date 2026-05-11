@@ -272,6 +272,7 @@ const mergeSettings = (storedSettings: any): AppSettings => {
         schmecklesMode: storedSettings.chart?.schmecklesMode ?? DEFAULT_SETTINGS.chart.schmecklesMode,
         invertedMode: storedSettings.chart?.invertedMode ?? DEFAULT_SETTINGS.chart.invertedMode,
         showForecast: storedSettings.chart?.showForecast ?? DEFAULT_SETTINGS.chart.showForecast,
+        showWalls: storedSettings.chart?.showWalls ?? DEFAULT_SETTINGS.chart.showWalls,
         defaultInterval: storedSettings.chart?.defaultInterval ?? DEFAULT_SETTINGS.chart.defaultInterval,
       },
       pinnedSymbols: storedSettings.pinnedSymbols ?? DEFAULT_SETTINGS.pinnedSymbols,
