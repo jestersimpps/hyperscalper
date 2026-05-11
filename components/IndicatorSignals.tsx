@@ -4,11 +4,8 @@ import { useEffect, useMemo, memo } from 'react';
 import { useCandleStore } from '@/stores/useCandleStore';
 import { useSettingsStore } from '@/stores/useSettingsStore';
 import { useTradesStore } from '@/stores/useTradesStore';
-import type { Trade } from '@/types';
+import type { Trade, TimeInterval, CandleData } from '@/types';
 import {
-  calculateStochastic,
-  calculateMACD,
-  calculateEMA,
   calculateStochasticMemoized,
   calculateMACDMemoized,
   calculateEMAMemoized,
@@ -75,14 +72,14 @@ function IndicatorSignals({ coin }: IndicatorSignalsProps) {
     if (macdSettings.showMultiTimeframe) {
       Object.entries(macdSettings.timeframes).forEach(([tf, settings]) => {
         if (settings.enabled) {
-          subscribeToCandles(coin, tf as any);
+          subscribeToCandles(coin, tf as TimeInterval);
           subscriptions.push({ coin, interval: tf });
         }
       });
     }
 
     return () => {
-      subscriptions.forEach((sub) => unsubscribeFromCandles(sub.coin, sub.interval as any));
+      subscriptions.forEach((sub) => unsubscribeFromCandles(sub.coin, sub.interval as TimeInterval));
     };
   }, [
     coin,
@@ -189,7 +186,7 @@ function IndicatorSignals({ coin }: IndicatorSignalsProps) {
       turnPoint: MacdTurnPoint;
     }> = [];
 
-    const candlesByTimeframe: Record<string, any[] | undefined> = {
+    const candlesByTimeframe: Record<string, CandleData[] | undefined> = {
       '1m': candles1m,
       '5m': candles5m,
       '15m': candles15m,

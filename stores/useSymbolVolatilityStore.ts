@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { HyperliquidService } from '@/lib/services/hyperliquid.service';
 import { useGlobalPollingStore } from './useGlobalPollingStore';
+import type { PerpsMeta } from '@nktkas/hyperliquid';
+import type { AssetCtx } from '@/lib/services/types';
 
 interface VolatilityData {
   blocks: number;
@@ -19,7 +21,7 @@ interface SymbolVolatilityStore {
   subscribe: (symbols: string[]) => void;
   unsubscribe: (symbols: string[]) => void;
   getVolatility: (symbol: string) => VolatilityData | null;
-  updateFromGlobalPoll: (data: { meta: any; assetCtxs: any[] }) => void;
+  updateFromGlobalPoll: (data: { meta: PerpsMeta; assetCtxs: AssetCtx[] }) => void;
 }
 
 const calculateBlocksFromPercentChange = (percentChange: number): number => {
@@ -76,13 +78,13 @@ export const useSymbolVolatilityStore = create<SymbolVolatilityStore>((set, get)
     return get().volatility[symbol] || null;
   },
 
-  updateFromGlobalPoll: (data: { meta: any; assetCtxs: any[] }) => {
+  updateFromGlobalPoll: (data: { meta: PerpsMeta; assetCtxs: AssetCtx[] }) => {
     const { subscribedSymbols } = get();
     const { meta, assetCtxs } = data;
 
     const newVolatility: Record<string, VolatilityData> = {};
 
-    meta.universe.forEach((universeItem: any, index: number) => {
+    meta.universe.forEach((universeItem, index) => {
       const symbol = universeItem.name;
 
       if (!subscribedSymbols.has(symbol)) {

@@ -15,7 +15,6 @@ import { useTradesStore } from '@/stores/useTradesStore';
 import { useScannerStore } from '@/stores/useScannerStore';
 import { INTERVAL_TO_MS } from '@/lib/time-utils';
 import { getThemeColors } from '@/lib/theme-utils';
-import { formatSize } from '@/lib/format-utils';
 import { useDebouncedCallback } from '@/lib/performance-utils';
 import ChartLegend from '@/components/ChartLegend';
 import {

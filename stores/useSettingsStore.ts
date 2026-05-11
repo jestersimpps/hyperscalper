@@ -30,6 +30,9 @@ interface SettingsStore {
   resetSettings: () => void;
 }
 
+// Persisted settings come from older app versions with renamed keys (e.g. fast9 → ultraFast).
+// We accept a loose shape and read by path with `??` fallbacks to DEFAULT_SETTINGS.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const mergeSettings = (storedSettings: any): AppSettings => {
   if (!storedSettings || typeof storedSettings !== 'object') {
     return DEFAULT_SETTINGS;
@@ -276,7 +279,7 @@ const mergeSettings = (storedSettings: any): AppSettings => {
       },
       pinnedSymbols: storedSettings.pinnedSymbols ?? DEFAULT_SETTINGS.pinnedSymbols,
     };
-  } catch (error) {
+  } catch {
     return DEFAULT_SETTINGS;
   }
 };
@@ -409,7 +412,7 @@ export const useSettingsStore = create<SettingsStore>()(
         mobileActiveTab: state.mobileActiveTab,
       }),
       merge: (persistedState, currentState) => {
-        const persisted = persistedState as { settings?: any; mobileActiveTab?: MobileTabType };
+        const persisted = persistedState as { settings?: unknown; mobileActiveTab?: MobileTabType };
         return {
           ...currentState,
           settings: mergeSettings(persisted?.settings),

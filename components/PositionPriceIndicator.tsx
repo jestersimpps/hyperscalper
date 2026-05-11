@@ -4,6 +4,7 @@ import { useOrderStore } from '@/stores/useOrderStore';
 import { useSymbolMetaStore } from '@/stores/useSymbolMetaStore';
 import { useTradingStore } from '@/stores/useTradingStore';
 import { getInvertedColorClass } from '@/lib/inverted-utils';
+import type { Order } from '@/models/Order';
 
 interface PositionPriceIndicatorProps {
   symbol: string;
@@ -19,15 +20,13 @@ export const PositionPriceIndicator = memo(({ symbol, invertedMode }: PositionPr
     return null;
   }
 
-  const stopLossOrder = orders.find((o: any) => o.orderType === 'stop');
-  const takeProfitOrder = orders.find((o: any) => o.orderType === 'trigger');
+  const stopLossOrder = orders.find((o: Order) => o.orderType === 'stop');
+  const takeProfitOrder = orders.find((o: Order) => o.orderType === 'trigger');
 
   const entryPrice = position.entryPrice;
   const currentPrice = position.currentPrice;
   const slPrice = stopLossOrder?.price;
   const tpPrice = takeProfitOrder?.price;
-
-  const isLong = position.side === 'long';
 
   let leftPrice: number;
   let rightPrice: number;

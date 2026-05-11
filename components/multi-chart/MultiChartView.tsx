@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useMemo, useEffect } from 'react';
 import MultiTimeframeChart from '@/components/MultiTimeframeChart';
 import { useSymbolMetaStore } from '@/stores/useSymbolMetaStore';
 import { useCandleStore } from '@/stores/useCandleStore';
@@ -12,7 +12,6 @@ interface MultiChartViewProps {
 }
 
 export default function MultiChartView({ coin }: MultiChartViewProps) {
-  const [currentPrice, setCurrentPrice] = useState(0);
   const getDecimals = useSymbolMetaStore((state) => state.getDecimals);
   const decimals = useMemo(() => getDecimals(coin), [getDecimals, coin]);
 
@@ -37,12 +36,7 @@ export default function MultiChartView({ coin }: MultiChartViewProps) {
     };
   }, [coin, fetchCandles, subscribeToCandles, unsubscribeFromCandles]);
 
-  useEffect(() => {
-    if (candles1m.length > 0) {
-      const lastCandle = candles1m[candles1m.length - 1];
-      setCurrentPrice(lastCandle.close);
-    }
-  }, [candles1m]);
+  const currentPrice = candles1m.length > 0 ? candles1m[candles1m.length - 1].close : 0;
 
   return (
     <div className="min-h-screen w-screen bg-bg-primary overflow-hidden">

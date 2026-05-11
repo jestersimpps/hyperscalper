@@ -2,7 +2,8 @@ let audioContext: AudioContext | null = null;
 
 function getAudioContext(): AudioContext {
   if (!audioContext) {
-    audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const Ctx = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    audioContext = new Ctx!();
   }
   return audioContext;
 }
@@ -71,6 +72,6 @@ export async function playNotificationSound(
       oscillator.start(ctx.currentTime);
       oscillator.stop(ctx.currentTime + 0.3);
     }
-  } catch (error) {
+  } catch {
   }
 }

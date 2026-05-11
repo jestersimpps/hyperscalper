@@ -217,7 +217,7 @@ export const useScannerStore = create<ScannerStore>((set, get) => ({
   },
 
   startAutoScan: () => {
-    const { intervalId, status } = get();
+    const { status } = get();
 
     if (status.isRunning) return;
 
@@ -242,7 +242,7 @@ export const useScannerStore = create<ScannerStore>((set, get) => ({
   },
 
   startAutoScanWithDelay: () => {
-    const { intervalId, status } = get();
+    const { status } = get();
 
     if (status.isRunning) return;
 

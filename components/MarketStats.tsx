@@ -4,6 +4,9 @@ import { useEffect, useState, useMemo, memo } from 'react';
 import { useCandleStore } from '@/stores/useCandleStore';
 import { useSymbolMetaStore } from '@/stores/useSymbolMetaStore';
 import { getCandleTimeWindow } from '@/lib/time-utils';
+import type { CandleData } from '@/types';
+
+const EMPTY_CANDLES: CandleData[] = [];
 
 interface MarketStatsProps {
   coin: string;
@@ -19,7 +22,7 @@ function MarketStats({ coin, currentPrice }: MarketStatsProps) {
   } | null>(null);
 
   const candleKey = `${coin}-1h`;
-  const candles = useCandleStore((state) => state.candles[candleKey]) || [];
+  const candles = useCandleStore((state) => state.candles[candleKey] ?? EMPTY_CANDLES);
 
   const decimals = useMemo(() => {
     return useSymbolMetaStore.getState().getDecimals(coin);

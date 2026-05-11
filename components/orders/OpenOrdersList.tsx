@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, memo, useCallback } from 'react';
+import { useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useOrderStore } from '@/stores/useOrderStore';
 import { usePositionStore } from '@/stores/usePositionStore';
@@ -10,11 +10,10 @@ import { useSettingsStore } from '@/stores/useSettingsStore';
 import { useAddressFromUrl } from '@/lib/hooks/use-address-from-url';
 import {
   getOrderTypeLabel,
-  sortOrdersByPrice,
   groupOrdersBySymbol,
   getAllOrdersAcrossSymbols
 } from '@/lib/utils/order-helpers';
-import { formatPrice, formatSize, formatPnlSchmeckles } from '@/lib/format-utils';
+import { formatPrice, formatPnlSchmeckles } from '@/lib/format-utils';
 import type { Order } from '@/models/Order';
 import type { Position } from '@/models/Position';
 
@@ -38,8 +37,8 @@ export default function OpenOrdersList({ currentSymbol }: OpenOrdersListProps) {
   const getDecimals = useSymbolMetaStore((state) => state.getDecimals);
   const schmecklesMode = useSettingsStore((state) => state.settings.chart.schmecklesMode);
 
-  const confirmedCurrentOrders = ordersState[currentSymbol] || [];
-  const optimisticCurrentOrders = optimisticOrdersState[currentSymbol] || [];
+  const confirmedCurrentOrders = useMemo(() => ordersState[currentSymbol] || [], [ordersState, currentSymbol]);
+  const optimisticCurrentOrders = useMemo(() => optimisticOrdersState[currentSymbol] || [], [optimisticOrdersState, currentSymbol]);
   const currentPosition = positionsState[currentSymbol];
 
   const currentItems = useMemo(() => {

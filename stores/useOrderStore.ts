@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import { Order } from '@/models/Order';
 import { HyperliquidService } from '@/lib/services/hyperliquid.service';
 import { mapHyperliquidOrders } from '@/lib/utils/order-mapper';
+import type { FrontendOrder } from '@nktkas/hyperliquid';
 
 interface OrderStore {
   orders: Record<string, Order[]>;
@@ -20,7 +21,7 @@ interface OrderStore {
   unsubscribeFromOrders: (coin: string) => void;
   startPolling: (coin: string, interval: number) => void;
   stopPolling: (coin: string) => void;
-  updateOrdersFromGlobalPoll: (allOrders: any[]) => void;
+  updateOrdersFromGlobalPoll: (allOrders: FrontendOrder[]) => void;
   addOptimisticOrder: (coin: string, order: Partial<Order>) => void;
   addOptimisticOrders: (coin: string, orders: Partial<Order>[]) => void;
   confirmOptimisticOrder: (coin: string, tempId: string, realOid: string) => void;
@@ -63,7 +64,7 @@ export const useOrderStore = create<OrderStore>()(
 
         try {
           const allOrders = await service.getOpenOrders();
-          const coinOrders = allOrders.filter((order: any) => order.coin === coin);
+          const coinOrders = allOrders.filter((order) => order.coin === coin);
           const mappedOrders = mapHyperliquidOrders(coinOrders);
 
           set((state) => ({
@@ -80,19 +81,19 @@ export const useOrderStore = create<OrderStore>()(
         }
       },
 
-      startPolling: (coin: string, interval: number = 5000) => {
+      startPolling: (_coin: string, _interval: number = 5000) => {
       },
 
-      stopPolling: (coin: string) => {
+      stopPolling: (_coin: string) => {
       },
 
-      subscribeToOrders: (coin: string) => {
+      subscribeToOrders: (_coin: string) => {
       },
 
-      unsubscribeFromOrders: (coin: string) => {
+      unsubscribeFromOrders: (_coin: string) => {
       },
 
-      updateOrdersFromGlobalPoll: (allOrders: any[]) => {
+      updateOrdersFromGlobalPoll: (allOrders: FrontendOrder[]) => {
         const { optimisticOrders, pendingCancellations, recentlyCancelled } = get();
 
         const now = Date.now();
@@ -101,9 +102,9 @@ export const useOrderStore = create<OrderStore>()(
           if (expiry > now) liveCancelled.set(oid, expiry);
         });
 
-        const ordersByCoin: Record<string, Order[]> = {};
+        const ordersByCoin: Record<string, FrontendOrder[]> = {};
 
-        allOrders.forEach((order: any) => {
+        allOrders.forEach((order) => {
           const oidStr = String(order.oid);
           if (liveCancelled.has(oidStr)) return;
           const coin = order.coin;

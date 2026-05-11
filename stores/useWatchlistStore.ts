@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import type { HyperliquidService } from '@/lib/services/hyperliquid.service';
 import type { WatchedWallet, WalletData, WalletStatistics, WalletChangeEvent } from '@/models/WatchedWallet';
 import { groupFillsByPosition } from '@/lib/trade-grouping-utils';
+import type { AssetPosition, FrontendOrder } from '@nktkas/hyperliquid';
+import type { UserFill } from '@/types';
 import {
   notifyNewPosition,
   notifyClosedPosition,
@@ -40,8 +42,8 @@ const MAX_HISTORY_EVENTS = 50;
 
 interface WalletSnapshot {
   address: string;
-  positions: any[];
-  orders: any[];
+  positions: AssetPosition[];
+  orders: FrontendOrder[];
   lastFetched: number;
 }
 
@@ -141,7 +143,7 @@ const addChangeEvent = (address: string, event: WalletChangeEvent): WalletChange
   return updatedHistory;
 };
 
-const calculateStatistics = (fills: any[], positions: any[]): WalletStatistics => {
+const calculateStatistics = (fills: UserFill[], positions: AssetPosition[]): WalletStatistics => {
   const positionGroups = groupFillsByPosition(fills);
 
   const totalPnl = positionGroups.reduce((sum, g) => sum + g.totalPnl, 0);

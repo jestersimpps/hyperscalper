@@ -24,7 +24,7 @@ export async function generateMetadata({ params }: MultiChartPageProps): Promise
 }
 
 export default async function MultiChartPage({ params }: MultiChartPageProps) {
-  const { address, symbol } = await params;
+  const { symbol } = await params;
 
   return <MultiChartView coin={symbol} />;
 }

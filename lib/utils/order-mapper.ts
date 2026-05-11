@@ -1,6 +1,7 @@
 import { Order, OrderType, OrderSide } from '@/models/Order';
+import type { FrontendOrder } from '@nktkas/hyperliquid';
 
-export function mapHyperliquidOrder(order: any): Order {
+export function mapHyperliquidOrder(order: FrontendOrder): Order {
   const side = order.side?.toUpperCase() === 'A' ? 'sell' : 'buy';
   const size = Math.abs(parseFloat(order.origSz || order.sz || '0'));
 
@@ -43,6 +44,6 @@ export function mapHyperliquidOrder(order: any): Order {
   };
 }
 
-export function mapHyperliquidOrders(orders: any[]): Order[] {
+export function mapHyperliquidOrders(orders: FrontendOrder[]): Order[] {
   return orders.map(mapHyperliquidOrder);
 }

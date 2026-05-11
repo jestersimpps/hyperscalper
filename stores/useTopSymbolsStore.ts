@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { HyperliquidService } from '@/lib/services/hyperliquid.service';
 import { useGlobalPollingStore } from './useGlobalPollingStore';
+import type { PerpsMeta } from '@nktkas/hyperliquid';
+import type { AssetCtx } from '@/lib/services/types';
 
 export interface SymbolWithVolume {
   name: string;
@@ -14,7 +16,7 @@ interface TopSymbolsStore {
   service: HyperliquidService | null;
   setService: (service: HyperliquidService) => void;
   refreshTopSymbols: () => Promise<void>;
-  updateFromGlobalPoll: (data: { meta: any; assetCtxs: any[] }) => void;
+  updateFromGlobalPoll: (data: { meta: PerpsMeta; assetCtxs: AssetCtx[] }) => void;
 }
 
 export const useTopSymbolsStore = create<TopSymbolsStore>((set) => ({
@@ -40,19 +42,19 @@ export const useTopSymbolsStore = create<TopSymbolsStore>((set) => ({
     }
   },
 
-  updateFromGlobalPoll: (data: { meta: any; assetCtxs: any[] }) => {
+  updateFromGlobalPoll: (data: { meta: PerpsMeta; assetCtxs: AssetCtx[] }) => {
     const { meta, assetCtxs } = data;
 
     const symbolsWithVolume: SymbolWithVolume[] = meta.universe
-      .map((u: any, index: number) => ({
+      .map((u, index) => ({
         name: u.name,
         volume: parseFloat(assetCtxs[index]?.dayNtlVlm || '0'),
-        isDelisted: u.isDelisted,
+        isDelisted: u.isDelisted ?? false,
       }))
-      .filter((s: any) => !s.isDelisted)
-      .sort((a: any, b: any) => b.volume - a.volume)
+      .filter((s) => !s.isDelisted)
+      .sort((a, b) => b.volume - a.volume)
       .slice(0, 20)
-      .map(({ name, volume }: any) => ({ name, volume }));
+      .map(({ name, volume }) => ({ name, volume }));
 
     set({ symbols: symbolsWithVolume });
   },

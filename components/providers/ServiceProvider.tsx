@@ -53,6 +53,8 @@ export function ServiceProvider({ children }: { children: React.ReactNode }) {
 
     fetchMetadata();
     fetchAndStoreAllOpenPositions();
+    // Zustand setters/fetchers are stable; only react to service changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [service]);
 
   return <>{children}</>;

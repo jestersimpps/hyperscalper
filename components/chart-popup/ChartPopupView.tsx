@@ -38,8 +38,6 @@ export default function ChartPopupView({ coin, address }: ChartPopupViewProps) {
   const fetchCandles = useCandleStore((state) => state.fetchCandles);
   const subscribeToCandles = useCandleStore((state) => state.subscribeToCandles);
   const unsubscribeFromCandles = useCandleStore((state) => state.unsubscribeFromCandles);
-  const clearCandles = useCandleStore((state) => state.clearCandles);
-
   const position = usePositionStore((state) => state.positions[coin]);
   const orders = useOrderStore((state) => state.orders[coin]) || [];
 
@@ -68,15 +66,6 @@ export default function ChartPopupView({ coin, address }: ChartPopupViewProps) {
       });
     };
   }, [coin, candleService, fetchCandles, subscribeToCandles, unsubscribeFromCandles]);
-
-  const stochasticCandleData: Record<TimeInterval, CandleData[]> = useMemo(() => ({
-    '1m': candles1m,
-    '5m': candles5m,
-    '15m': candles15m,
-    '1h': candles1h,
-    '4h': [],
-    '1d': [],
-  }), [candles1m, candles5m, candles15m, candles1h]);
 
   const macdCandleData: Record<TimeInterval, CandleData[]> = useMemo(() => ({
     '1m': candles1m,

@@ -31,11 +31,13 @@ import { useSymbolMetaStore } from '@/stores/useSymbolMetaStore';
 import { useWebSocketStatusStore } from '@/stores/useWebSocketStatusStore';
 import { formatPrice, formatSize } from '@/lib/format-utils';
 
+type SubscriptionCallback = CandleCallback | TradeCallback | AllMidsCallback | OrderbookCallback;
+
 interface Subscription {
   id: string;
   type: 'candle' | 'trade' | 'allMids' | 'orderbook';
-  params: any;
-  callback: any;
+  params: unknown;
+  callback: SubscriptionCallback;
   unsubscribeFn: Promise<{ unsubscribe: () => void }> | (() => void);
 }
 
@@ -122,7 +124,7 @@ export class HyperliquidWebSocketService implements ExchangeWebSocketService {
               volumeFormatted: formatSize(volume, decimals.size)
             };
             callback(candleData);
-          } catch (error) {
+          } catch {
             // Error processing candle
           }
         }
@@ -168,7 +170,7 @@ export class HyperliquidWebSocketService implements ExchangeWebSocketService {
               };
             });
             callback(tradeBatch);
-          } catch (error) {
+          } catch {
             // Error processing trade
           }
         }
@@ -204,7 +206,7 @@ export class HyperliquidWebSocketService implements ExchangeWebSocketService {
               prices[coin] = parseFloat(price);
             });
             callback(prices);
-          } catch (error) {
+          } catch {
             // Error processing allMids
           }
         }
@@ -272,7 +274,7 @@ export class HyperliquidWebSocketService implements ExchangeWebSocketService {
               asks,
             };
             callback(data);
-          } catch (error) {
+          } catch {
             // Error processing orderbook
           }
         }
@@ -301,7 +303,7 @@ export class HyperliquidWebSocketService implements ExchangeWebSocketService {
         } else if (subscription.unsubscribeFn instanceof Promise) {
           subscription.unsubscribeFn.then(sub => sub.unsubscribe());
         }
-      } catch (error) {
+      } catch {
         // Error unsubscribing
       }
       this.subscriptions.delete(subscriptionId);
@@ -314,7 +316,7 @@ export class HyperliquidWebSocketService implements ExchangeWebSocketService {
         if (typeof sub.unsubscribeFn === 'function') {
           sub.unsubscribeFn();
         }
-      } catch (error) {
+      } catch {
         // Error during cleanup
       }
     });
@@ -323,7 +325,7 @@ export class HyperliquidWebSocketService implements ExchangeWebSocketService {
     if (this.wsTransport) {
       try {
         this.wsTransport.close().catch(() => {});
-      } catch (error) {
+      } catch {
         // Ignore cleanup errors
       }
       this.wsTransport = null;

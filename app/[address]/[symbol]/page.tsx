@@ -21,7 +21,7 @@ export async function generateMetadata({ params }: SymbolPageProps): Promise<Met
 }
 
 export default async function SymbolPage({ params }: SymbolPageProps) {
-  const { address, symbol } = await params;
+  const { symbol } = await params;
   const upperSymbol = symbol.toUpperCase();
 
   return <SymbolView coin={upperSymbol} />;

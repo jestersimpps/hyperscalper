@@ -2,7 +2,7 @@
 
 import { useEffect, useCallback, useState } from 'react';
 import { useSettingsStore } from '@/stores/useSettingsStore';
-import { EmaConfig, ThemeName } from '@/models/Settings';
+import { ThemeName } from '@/models/Settings';
 import { CredentialsSettings } from '@/components/settings/CredentialsSettings';
 
 export default function SettingsPanel() {
@@ -1504,7 +1504,7 @@ export default function SettingsPanel() {
                           <label className="text-primary-muted font-mono block mb-1 text-xs">DIVERGENCE VARIANT</label>
                           <select
                             value={settings.indicators.stochastic.divergenceVariant}
-                            onChange={(e) => updateStochasticSettings({ divergenceVariant: e.target.value as any })}
+                            onChange={(e) => updateStochasticSettings({ divergenceVariant: e.target.value as 'ultraFast' | 'fast' | 'medium' | 'slow' })}
                             className="w-full bg-bg-primary border border-frame text-primary px-2 py-1 rounded font-mono text-xs"
                           >
                             <option value="ultraFast">ULTRA FAST</option>
@@ -2046,7 +2046,7 @@ export default function SettingsPanel() {
                       <div>
                         <span className="text-primary-muted text-xs font-mono block">SCHMECKLES MODE</span>
                         <span className="text-primary-muted text-[10px] block mt-1">
-                          Show PnL in schmeckles - interdimensional currency from the Giants' Dimension (1 SH = $1 profit per $2000 account balance)
+                          Show PnL in schmeckles - interdimensional currency from the Giants&rsquo; Dimension (1 SH = $1 profit per $2000 account balance)
                         </span>
                       </div>
                       <input

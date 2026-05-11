@@ -8,9 +8,9 @@ export interface BridgeAccountState {
   ready: boolean;
 }
 
-export interface BridgePositionView extends Position {}
+export type BridgePositionView = Position;
 
-export interface BridgeOrderView extends Order {}
+export type BridgeOrderView = Order;
 
 export interface BridgePriceView {
   coin: string;

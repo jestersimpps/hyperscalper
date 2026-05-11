@@ -31,7 +31,7 @@ const PositionItem = memo(({
   selectedSymbol,
   onSymbolSelect,
   address,
-  position,
+  position: _position,
   isPinned,
   isTop20,
   volumeInMillions,

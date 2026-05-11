@@ -1,6 +1,4 @@
 import type {
-  Book,
-  Candle,
   WsTrade,
   PerpsClearinghouseState,
   AssetPosition,
@@ -11,7 +9,7 @@ import type {
   AllMids,
   SuccessResponse
 } from '@nktkas/hyperliquid';
-import type { CandleData, TimeInterval } from '@/types';
+import type { TimeInterval } from '@/types';
 import type { SymbolMetadata } from './metadata-cache.service';
 
 export interface TransformedCandle {

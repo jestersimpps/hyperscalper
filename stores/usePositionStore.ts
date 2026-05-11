@@ -2,13 +2,14 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { Position } from '@/models/Position';
 import { HyperliquidService } from '@/lib/services/hyperliquid.service';
+import type { AssetPosition } from '@nktkas/hyperliquid';
 
-function mapHyperliquidPosition(rawPosition: any): Position {
+function mapHyperliquidPosition(rawPosition: AssetPosition): Position {
   const szi = parseFloat(rawPosition.position.szi);
   const entryPrice = parseFloat(rawPosition.position.entryPx || '0');
   const unrealizedPnl = parseFloat(rawPosition.position.unrealizedPnl || '0');
   const positionValue = parseFloat(rawPosition.position.positionValue || '0');
-  const leverage = parseFloat(rawPosition.position.leverage?.value || '1');
+  const leverage = rawPosition.position.leverage?.value || 1;
 
   return {
     symbol: rawPosition.position.coin,
@@ -42,7 +43,7 @@ interface PositionStore {
   startPollingMultiple: (coins: string[], interval?: number) => void;
   stopPollingMultiple: (coins: string[]) => void;
   getPosition: (coin: string) => Position | null;
-  updatePositionsFromGlobalPoll: (allPositions: any[]) => void;
+  updatePositionsFromGlobalPoll: (allPositions: AssetPosition[]) => void;
 }
 
 export const usePositionStore = create<PositionStore>()(
@@ -118,7 +119,7 @@ export const usePositionStore = create<PositionStore>()(
           const positionLoadingState: Record<string, boolean> = {};
 
           targetCoins.forEach(coin => {
-            const rawPosition = allPositions.find((p: any) => p.position.coin === coin);
+            const rawPosition = allPositions.find((p) => p.position.coin === coin);
             positionMap[coin] = rawPosition ? mapHyperliquidPosition(rawPosition) : null;
             positionLoadingState[coin] = false;
           });
@@ -151,7 +152,7 @@ export const usePositionStore = create<PositionStore>()(
           const positionMap: Record<string, Position | null> = {};
           const symbols: string[] = [];
 
-          allPositions.forEach((rawPosition: any) => {
+          allPositions.forEach((rawPosition) => {
             const position = mapHyperliquidPosition(rawPosition);
             positionMap[position.symbol] = position;
             symbols.push(position.symbol);
@@ -168,32 +169,32 @@ export const usePositionStore = create<PositionStore>()(
         }
       },
 
-      startPolling: (coin: string, interval: number = 5000) => {
+      startPolling: (_coin: string, _interval: number = 5000) => {
       },
 
-      stopPolling: (coin: string) => {
+      stopPolling: (_coin: string) => {
       },
 
-      subscribeToPosition: (coin: string) => {
+      subscribeToPosition: (_coin: string) => {
       },
 
-      unsubscribeFromPosition: (coin: string) => {
+      unsubscribeFromPosition: (_coin: string) => {
       },
 
-      startPollingMultiple: (coins: string[], interval: number = 5000) => {
+      startPollingMultiple: (_coins: string[], _interval: number = 5000) => {
       },
 
-      stopPollingMultiple: (coins: string[]) => {
+      stopPollingMultiple: (_coins: string[]) => {
       },
 
       getPosition: (coin: string) => {
         return get().positions[coin] || null;
       },
 
-      updatePositionsFromGlobalPoll: (allPositions: any[]) => {
+      updatePositionsFromGlobalPoll: (allPositions: AssetPosition[]) => {
         const positionMap: Record<string, Position | null> = {};
 
-        allPositions.forEach((rawPosition: any) => {
+        allPositions.forEach((rawPosition) => {
           const position = mapHyperliquidPosition(rawPosition);
           positionMap[position.symbol] = position;
         });

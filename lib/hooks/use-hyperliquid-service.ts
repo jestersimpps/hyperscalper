@@ -22,7 +22,7 @@ export function useHyperliquidService(walletAddress?: string): HyperliquidServic
       addressToUse,
       credentials!.isTestnet
     );
-  }, [credentials?.privateKey, credentials?.walletAddress, credentials?.isTestnet, walletAddress]);
+  }, [credentials, walletAddress]);
 
   return service;
 }

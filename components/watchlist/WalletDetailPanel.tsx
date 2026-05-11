@@ -1,6 +1,6 @@
 'use client';
 
-import type { WalletData, WalletChangeEvent } from '@/models/WatchedWallet';
+import type { WalletData } from '@/models/WatchedWallet';
 import WalletStatistics from './WalletStatistics';
 
 interface WalletDetailPanelProps {
@@ -78,7 +78,6 @@ export default function WalletDetailPanel({ data }: WalletDetailPanelProps) {
             {positions.map((pos, idx) => {
               const szi = parseFloat(pos.position.szi);
               const entryPx = parseFloat(pos.position.entryPx);
-              const positionValue = parseFloat(pos.position.positionValue);
               const unrealizedPnl = parseFloat(pos.position.unrealizedPnl);
               const side = szi > 0 ? 'long' : 'short';
               const pnlColor = unrealizedPnl > 0 ? 'text-bullish' : unrealizedPnl < 0 ? 'text-bearish' : 'text-primary-muted';
@@ -200,8 +199,6 @@ export default function WalletDetailPanel({ data }: WalletDetailPanelProps) {
         <div className="space-y-1 max-h-[500px] overflow-y-auto">
           {changeHistory.length > 0 ? (
             changeHistory.map((event, idx) => {
-              const isPosition = event.type.startsWith('position_');
-              const isOrder = event.type.startsWith('order_');
               const typeColor =
                 event.type === 'position_opened' || event.type === 'order_placed' ? 'text-bullish' :
                 event.type === 'position_closed' || event.type === 'order_cancelled' ? 'text-bearish' :

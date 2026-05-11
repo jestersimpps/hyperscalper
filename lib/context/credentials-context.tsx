@@ -28,10 +28,6 @@ export function CredentialsProvider({ children }: { children: ReactNode }) {
   const [credentials, setCredentials] = useState<Credentials | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
 
-  useEffect(() => {
-    loadCredentials();
-  }, []);
-
   const getDeviceKey = (): string => {
     let deviceKey = localStorage.getItem(DEVICE_KEY_STORAGE);
     if (!deviceKey) {
@@ -84,6 +80,11 @@ export function CredentialsProvider({ children }: { children: ReactNode }) {
       return false;
     }
   };
+
+  useEffect(() => {
+    loadCredentials();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const clearCredentials = (): void => {
     localStorage.removeItem(STORAGE_KEY);

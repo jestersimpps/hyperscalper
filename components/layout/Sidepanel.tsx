@@ -17,15 +17,12 @@ import { useGlobalPollingStore } from '@/stores/useGlobalPollingStore';
 import { formatPrice } from '@/lib/format-utils';
 import { useAddressFromUrl } from '@/lib/hooks/use-address-from-url';
 import { usePriceVolumeAnimation } from '@/hooks/usePriceVolumeAnimation';
-import MiniPriceChart from '@/components/scanner/MiniPriceChart';
 import BtcStrip from '@/components/sidepanel/BtcStrip';
 import SymbolItem from '@/components/sidepanel/SymbolItem';
 import ScannerResultItem from '@/components/scanner/ScannerResultItem';
 import {
   getInvertedColorClass,
   getInvertedAnimationClass,
-  getInvertedArrow,
-  shouldInvertCondition
 } from '@/lib/inverted-utils';
 import type { TimeInterval } from '@/types';
 
@@ -172,23 +169,20 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect, mobileView =
   const pinnedSymbols = settings.pinnedSymbols;
   const subscribe = useSidebarPricesStore((state) => state.subscribe);
   const unsubscribe = useSidebarPricesStore((state) => state.unsubscribe);
-  const startPollingMultiple = usePositionStore((state) => state.startPollingMultiple);
-  const stopPollingMultiple = usePositionStore((state) => state.stopPollingMultiple);
-  const getPosition = usePositionStore((state) => state.getPosition);
-  const { setService: setCandlesService, fetchClosePrices, getClosePrices } = useSymbolCandlesStore();
+  const { fetchClosePrices, getClosePrices } = useSymbolCandlesStore();
   const lastCandlePollTime = useGlobalPollingStore((state) => state.lastCandlePollTime);
 
   const orders = useOrderStore((state) => state.orders);
   const symbolsWithOrders = useMemo(() => {
     return Object.entries(orders)
-      .filter(([_, orderList]) => orderList && orderList.length > 0)
+      .filter(([, orderList]) => orderList && orderList.length > 0)
       .map(([symbol]) => symbol);
   }, [orders]);
 
   const positions = usePositionStore((state) => state.positions);
   const symbolsWithPositions = useMemo(() => {
     return Object.entries(positions)
-      .filter(([_, position]) => position !== null && position.size > 0)
+      .filter(([, position]) => position !== null && position.size > 0)
       .map(([symbol]) => symbol);
   }, [positions]);
 
@@ -227,6 +221,8 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect, mobileView =
     return () => {
       stopAutoScan();
     };
+    // Zustand actions are stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settings.scanner.enabled, settings.scanner.scanInterval]);
 
   useEffect(() => {
@@ -235,6 +231,8 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect, mobileView =
     return () => {
       unsubscribe();
     };
+    // Subscribe/unsubscribe are stable Zustand actions.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -261,6 +259,8 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect, mobileView =
 
       return () => clearInterval(intervalId);
     }
+    // fetchClosePrices is a stable Zustand action.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allSymbolsString, lastCandlePollTime]);
 
   const formatTimeSince = (timestamp: number | null) => {

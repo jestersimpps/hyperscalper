@@ -21,6 +21,9 @@ import { useTradingStore } from '@/stores/useTradingStore';
 import { useAddressFromUrl } from '@/lib/hooks/use-address-from-url';
 import { calculateAverageCandleHeight } from '@/lib/trading-utils';
 import { playNotificationSound } from '@/lib/sound-utils';
+import type { CandleData } from '@/types';
+
+const EMPTY_CANDLES: CandleData[] = [];
 
 interface AppShellProps {
   selectedSymbol: string;
@@ -48,7 +51,7 @@ export default function AppShell({ selectedSymbol, children }: AppShellProps) {
   const mobileActiveTab = useSettingsStore((state) => state.mobileActiveTab);
 
   const candleKey = `${coin}-${chartInterval}`;
-  const candles = useCandleStore((state) => state.candles[candleKey]) || [];
+  const candles = useCandleStore((state) => state.candles[candleKey] ?? EMPTY_CANDLES);
   const buyCloud = useTradingStore((state) => state.buyCloud);
   const sellCloud = useTradingStore((state) => state.sellCloud);
   const smLong = useTradingStore((state) => state.smLong);
@@ -81,7 +84,7 @@ export default function AppShell({ selectedSymbol, children }: AppShellProps) {
         priceInterval,
         percentage: orderSettings.cloudPercentage
       });
-    } catch (error) {
+    } catch {
       // Error executing buy cloud
     }
   }, [coin, candles, orderSettings.cloudPercentage, buyCloud, sellCloud, invertedMode]);
@@ -105,7 +108,7 @@ export default function AppShell({ selectedSymbol, children }: AppShellProps) {
         priceInterval,
         percentage: orderSettings.cloudPercentage
       });
-    } catch (error) {
+    } catch {
       // Error executing sell cloud
     }
   }, [coin, candles, orderSettings.cloudPercentage, sellCloud, buyCloud, invertedMode]);
@@ -129,7 +132,7 @@ export default function AppShell({ selectedSymbol, children }: AppShellProps) {
         priceInterval,
         percentage: orderSettings.smallPercentage
       });
-    } catch (error) {
+    } catch {
       // Error executing sm long
     }
   }, [coin, candles, orderSettings.smallPercentage, smLong, smShort, invertedMode]);
@@ -153,7 +156,7 @@ export default function AppShell({ selectedSymbol, children }: AppShellProps) {
         priceInterval,
         percentage: orderSettings.smallPercentage
       });
-    } catch (error) {
+    } catch {
       // Error executing sm short
     }
   }, [coin, candles, orderSettings.smallPercentage, smShort, smLong, invertedMode]);
@@ -177,7 +180,7 @@ export default function AppShell({ selectedSymbol, children }: AppShellProps) {
         priceInterval,
         percentage: orderSettings.bigPercentage
       });
-    } catch (error) {
+    } catch {
       // Error executing big long
     }
   }, [coin, candles, orderSettings.bigPercentage, bigLong, bigShort, invertedMode]);
@@ -201,7 +204,7 @@ export default function AppShell({ selectedSymbol, children }: AppShellProps) {
         priceInterval,
         percentage: orderSettings.bigPercentage
       });
-    } catch (error) {
+    } catch {
       // Error executing big short
     }
   }, [coin, candles, orderSettings.bigPercentage, bigShort, bigLong, invertedMode]);
@@ -240,8 +243,8 @@ export default function AppShell({ selectedSymbol, children }: AppShellProps) {
 
   const handleCloseAllPositions = useCallback(async () => {
     try {
-      const positionsToClose = Object.entries(allPositions).filter(([_, pos]) => pos && pos.size > 0);
-      for (const [symbol, _] of positionsToClose) {
+      const positionsToClose = Object.entries(allPositions).filter(([, pos]) => pos && pos.size > 0);
+      for (const [symbol] of positionsToClose) {
         await closePosition({ symbol, percentage: 100 });
       }
     } catch (error) {

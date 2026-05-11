@@ -33,8 +33,8 @@ export const useTradesStore = create<TradesStore>((set, get) => ({
     }
 
     const initWebSocket = async () => {
-      const { useWebSocketService } = await import('@/lib/websocket/websocket-singleton');
-      const { service, trackSubscription } = useWebSocketService('hyperliquid');
+      const { getWebSocketService } = await import('@/lib/websocket/websocket-singleton');
+      const { service, trackSubscription } = getWebSocketService('hyperliquid');
 
       const cleanup = trackSubscription();
 
@@ -104,7 +104,7 @@ export const useTradesStore = create<TradesStore>((set, get) => ({
   cleanup: () => {
     const { subscriptions, wsService } = get();
 
-    Object.entries(subscriptions).forEach(([coin, subscription]) => {
+    Object.entries(subscriptions).forEach(([, subscription]) => {
       if (wsService) {
         wsService.unsubscribe(subscription.subscriptionId);
       }

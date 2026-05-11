@@ -19,13 +19,11 @@ export class WebSocketFactory {
   }
 
   static createFromEnv(): ExchangeWebSocketService {
-    const exchangeType = (typeof window !== 'undefined'
-      ? (window as any).__EXCHANGE_TYPE__
-      : 'hyperliquid') as WebSocketConfig['type'];
-
-    const isTestnet = typeof window !== 'undefined'
-      ? (window as any).__EXCHANGE_TESTNET__ === 'true'
-      : false;
+    const w = typeof window !== 'undefined'
+      ? (window as Window & { __EXCHANGE_TYPE__?: WebSocketConfig['type']; __EXCHANGE_TESTNET__?: string })
+      : undefined;
+    const exchangeType = (w?.__EXCHANGE_TYPE__ ?? 'hyperliquid') as WebSocketConfig['type'];
+    const isTestnet = w?.__EXCHANGE_TESTNET__ === 'true';
 
     return WebSocketFactory.createService({
       type: exchangeType,

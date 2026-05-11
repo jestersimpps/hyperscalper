@@ -57,7 +57,12 @@ class LRUCache<T> {
   }
 }
 
-function hashCandleData(candles: any[]): string {
+interface CandleLike {
+  time: number;
+  close: number;
+}
+
+function hashCandleData(candles: CandleLike[]): string {
   if (!candles || candles.length === 0) return 'empty';
 
   const first = candles[0];
@@ -68,7 +73,7 @@ function hashCandleData(candles: any[]): string {
   return `${candles.length}-${first.time}-${midCandle?.time || 0}-${last.time}-${last.close.toFixed(4)}`;
 }
 
-export function createMemoizedFunction<TArgs extends any[], TResult>(
+export function createMemoizedFunction<TArgs extends unknown[], TResult>(
   fn: (...args: TArgs) => TResult,
   keyGenerator: (...args: TArgs) => string,
   cacheSize: number = 50,
@@ -91,7 +96,7 @@ export function createMemoizedFunction<TArgs extends any[], TResult>(
   };
 }
 
-export function createCandleBasedMemoization<TArgs extends [any[], ...any[]], TResult>(
+export function createCandleBasedMemoization<TArgs extends [CandleLike[], ...unknown[]], TResult>(
   fn: (...args: TArgs) => TResult,
   additionalKeyGen?: (...args: Tail<TArgs>) => string,
   cacheSize?: number,
@@ -109,6 +114,6 @@ export function createCandleBasedMemoization<TArgs extends [any[], ...any[]], TR
   );
 }
 
-type Tail<T extends any[]> = T extends [any, ...infer R] ? R : never;
+type Tail<T extends unknown[]> = T extends [unknown, ...infer R] ? R : never;
 
 export { hashCandleData };

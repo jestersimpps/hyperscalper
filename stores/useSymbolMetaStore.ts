@@ -17,7 +17,6 @@ interface SymbolMetaStore {
   getDecimals: (symbol: string) => { price: number; size: number };
 }
 
-const DEFAULT_PRICE_DECIMALS = 2;
 const DEFAULT_SIZE_DECIMALS = 4;
 
 export const useSymbolMetaStore = create<SymbolMetaStore>((set, get) => ({

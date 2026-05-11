@@ -31,17 +31,12 @@ export const groupFillsByPosition = (fills: UserFill[]): PositionGroup[] => {
     let currentPosition = 0;
     let currentFills: UserFill[] = [];
 
-    coinFills.forEach((fill, index) => {
+    coinFills.forEach((fill) => {
       const previousPosition = currentPosition;
       const fillSize = fill.side === 'buy' ? fill.size : -fill.size;
       currentPosition = fill.startPosition + fillSize;
 
-      const isOpening = previousPosition === 0 && currentPosition !== 0;
       const isClosing = currentPosition === 0 && previousPosition !== 0;
-      const isExtending = Math.sign(previousPosition) === Math.sign(currentPosition) &&
-                          Math.abs(currentPosition) > Math.abs(previousPosition);
-      const isReducing = Math.sign(previousPosition) === Math.sign(currentPosition) &&
-                         Math.abs(currentPosition) < Math.abs(previousPosition);
       const isReversing = previousPosition !== 0 && currentPosition !== 0 &&
                           Math.sign(previousPosition) !== Math.sign(currentPosition);
 

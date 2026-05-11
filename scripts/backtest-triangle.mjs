@@ -66,8 +66,7 @@ function calculateEMA(data, period) {
   for (let i = period; i < data.length; i++) {
     ema.push(data[i] * k + ema[ema.length - 1] * (1 - k));
   }
-  const out = new Array(period - 1).fill(0).concat(ema.slice(period - 1 < ema.length ? 0 : 0));
-  // Simpler: rebuild as fixed-length array aligned with data
+  // Rebuild as fixed-length array aligned with data
   const aligned = new Array(data.length).fill(0);
   let prev = sum / period;
   aligned[period - 1] = prev;

@@ -99,6 +99,7 @@ export function useThrottledCallback<T extends AnyFn>(
   }, [callback]);
 
   const throttled = useMemo(
+    // eslint-disable-next-line react-hooks/refs -- callbackRef is only read inside the returned closure, not during render
     () => createThrottled((...args: Parameters<T>) => {
       callbackRef.current(...args);
     }, delay),
@@ -125,6 +126,7 @@ export function useDebouncedCallback<T extends AnyFn>(
   }, [callback]);
 
   const debounced = useMemo(
+    // eslint-disable-next-line react-hooks/refs -- callbackRef is only read inside the returned closure, not during render
     () => createDebounced((...args: Parameters<T>) => {
       callbackRef.current(...args);
     }, delay),

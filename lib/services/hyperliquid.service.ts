@@ -4,7 +4,6 @@ import {
   EventClient,
   HttpTransport,
   WebSocketTransport,
-  Book,
   Candle,
   WsTrade,
   PerpsClearinghouseState,
@@ -91,14 +90,14 @@ export class HyperliquidService implements IHyperliquidService {
   }
 
   async getCandles(params: CandleParams): Promise<TransformedCandle[]> {
-    const req: any = {
+    const req: { coin: string; interval: string; startTime?: number; endTime?: number } = {
       coin: params.coin,
       interval: params.interval
     };
     if (params.startTime !== undefined) req.startTime = params.startTime;
     if (params.endTime !== undefined) req.endTime = params.endTime;
 
-    const result = await this.publicClient.candleSnapshot(req);
+    const result = await this.publicClient.candleSnapshot(req as Parameters<typeof this.publicClient.candleSnapshot>[0]);
 
     const transformed: TransformedCandle[] = result.map((candle: Candle) => ({
       time: candle.t,
@@ -113,7 +112,8 @@ export class HyperliquidService implements IHyperliquidService {
   }
 
   async getRecentTrades(params: TradesParams): Promise<WsTrade[]> {
-    return await (this.publicClient as any).recentTrades?.({ coin: params.coin }) || [];
+    const client = this.publicClient as unknown as { recentTrades?: (args: { coin: string }) => Promise<WsTrade[]> };
+    return await client.recentTrades?.({ coin: params.coin }) || [];
   }
 
   async subscribeToCandles(params: CandleParams, callback: (data: TransformedCandle) => void): Promise<() => void> {
@@ -397,7 +397,7 @@ export class HyperliquidService implements IHyperliquidService {
     const state = await this.publicClient.clearinghouseState({ user: address });
     return {
       withdrawable: state.withdrawable,
-      marginUsed: (state as any).marginUsed || '0',
+      marginUsed: state.marginSummary.totalMarginUsed || '0',
       accountValue: state.marginSummary.accountValue
     };
   }
@@ -438,7 +438,7 @@ export class HyperliquidService implements IHyperliquidService {
         crossed: fill.crossed,
         feeToken: fill.feeToken
       }));
-    } catch (error) {
+    } catch {
       return [];
     }
   }
@@ -559,14 +559,14 @@ export class HyperliquidService implements IHyperliquidService {
       return null;
     }
     try {
-      const result = await (this.walletClient as any).updateLeverage({
+      const result = await this.walletClient!.updateLeverage({
         asset: metadata.coinIndex,
         isCross,
         leverage
       });
       this.leverageCache.set(coin, leverage);
       return result;
-    } catch (error) {
+    } catch {
       return null;
     }
   }
@@ -575,7 +575,7 @@ export class HyperliquidService implements IHyperliquidService {
   // setLeverage call for any coin where a position already exists.
   seedLeverageFromPositions(positions: AssetPosition[]): void {
     for (const p of positions) {
-      const lev = parseFloat((p.position.leverage as any)?.value || '0');
+      const lev = p.position.leverage?.value || 0;
       if (lev > 0) this.leverageCache.set(p.position.coin, lev);
     }
   }

@@ -74,7 +74,7 @@ export function CredentialsSettings({ initialWalletAddress }: CredentialsSetting
         await updateNetwork(testnet);
         setStatus('success');
         setTimeout(() => setStatus('idle'), 2000);
-      } catch (error) {
+      } catch {
         setStatus('error');
         setErrorMessage('Failed to update network');
       }

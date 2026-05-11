@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 import type { HyperliquidService } from '@/lib/services/hyperliquid.service';
-import { downsampleCandles } from '@/lib/candle-utils';
 import { useCandleStore } from './useCandleStore';
 
 interface SymbolCandlesStore {

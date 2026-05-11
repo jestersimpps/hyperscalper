@@ -7,8 +7,6 @@ import {
   getInvertedColorClass,
   getInvertedArrow,
 } from '@/lib/inverted-utils';
-import type { TimeInterval } from '@/types';
-
 interface ProcessedSignal {
   stoch: boolean;
   ema: boolean;

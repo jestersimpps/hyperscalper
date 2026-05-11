@@ -50,7 +50,7 @@ function RightTradingPanel({
   onClose100,
   onCloseAllPositions,
   onCancelEntryOrders,
-  onCancelExitOrders,
+  onCancelExitOrders: _onCancelExitOrders,
   onCancelTPOrders,
   onCancelSLOrders,
   onCancelAllOrders,

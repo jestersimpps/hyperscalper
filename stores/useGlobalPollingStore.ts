@@ -8,6 +8,8 @@ import { useCandleStore } from './useCandleStore';
 import { useScannerStore } from './useScannerStore';
 import { useSettingsStore } from './useSettingsStore';
 import type { TimeInterval } from '@/types';
+import type { PerpsMeta } from '@nktkas/hyperliquid';
+import type { AssetCtx } from '@/lib/services/types';
 
 interface GlobalPollingStore {
   service: HyperliquidService | null;
@@ -22,7 +24,7 @@ interface GlobalPollingStore {
   fastFetchInFlight: boolean;
   slowFetchInFlight: boolean;
   candleFetchInFlight: boolean;
-  lastMetaSnapshot: { meta: any; assetCtxs: any[] } | null;
+  lastMetaSnapshot: { meta: PerpsMeta; assetCtxs: AssetCtx[] } | null;
   lastHigherTfFetch: Record<string, number>;
 
   setService: (service: HyperliquidService) => void;

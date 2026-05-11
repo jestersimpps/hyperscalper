@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, memo } from 'react';
+import type { IChartApi, ISeriesApi, BaselineData, Time } from 'lightweight-charts';
 import type { Trade } from '@/types';
 import { getThemeColors } from '@/lib/theme-utils';
 
@@ -48,22 +49,21 @@ function aggregateTradesIntoBuckets(trades: Trade[], intervalMs: number = 5000):
   return sortedBuckets;
 }
 
-function calculateCumulativeVolume(buckets: BucketData[]): Array<{ time: number; value: number }> {
+function calculateCumulativeVolume(buckets: BucketData[]): BaselineData<Time>[] {
   let cumulative = 0;
   return buckets.map(bucket => {
     cumulative += bucket.netVolume;
     return {
-      time: bucket.time / 1000, // Convert to seconds for lightweight-charts
+      time: (bucket.time / 1000) as Time,
       value: cumulative,
     };
   });
 }
 
-function TradeVolumeTimeline({ coin, trades }: TradeVolumeTimelineProps) {
+function TradeVolumeTimeline({ trades }: TradeVolumeTimelineProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
-  const chartRef = useRef<any>(null);
-  const lineSeriesRef = useRef<any>(null);
-  const baselineSeriesRef = useRef<any>(null);
+  const chartRef = useRef<IChartApi | null>(null);
+  const baselineSeriesRef = useRef<ISeriesApi<'Baseline'> | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -127,7 +127,7 @@ function TradeVolumeTimeline({ coin, trades }: TradeVolumeTimelineProps) {
         };
 
         window.addEventListener('resize', resizeHandler);
-      } catch (error) {
+      } catch {
       }
     };
 

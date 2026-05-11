@@ -68,7 +68,7 @@ class WebSocketServiceManager {
   }
 }
 
-export function useWebSocketService(type: 'hyperliquid' | 'binance' | 'bybit' = 'hyperliquid', isTestnet: boolean = false): {
+export function getWebSocketService(type: 'hyperliquid' | 'binance' | 'bybit' = 'hyperliquid', isTestnet: boolean = false): {
   service: ExchangeWebSocketService;
   trackSubscription: () => () => void;
 } {

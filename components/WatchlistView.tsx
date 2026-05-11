@@ -157,7 +157,7 @@ export default function WatchlistView() {
             <div className="text-center py-8">
               <p className="text-primary-muted text-sm mb-2">No wallets in watchlist</p>
               <p className="text-primary-muted text-[10px]">
-                Click "ADD WALLET" to start tracking other traders
+                Click &ldquo;ADD WALLET&rdquo; to start tracking other traders
               </p>
             </div>
           ) : (

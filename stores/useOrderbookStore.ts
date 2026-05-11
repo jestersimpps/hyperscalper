@@ -45,8 +45,8 @@ export const useOrderbookStore = create<OrderbookStore>((set, get) => ({
     }
 
     const init = async () => {
-      const { useWebSocketService } = await import('@/lib/websocket/websocket-singleton');
-      const { service, trackSubscription } = useWebSocketService('hyperliquid');
+      const { getWebSocketService } = await import('@/lib/websocket/websocket-singleton');
+      const { service, trackSubscription } = getWebSocketService('hyperliquid');
 
       const cleanup = trackSubscription();
 

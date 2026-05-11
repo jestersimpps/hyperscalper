@@ -31,6 +31,7 @@ export function usePriceVolumeAnimation(symbol: string, closePrices: number[] | 
         const timeSinceLastAnimation = now - lastPriceAnimationTimeRef.current;
 
         if (timeSinceLastAnimation >= 500) {
+          // eslint-disable-next-line react-hooks/set-state-in-effect -- throttled animation flash, intentional
           setAnimationState(prev => ({ ...prev, priceDirection: currentTrend }));
           lastPriceAnimationTimeRef.current = now;
 
@@ -61,6 +62,7 @@ export function usePriceVolumeAnimation(symbol: string, closePrices: number[] | 
 
       if (timeSinceLastAnimation >= 500) {
         const direction = currentVolume > prevVolumeRef.current ? 'up' : 'down';
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- throttled animation flash, intentional
         setAnimationState(prev => ({ ...prev, volumeDirection: direction }));
         lastVolumeAnimationTimeRef.current = now;
 

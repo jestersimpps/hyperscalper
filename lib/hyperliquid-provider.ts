@@ -21,7 +21,10 @@ export class HyperliquidProvider implements ExchangeProvider {
     startTime?: number;
     endTime?: number;
   }): Promise<CandleData[]> {
-    const payload: any = {
+    const payload: {
+      type: 'candleSnapshot';
+      req: { coin: string; interval: string; startTime?: number; endTime?: number };
+    } = {
       type: 'candleSnapshot',
       req: {
         coin: params.coin,
@@ -66,10 +69,10 @@ export class HyperliquidProvider implements ExchangeProvider {
     }));
   }
 
-  subscribeToCandlesStream(params: {
+  subscribeToCandlesStream(_params: {
     coin: string;
     interval: string;
-  }, callback: (candle: CandleData) => void): () => void {
+  }, _callback: (candle: CandleData) => void): () => void {
     throw new Error('WebSocket streams should be handled at the API route level');
   }
 }

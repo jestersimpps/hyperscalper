@@ -1,6 +1,6 @@
 import type { CandleData as FullCandleData, Trade as ExchangeTrade } from '@/types';
 import type { OrderbookLevel } from '@/lib/websocket/exchange-websocket.interface';
-import { createMemoizedFunction, createCandleBasedMemoization } from './memoization';
+import { createMemoizedFunction } from './memoization';
 
 export interface ForecastBiasInputs {
   obImb: number;
@@ -1477,12 +1477,6 @@ interface Point {
   y: number;
 }
 
-interface Line {
-  start: Point;
-  end: Point;
-  strength: number;
-}
-
 function findPivotLows(candles: FullCandleData[], window: number = 3): PivotPoint[] {
   const pivots: PivotPoint[] = [];
   const halfWindow = Math.floor(window / 2);
@@ -1592,7 +1586,7 @@ function scoreTrendline(touches: number, violations: number, slope: number): num
   return score;
 }
 
-function findBestEnvelopeLine(
+function _findBestEnvelopeLine(
   pivots: PivotPoint[],
   candles: FullCandleData[],
   isSupport: boolean,
@@ -1602,7 +1596,6 @@ function findBestEnvelopeLine(
 
   let bestLine: ScoredEnvelopeLine | null = null;
   let candidatesChecked = 0;
-  let validCandidates = 0;
 
   // Test all combinations of pivot pairs to find the line with most touches
   const maxCombinations = Math.min(200, (pivots.length * (pivots.length - 1)) / 2);
@@ -1620,7 +1613,6 @@ function findBestEnvelopeLine(
       // Only consider lines with ZERO violations
       if (validation.violations > 0) continue;
 
-      validCandidates++;
 
       const score = scoreTrendline(validation.touches, validation.violations, line.slope);
 
@@ -1796,7 +1788,7 @@ function validateTrendline(
   line: { x: number; y: number }[],
   candles: FullCandleData[],
   isSupport: boolean,
-  tolerance: number = 0.001
+  _tolerance: number = 0.001
 ): { violations: number; violationRate: number } {
   let violations = 0;
 
@@ -1823,7 +1815,7 @@ function validateTrendline(
   };
 }
 
-function getExtremeSupportResistanceLines(
+function _getExtremeSupportResistanceLines(
   historicalPrices: FullCandleData[]
 ): {
   support: {
@@ -1839,10 +1831,22 @@ function getExtremeSupportResistanceLines(
     secondHighestPriceCandle: FullCandleData | null;
   }[];
 } {
+  type SupportLine = {
+    line: Point[];
+    slope: number;
+    lowestPriceCandle: FullCandleData;
+    secondLowestPriceCandle: FullCandleData | null;
+  };
+  type ResistanceLine = {
+    line: Point[];
+    slope: number;
+    highestPriceCandle: FullCandleData;
+    secondHighestPriceCandle: FullCandleData | null;
+  };
   const endTime = historicalPrices[historicalPrices.length - 1].time;
-  const output = {
-    support: [] as any[],
-    resistance: [] as any[]
+  const output: { support: SupportLine[]; resistance: ResistanceLine[] } = {
+    support: [],
+    resistance: []
   };
   const candles = [...historicalPrices];
   const fullWidthLines = getExtremeLines(candles, endTime);
@@ -2119,7 +2123,7 @@ interface StochasticPivotPoint {
   index: number;
 }
 
-function findStochasticPivotLows(stochData: StochasticData[], candles: FullCandleData[], window: number = 3): StochasticPivotPoint[] {
+function _findStochasticPivotLows(stochData: StochasticData[], candles: FullCandleData[], window: number = 3): StochasticPivotPoint[] {
   const pivots: StochasticPivotPoint[] = [];
   const halfWindow = Math.floor(window / 2);
 
@@ -2146,7 +2150,7 @@ function findStochasticPivotLows(stochData: StochasticData[], candles: FullCandl
   return pivots;
 }
 
-function findStochasticPivotHighs(stochData: StochasticData[], candles: FullCandleData[], window: number = 3): StochasticPivotPoint[] {
+function _findStochasticPivotHighs(stochData: StochasticData[], candles: FullCandleData[], window: number = 3): StochasticPivotPoint[] {
   const pivots: StochasticPivotPoint[] = [];
   const halfWindow = Math.floor(window / 2);
 
@@ -2247,7 +2251,7 @@ interface ScoredStochasticLine {
   pivots: StochasticPivotPoint[];
 }
 
-function findBestStochasticTrendlineForPeriod(
+function _findBestStochasticTrendlineForPeriod(
   pivots: StochasticPivotPoint[],
   stochData: StochasticData[],
   candles: FullCandleData[],

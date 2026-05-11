@@ -12,7 +12,7 @@ export default function QuickCloseButtons() {
   const service = useHyperliquidService(addressFromUrl || undefined);
 
   const profitablePositions = Object.entries(positions)
-    .filter(([_, pos]) => pos && pos.pnl > 0)
+    .filter(([, pos]) => pos && pos.pnl > 0)
     .map(([symbol, pos]) => ({ ...pos!, symbol }))
     .sort((a, b) => b.pnl - a.pnl);
 
