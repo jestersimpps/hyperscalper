@@ -177,8 +177,7 @@ export const useGlobalPollingStore = create<GlobalPollingStore>((set, get) => ({
         index++;
       }
 
-      // Higher-timeframe prefetch for cup/triangle scanners. Only fetched
-      // when at least one of those scanners has the TF enabled in settings.
+      // Higher-timeframe prefetch for any scanner with 15m/1h enabled.
       // Cadence: 15m every 5min, 1h every 30min — there's no value polling
       // faster than the bar resolution.
       const scannerSettings = useSettingsStore.getState().settings.scanner;
@@ -191,6 +190,14 @@ export const useGlobalPollingStore = create<GlobalPollingStore>((set, get) => ({
       };
       collect(scannerSettings?.cupAndHandleScanner?.timeframes);
       collect(scannerSettings?.ascendingTriangleScanner?.timeframes);
+      collect(scannerSettings?.stochasticScanner?.timeframes);
+      collect(scannerSettings?.emaAlignmentScanner?.timeframes);
+      collect(scannerSettings?.channelScanner?.timeframes);
+      collect(scannerSettings?.divergenceScanner?.timeframes);
+      collect(scannerSettings?.macdReversalScanner?.timeframes);
+      collect(scannerSettings?.rsiReversalScanner?.timeframes);
+      collect(scannerSettings?.volumeSpikeScanner?.timeframes);
+      collect(scannerSettings?.supportResistanceScanner?.timeframes);
 
       const tfMinIntervalMs: Record<string, number> = {
         '15m': 5 * 60 * 1000,
