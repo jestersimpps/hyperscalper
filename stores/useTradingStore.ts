@@ -39,10 +39,15 @@ const MIN_NOTIONAL = 10; // Hyperliquid minimum order value in USD
 
 // Resolve live mid from the WS-streamed sidebar store first (zero latency,
 // no HTTP), fall back to a one-shot allMids fetch when WS hasn't seeded
-// the coin yet. Throws if no source has a price — refusing to dispatch is
-// safer than letting bad math route an order to the wrong place.
+// the coin yet OR when the stream has gone quiet (paused tab, dropped
+// socket). Without the staleness check a frozen cache routes limit clicks
+// to TRIGGER MARKET. Throws if no source has a price.
+const MID_MAX_AGE_MS = 2000;
 const getLiveMid = async (service: HyperliquidService, symbol: string): Promise<number> => {
-  let mid = useSidebarPricesStore.getState().prices[symbol] ?? 0;
+  const { prices, lastUpdate } = useSidebarPricesStore.getState();
+  const cached = prices[symbol] ?? 0;
+  const fresh = cached > 0 && Date.now() - lastUpdate < MID_MAX_AGE_MS;
+  let mid = fresh ? cached : 0;
   if (!mid || mid <= 0) {
     const allMids = await service.getAllMids();
     mid = parseFloat(allMids[symbol] || '0');

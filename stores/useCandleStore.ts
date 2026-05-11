@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { CandleData, TimeInterval } from '@/types';
 import type { ExchangeWebSocketService } from '@/lib/websocket/exchange-websocket.interface';
 import { useWebSocketStatusStore } from '@/stores/useWebSocketStatusStore';
+import { useSidebarPricesStore } from '@/stores/useSidebarPricesStore';
 import { formatCandle } from '@/lib/format-utils';
 import { MAX_CANDLES } from '@/lib/constants';
 import { HyperliquidService } from '@/lib/services/hyperliquid.service';
@@ -23,6 +24,8 @@ interface CandleStore {
   fetchCandles: (coin: string, interval: TimeInterval, startTime: number, endTime: number) => Promise<void>;
   subscribeToCandles: (coin: string, interval: TimeInterval) => void;
   unsubscribeFromCandles: (coin: string, interval: TimeInterval) => void;
+  backfillGap: (coin: string, interval: TimeInterval) => Promise<void>;
+  backfillAllActive: () => Promise<void>;
   clearCandles: (coin: string, interval?: TimeInterval) => void;
   cleanup: () => void;
   getCandlesSync: (coin: string, interval: TimeInterval) => TransformedCandle[] | null;
@@ -254,6 +257,63 @@ export const useCandleStore = create<CandleStore>((set, get) => ({
     set({ subscriptions: newSubscriptions });
   },
 
+  backfillGap: async (coin, interval) => {
+    const key = getCandleKey(coin, interval);
+    const { service, candles, loading } = get();
+    if (!service || loading[key]) return;
+
+    const existing = candles[key];
+    if (!existing || existing.length === 0) return;
+
+    const intervalMs = INTERVAL_TO_MS[interval];
+    const lastTime = existing[existing.length - 1].time;
+    const now = Date.now();
+    if (now - lastTime < intervalMs) return;
+
+    set((state) => ({ loading: { ...state.loading, [key]: true } }));
+
+    try {
+      const data = await service.getCandles({
+        coin,
+        interval,
+        startTime: lastTime,
+        endTime: now,
+      });
+      if (data.length === 0) return;
+
+      const formatted = data.map((c) => formatCandle(c, coin));
+
+      set((state) => {
+        const current = state.candles[key] ?? [];
+        const byTime = new Map<number, CandleData>();
+        current.forEach((c) => byTime.set(c.time, c));
+        formatted.forEach((c) => byTime.set(c.time, c));
+        const merged = Array.from(byTime.values()).sort((a, b) => a.time - b.time);
+        const limited = merged.length > MAX_CANDLES ? merged.slice(-MAX_CANDLES) : merged;
+        return { candles: { ...state.candles, [key]: limited } };
+      });
+      touch(key);
+    } catch {
+      // Swallow — next WS tick or next reconnect will retry
+    } finally {
+      set((state) => ({ loading: { ...state.loading, [key]: false } }));
+    }
+  },
+
+  backfillAllActive: async () => {
+    const { subscriptions } = get();
+    const keys = Object.keys(subscriptions);
+    await Promise.all(
+      keys.map((key) => {
+        const dashIdx = key.lastIndexOf('-');
+        if (dashIdx <= 0) return Promise.resolve();
+        const coin = key.slice(0, dashIdx);
+        const interval = key.slice(dashIdx + 1) as TimeInterval;
+        return get().backfillGap(coin, interval);
+      })
+    );
+  },
+
   clearCandles: (coin, interval?) => {
     const { candles, loading, errors } = get();
     const newCandles = { ...candles };
@@ -327,3 +387,52 @@ export const useCandleStore = create<CandleStore>((set, get) => ({
     return closePrices;
   },
 }));
+
+// Shared cooldown across both triggers (WS reconnect + visibility flip).
+// Without it, a lid-open that also flips the socket can fire two full sweeps
+// back-to-back; tab thrash can fire many. HL info endpoint is 1200 weight/min
+// and a sweep is N_subs × 20, so a few bursts can chew through the budget.
+let lastResyncAt = 0;
+const RESYNC_COOLDOWN_MS = 5000;
+const resync = () => {
+  if (Date.now() - lastResyncAt < RESYNC_COOLDOWN_MS) return;
+  lastResyncAt = Date.now();
+
+  const state = useCandleStore.getState();
+  state.backfillAllActive();
+
+  const service = state.service;
+  if (service) {
+    service.getAllMids().then((mids) => {
+      const parsed: Record<string, number> = {};
+      for (const [coin, px] of Object.entries(mids)) {
+        const n = parseFloat(px as string);
+        if (n > 0) parsed[coin] = n;
+      }
+      useSidebarPricesStore.setState({ prices: parsed, lastUpdate: Date.now() });
+    }).catch(() => {});
+  }
+};
+
+// On WebSocket reconnect (any transition INTO 'connected' that wasn't already
+// connected), backfill any candle gap that opened while the socket was down.
+// The HL WS only streams live candles forward — closed bars during the outage
+// are never replayed, so we re-fetch from the last known time to now.
+let prevWsStatus: string | null = null;
+useWebSocketStatusStore.subscribe((state) => {
+  const next = state.overallStatus;
+  if (next === 'connected' && prevWsStatus && prevWsStatus !== 'connected') {
+    resync();
+  }
+  prevWsStatus = next;
+});
+
+// Lid-close / tab-suspend handler. The WS may not emit a 'close' on resume,
+// so the reconnect hook above doesn't fire — but candles still missed bars
+// and the cached mid is stale.
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible') return;
+    resync();
+  });
+}
