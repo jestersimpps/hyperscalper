@@ -252,14 +252,9 @@ export default function Sidepanel({ selectedSymbol, onSymbolSelect, mobileView =
     const symbols = allSymbolsString.split(',').filter(s => s.length > 0);
     if (symbols.length > 0) {
       fetchClosePrices(symbols);
-
-      const intervalId = setInterval(() => {
-        fetchClosePrices(symbols);
-      }, 5000);
-
-      return () => clearInterval(intervalId);
     }
-    // fetchClosePrices is a stable Zustand action.
+    // fetchClosePrices is a stable Zustand action. Refresh whenever the global
+    // candle poll lands new data — no separate interval needed.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allSymbolsString, lastCandlePollTime]);
 
