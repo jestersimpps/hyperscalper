@@ -139,7 +139,7 @@ export interface AscendingTriangleWeights {
 
 export interface AscendingTriangleScannerConfig {
   enabled: boolean;
-  timeframes: ('1m' | '5m')[];
+  timeframes: ('1m' | '5m' | '15m' | '1h')[];
   lookbackBars: number;
   pivotStrength: number;
   minHighPivots: number;
@@ -160,7 +160,7 @@ export interface CupAndHandleWeights {
 
 export interface CupAndHandleScannerConfig {
   enabled: boolean;
-  timeframes: ('1m' | '5m')[];
+  timeframes: ('1m' | '5m' | '15m' | '1h')[];
   lookbackBars: number;
   pivotStrength: number;
   minCupBars: number;

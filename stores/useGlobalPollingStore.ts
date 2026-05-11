@@ -6,6 +6,8 @@ import { useSymbolVolatilityStore } from './useSymbolVolatilityStore';
 import { useTopSymbolsStore } from './useTopSymbolsStore';
 import { useCandleStore } from './useCandleStore';
 import { useScannerStore } from './useScannerStore';
+import { useSettingsStore } from './useSettingsStore';
+import type { TimeInterval } from '@/types';
 
 interface GlobalPollingStore {
   service: HyperliquidService | null;
@@ -21,6 +23,7 @@ interface GlobalPollingStore {
   slowFetchInFlight: boolean;
   candleFetchInFlight: boolean;
   lastMetaSnapshot: { meta: any; assetCtxs: any[] } | null;
+  lastHigherTfFetch: Record<string, number>;
 
   setService: (service: HyperliquidService) => void;
   startGlobalPolling: () => void;
@@ -47,6 +50,7 @@ export const useGlobalPollingStore = create<GlobalPollingStore>((set, get) => ({
   slowFetchInFlight: false,
   candleFetchInFlight: false,
   lastMetaSnapshot: null,
+  lastHigherTfFetch: {},
 
   setService: (service: HyperliquidService) => {
     set({ service });
@@ -173,9 +177,59 @@ export const useGlobalPollingStore = create<GlobalPollingStore>((set, get) => ({
         index++;
       }
 
+      // Higher-timeframe prefetch for cup/triangle scanners. Only fetched
+      // when at least one of those scanners has the TF enabled in settings.
+      // Cadence: 15m every 5min, 1h every 30min — there's no value polling
+      // faster than the bar resolution.
+      const scannerSettings = useSettingsStore.getState().settings.scanner;
+      const enabledTfs = new Set<TimeInterval>();
+      const collect = (tfs: readonly string[] | undefined) => {
+        if (!tfs) return;
+        for (const tf of tfs) {
+          if (tf === '15m' || tf === '1h') enabledTfs.add(tf as TimeInterval);
+        }
+      };
+      collect(scannerSettings?.cupAndHandleScanner?.timeframes);
+      collect(scannerSettings?.ascendingTriangleScanner?.timeframes);
+
+      const tfMinIntervalMs: Record<string, number> = {
+        '15m': 5 * 60 * 1000,
+        '1h': 30 * 60 * 1000,
+      };
+      const tfBarMs: Record<string, number> = {
+        '15m': 15 * 60 * 1000,
+        '1h': 60 * 60 * 1000,
+      };
+
+      const lastFetchMap = { ...get().lastHigherTfFetch };
+      const now = Date.now();
+
+      for (const tf of enabledTfs) {
+        const lastFetch = lastFetchMap[tf] ?? 0;
+        if (now - lastFetch < tfMinIntervalMs[tf]) continue;
+
+        for (const symbol of topSymbols) {
+          const symbolName = symbol.name;
+          if (candleStore.activeSymbol === symbolName) continue;
+
+          if (index > 0) {
+            await new Promise(resolve => setTimeout(resolve, staggerDelay));
+          }
+
+          const endTime = Date.now();
+          const startTime = endTime - 1200 * tfBarMs[tf];
+
+          candleStore.fetchCandles(symbolName, tf, startTime, endTime).catch(() => {});
+          index++;
+        }
+
+        lastFetchMap[tf] = now;
+      }
+
       set({
         lastCandlePollTime: Date.now(),
-        isFirstCandleFetch: false
+        isFirstCandleFetch: false,
+        lastHigherTfFetch: lastFetchMap,
       });
     } catch {
       // swallow - next tick will retry

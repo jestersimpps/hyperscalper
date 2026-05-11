@@ -116,15 +116,25 @@ export const useCandleStore = create<CandleStore>((set, get) => ({
       errors: { ...state.errors, [key]: null },
     }));
 
-    try {
+    const attempt = async () => {
       const data = await service.getCandles({
         coin,
         interval,
         startTime: actualStartTime,
         endTime: actualEndTime,
       });
+      return data.map((candle) => formatCandle(candle, coin));
+    };
 
-      const formattedData = data.map((candle) => formatCandle(candle, coin));
+    try {
+      let formattedData: CandleData[];
+      try {
+        formattedData = await attempt();
+      } catch {
+        // Transient blip on chart open is common; one retry covers it.
+        await new Promise((r) => setTimeout(r, 500));
+        formattedData = await attempt();
+      }
 
       touch(key);
       set((state) => {
@@ -173,10 +183,12 @@ export const useCandleStore = create<CandleStore>((set, get) => ({
           const existingCandles = state.candles[key] || [];
           const formattedCandle = formatCandle(candle, coin);
 
+          // Drop WS ticks that arrive before REST history lands. Writing a
+          // single-candle array here causes the chart to render only that
+          // one bar if the REST fetch later fails or is skipped. The
+          // in-progress bar this tick represents will be in the REST
+          // response anyway, and subsequent ticks will update it.
           if (existingCandles.length === 0) {
-            set((state) => ({
-              candles: { ...state.candles, [key]: [formattedCandle] },
-            }));
             return;
           }
 

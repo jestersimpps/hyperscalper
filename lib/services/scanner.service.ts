@@ -164,6 +164,15 @@ export class ScannerService {
       }
       const recentCandles = candles1m.slice(-baseCandleCount);
       return aggregate1mTo5m(recentCandles);
+    } else if (targetTimeframe === '15m' || targetTimeframe === '1h') {
+      // Native 15m/1h fetched directly via REST in the global candle poll
+      // (1m → 15m/1h aggregation would need 6000+ 1m bars per symbol,
+      // far above MAX_CANDLES). Returns null until the prefetch lands.
+      const candles = candleStore.getCandlesSync(symbol, targetTimeframe);
+      if (!candles || candles.length < lookbackCandles) {
+        return null;
+      }
+      return candles.slice(-lookbackCandles);
     }
 
     return null;

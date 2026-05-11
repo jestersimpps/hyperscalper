@@ -53,7 +53,7 @@ function SymbolView({ coin }: SymbolViewProps) {
   const subscribeToOrders = useOrderStore((state) => state.subscribeToOrders);
   const unsubscribeFromOrders = useOrderStore((state) => state.unsubscribeFromOrders);
 
-  const candleKey = `${coin}-1m`;
+  const candleKey = `${coin}-${chartInterval}`;
   const candles = useCandleStore((state) => state.candles[candleKey]) || [];
   const fetchCandles = useCandleStore((state) => state.fetchCandles);
   const subscribeToCandles = useCandleStore((state) => state.subscribeToCandles);
