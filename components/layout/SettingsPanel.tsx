@@ -2044,25 +2044,6 @@ export default function SettingsPanel() {
                   <div className="p-3 bg-bg-primary border border-frame rounded">
                     <label className="flex items-center justify-between cursor-pointer">
                       <div>
-                        <span className="text-primary-muted text-xs font-mono block">SHOW BUY/SELL WALLS</span>
-                        <span className="text-primary-muted text-[10px] block mt-1">
-                          Draw the largest L2 bid and ask clusters as horizontal lines on the main chart
-                        </span>
-                      </div>
-                      <input
-                        type="checkbox"
-                        checked={Boolean(settings.chart?.showWalls ?? true)}
-                        onChange={(e) => {
-                          const { updateSettings } = useSettingsStore.getState();
-                          updateSettings({ chart: { ...settings.chart, showWalls: e.target.checked } });
-                        }}
-                        className="w-4 h-4 accent-primary cursor-pointer"
-                      />
-                    </label>
-                  </div>
-                  <div className="p-3 bg-bg-primary border border-frame rounded">
-                    <label className="flex items-center justify-between cursor-pointer">
-                      <div>
                         <span className="text-primary-muted text-xs font-mono block">SCHMECKLES MODE</span>
                         <span className="text-primary-muted text-[10px] block mt-1">
                           Show PnL in schmeckles - interdimensional currency from the Giants' Dimension (1 SH = $1 profit per $2000 account balance)

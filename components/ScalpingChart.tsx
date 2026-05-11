@@ -1,9 +1,11 @@
 'use client';
 
 import { useEffect, useLayoutEffect, useRef, useState, useMemo, useCallback } from 'react';
+import type { IChartApi, ISeriesApi, IPriceLine, SeriesMarker, Time } from 'lightweight-charts';
 import type { CandleData, TimeInterval } from '@/types';
 import type { Position } from '@/models/Position';
 import type { Order } from '@/models/Order';
+import type { StochasticVariantConfig } from '@/models/Settings';
 import { useCandleStore } from '@/stores/useCandleStore';
 import { useSettingsStore } from '@/stores/useSettingsStore';
 import { useSymbolMetaStore } from '@/stores/useSymbolMetaStore';
@@ -14,10 +16,9 @@ import { useScannerStore } from '@/stores/useScannerStore';
 import { INTERVAL_TO_MS } from '@/lib/time-utils';
 import { getThemeColors } from '@/lib/theme-utils';
 import { formatSize } from '@/lib/format-utils';
-import { useDebouncedCallback, useThrottledCallback } from '@/lib/performance-utils';
+import { useDebouncedCallback } from '@/lib/performance-utils';
 import ChartLegend from '@/components/ChartLegend';
 import {
-  calculateEMA,
   calculateMACD,
   calculateRSI,
   calculateStochastic,
@@ -30,7 +31,6 @@ import {
   detectMacdReversals,
   detectRsiReversals,
   calculateTrendlines,
-  calculatePivotLines,
   calculateForecastFan,
   computeOrderbookImbalance,
   computeTradeFlow,
@@ -38,8 +38,8 @@ import {
   tuneForecastFromCandles,
   type StochasticData,
   type DivergencePoint,
-  type ReversalMarker,
   type ForecastTuningResult,
+  type Trendlines,
 } from '@/lib/indicators';
 import { getCandleTimeWindow } from '@/lib/time-utils';
 import { DEFAULT_CANDLE_COUNT } from '@/lib/constants';
@@ -56,7 +56,7 @@ interface ScalpingChartProps {
   coin: string;
   interval: TimeInterval;
   onPriceUpdate?: (price: number) => void;
-  onChartReady?: (chart: any) => void;
+  onChartReady?: (chart: IChartApi) => void;
   onChartClick?: (data: { time: number; price: number }) => void;
   candleData?: CandleData[];
   isExternalData?: boolean;
@@ -69,13 +69,7 @@ interface ScalpingChartProps {
   referenceMode?: boolean;
 }
 
-interface CrossoverMarker {
-  time: number;
-  position: 'aboveBar' | 'belowBar';
-  color: string;
-  shape: 'arrowUp' | 'arrowDown';
-  text: string;
-}
+type ChartMarker = SeriesMarker<Time> & { id?: string };
 
 const SIGNAL_COLORS = {
   ema: '#00D9FF',
@@ -87,8 +81,8 @@ const SIGNAL_COLORS = {
 };
 
 
-function detectCrossovers(ema1: number[], ema2: number[], ema3: number[] | null, candles: CandleData[]): any[] {
-  const markers: any[] = [];
+function detectCrossovers(ema1: number[], ema2: number[], ema3: number[] | null, candles: CandleData[]): ChartMarker[] {
+  const markers: ChartMarker[] = [];
 
   if (ema3) {
     // When 3 EMAs are enabled, detect when all 3 align
@@ -110,7 +104,7 @@ function detectCrossovers(ema1: number[], ema2: number[], ema3: number[] | null,
 
       if (!wasBullish && isBullish) {
         markers.push({
-          time: candles[i].time / 1000,
+          time: (candles[i].time / 1000) as Time,
           position: 'belowBar',
           color: SIGNAL_COLORS.ema,
           shape: 'circle',
@@ -119,7 +113,7 @@ function detectCrossovers(ema1: number[], ema2: number[], ema3: number[] | null,
         });
       } else if (!wasBearish && isBearish) {
         markers.push({
-          time: candles[i].time / 1000,
+          time: (candles[i].time / 1000) as Time,
           position: 'aboveBar',
           color: SIGNAL_COLORS.ema,
           shape: 'circle',
@@ -138,7 +132,7 @@ function detectCrossovers(ema1: number[], ema2: number[], ema3: number[] | null,
 
       if (prevEma1 <= prevEma2 && currEma1 > currEma2) {
         markers.push({
-          time: candles[i].time / 1000,
+          time: (candles[i].time / 1000) as Time,
           position: 'belowBar',
           color: SIGNAL_COLORS.ema,
           shape: 'circle',
@@ -147,7 +141,7 @@ function detectCrossovers(ema1: number[], ema2: number[], ema3: number[] | null,
         });
       } else if (prevEma1 >= prevEma2 && currEma1 < currEma2) {
         markers.push({
-          time: candles[i].time / 1000,
+          time: (candles[i].time / 1000) as Time,
           position: 'aboveBar',
           color: SIGNAL_COLORS.ema,
           shape: 'circle',
@@ -161,13 +155,13 @@ function detectCrossovers(ema1: number[], ema2: number[], ema3: number[] | null,
   return markers;
 }
 
-function createPivotMarkers(candles: CandleData[]): any[] {
+function createPivotMarkers(candles: CandleData[]): ChartMarker[] {
   const pivots = detectPivots(candles, 2);
-  const markers: any[] = [];
+  const markers: ChartMarker[] = [];
 
   pivots.forEach((pivot) => {
     markers.push({
-      time: pivot.time / 1000,
+      time: (pivot.time / 1000) as Time,
       position: pivot.type === 'high' ? 'aboveBar' : 'belowBar',
       color: SIGNAL_COLORS.pivot,
       shape: 'circle',
@@ -179,13 +173,13 @@ function createPivotMarkers(candles: CandleData[]): any[] {
   return markers;
 }
 
-function createStochasticPivotMarkers(stochData: StochasticData[], candles: CandleData[]): any[] {
+function createStochasticPivotMarkers(stochData: StochasticData[], candles: CandleData[]): ChartMarker[] {
   const pivots = detectStochasticPivots(stochData, candles, 3);
-  const markers: any[] = [];
+  const markers: ChartMarker[] = [];
 
   pivots.forEach((pivot) => {
     markers.push({
-      time: pivot.time / 1000,
+      time: (pivot.time / 1000) as Time,
       position: pivot.type === 'high' ? 'aboveBar' : 'belowBar',
       color: SIGNAL_COLORS.pivot,
       shape: 'circle',
@@ -197,8 +191,8 @@ function createStochasticPivotMarkers(stochData: StochasticData[], candles: Cand
   return markers;
 }
 
-function createDivergenceMarkers(divergences: DivergencePoint[]): any[] {
-  const markers: any[] = [];
+function createDivergenceMarkers(divergences: DivergencePoint[]): ChartMarker[] {
+  const markers: ChartMarker[] = [];
 
   divergences.forEach((div) => {
     let color = '';
@@ -224,7 +218,7 @@ function createDivergenceMarkers(divergences: DivergencePoint[]): any[] {
     }
 
     markers.push({
-      time: div.endTime / 1000,
+      time: (div.endTime / 1000) as Time,
       position: position,
       color: color,
       shape: 'circle',
@@ -241,34 +235,33 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
   const simplifiedView = simplifiedViewProp || referenceMode;
   const hideStochastic = hideStochasticProp || referenceMode;
   const chartContainerRef = useRef<HTMLDivElement>(null);
-  const chartRef = useRef<any>(null);
-  const candleSeriesRef = useRef<any>(null);
-  const volumeSeriesRef = useRef<any>(null);
-  const ema1SeriesRef = useRef<any>(null);
-  const ema2SeriesRef = useRef<any>(null);
-  const ema3SeriesRef = useRef<any>(null);
-  const stochSeriesRefsRef = useRef<Record<string, { k?: any; d: any }>>({});
-  const macdSeriesRefsRef = useRef<Record<string, { line: any; signal: any; histogram: any }>>({});
-  const forecastSeriesRef = useRef<{ median: any; markers: any[] } | null>(null);
+  const chartRef = useRef<IChartApi | null>(null);
+  const candleSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
+  const volumeSeriesRef = useRef<ISeriesApi<'Histogram'> | null>(null);
+  const ema1SeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
+  const ema2SeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
+  const ema3SeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
+  const stochSeriesRefsRef = useRef<Record<string, { k?: ISeriesApi<'Line'>; d: ISeriesApi<'Line'> }>>({});
+  const macdSeriesRefsRef = useRef<Record<string, { line: ISeriesApi<'Line'>; signal: ISeriesApi<'Line'>; histogram: ISeriesApi<'Histogram'> }>>({});
+  const forecastSeriesRef = useRef<{ median: ISeriesApi<'Line'>; markers: ISeriesApi<'Line'>[] } | null>(null);
   const projectionSeriesRef = useRef<{
-    ema1: any;
-    ema2: any;
-    ema3: any;
-    rsi: any;
-    stoch: Record<string, any>;
-    macd: any;
-    support: any;
-    resistance: any;
+    ema1: ISeriesApi<'Line'>;
+    ema2: ISeriesApi<'Line'>;
+    ema3: ISeriesApi<'Line'>;
+    rsi: ISeriesApi<'Line'>;
+    stoch: Record<string, ISeriesApi<'Line'>>;
+    macd: ISeriesApi<'Line'>;
+    support: ISeriesApi<'Line'>;
+    resistance: ISeriesApi<'Line'>;
   } | null>(null);
   const smoothedDeltasRef = useRef<number[] | null>(null);
-  const stochReferenceLinesRef = useRef<any[]>([]);
-  const supportLineSeriesRef = useRef<any[]>([]);
-  const resistanceLineSeriesRef = useRef<any[]>([]);
-  const positionLineRef = useRef<any>(null);
-  const breakevenBandSeriesRef = useRef<any>(null);
-  const orderLinesRef = useRef<Map<string, { line: any; sig: string }>>(new Map());
-  const wallLinesRef = useRef<any[]>([]);
-  const cachedTrendlinesRef = useRef<{ supportLine: any[]; resistanceLine: any[] }>({ supportLine: [], resistanceLine: [] });
+  const stochReferenceLinesRef = useRef<IPriceLine[]>([]);
+  const supportLineSeriesRef = useRef<ISeriesApi<'Line'>[]>([]);
+  const resistanceLineSeriesRef = useRef<ISeriesApi<'Line'>[]>([]);
+  const positionLineRef = useRef<IPriceLine | null>(null);
+  const breakevenBandSeriesRef = useRef<ISeriesApi<'Baseline'> | null>(null);
+  const orderLinesRef = useRef<Map<string, { line: IPriceLine; sig: string }>>(new Map());
+  const cachedTrendlinesRef = useRef<Trendlines>({ supportLine: [], resistanceLine: [] });
   const lastTrendlineCalculationRef = useRef<number>(0);
   const lastSeriesKeyRef = useRef<string>('');
   const [chartReady, setChartReady] = useState(false);
@@ -294,9 +287,18 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
     [candles, chartSettings?.invertedMode]
   );
 
-  const enabledMacdTimeframes = Object.entries(macdSettings.timeframes || {})
-    .filter(([_, config]) => config.enabled && !simplifiedView && macdSettings.showMultiTimeframe)
-    .map(([tf]) => tf as TimeInterval);
+  const enabledMacdTimeframes = useMemo(
+    () =>
+      Object.entries(macdSettings.timeframes || {})
+        .filter(([, config]) => config.enabled && !simplifiedView && macdSettings.showMultiTimeframe)
+        .map(([tf]) => tf as TimeInterval),
+    [macdSettings.timeframes, macdSettings.showMultiTimeframe, simplifiedView]
+  );
+  const enabledMacdTimeframesKey = enabledMacdTimeframes.join(',');
+  const enabledStochVariantsKey = Object.entries(stochasticSettings.variants)
+    .filter(([, v]) => v.enabled)
+    .map(([k]) => k)
+    .join(',');
 
   const storeMacdCandles = useCandleStore((state) => state.candles);
   const allMacdCandles = isExternalData && macdCandleData ? macdCandleData : storeMacdCandles;
@@ -431,7 +433,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
         const projectionEma2Series = makeProjection(projectionColor);
         const projectionEma3Series = makeProjection(projectionColor);
         const projectionRsiSeries = makeProjection(projectionColor);
-        const projectionStochSeriesByVariant: Record<string, any> = {
+        const projectionStochSeriesByVariant: Record<string, ISeriesApi<'Line'>> = {
           ultraFast: makeProjection(projectionColor),
           fast: makeProjection(projectionColor),
           medium: makeProjection(projectionColor),
@@ -677,7 +679,8 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
         projectionSeriesRef.current = null;
       }
     };
-  }, [simplifiedView, macdSettings.showMultiTimeframe, stochasticSettings.showMultiVariant, enabledMacdTimeframes.join(','), Object.entries(stochasticSettings.variants).filter(([_, v]) => v.enabled).map(([k]) => k).join(',')]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- chart re-init must be tightly scoped; using stable string keys for variant/timeframe sets to avoid re-creating on every settings tick
+  }, [simplifiedView, macdSettings.showMultiTimeframe, stochasticSettings.showMultiVariant, enabledMacdTimeframesKey, enabledStochVariantsKey]);
 
   // Handle stochastic visibility toggle
   useEffect(() => {
@@ -692,7 +695,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
         try {
           if (series.k) chart.removeSeries(series.k);
           if (series.d) chart.removeSeries(series.d);
-        } catch (e) {}
+        } catch {}
       });
 
       // Clear reference lines
@@ -702,7 +705,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
           if (firstSeries?.d) {
             firstSeries.d.removePriceLine(line);
           }
-        } catch (e) {}
+        } catch {}
       });
       stochReferenceLinesRef.current = [];
 
@@ -801,7 +804,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
     if (visibleLogicalRange) {
       try {
         timeScale.setVisibleLogicalRange(visibleLogicalRange);
-      } catch (e) {
+      } catch {
       }
     } else {
       timeScale.scrollToRealTime();
@@ -822,7 +825,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
       }
     };
 
-    const unsubscribeTimeScale = timeScale.subscribeVisibleLogicalRangeChange(handleVisibleLogicalRangeChange);
+    timeScale.subscribeVisibleLogicalRangeChange(handleVisibleLogicalRangeChange);
 
     const unsubscribeStore = useChartSyncStore.subscribe((state) => {
       if (isSyncing || !state.visibleLogicalRange) return;
@@ -830,13 +833,13 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
       isSyncing = true;
       try {
         timeScale.setVisibleLogicalRange(state.visibleLogicalRange);
-      } catch (e) {
+      } catch {
       }
       setTimeout(() => { isSyncing = false; }, 100);
     });
 
     return () => {
-      unsubscribeTimeScale();
+      timeScale.unsubscribeVisibleLogicalRangeChange(handleVisibleLogicalRangeChange);
       unsubscribeStore();
     };
   }, [syncZoom, chartReady]);
@@ -845,7 +848,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
     if (!chartReady || isExternalData || !candleService) return;
 
     const { startTime, endTime } = getCandleTimeWindow(interval, DEFAULT_CANDLE_COUNT);
-    const { fetchCandles, subscribeToCandles, unsubscribeFromCandles } = useCandleStore.getState();
+    const { fetchCandles, subscribeToCandles } = useCandleStore.getState();
     fetchCandles(coin, interval, startTime, endTime);
     subscribeToCandles(coin, interval);
 
@@ -879,7 +882,8 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
         unsubscribeFromCandles(coin, '1m');
       }
     };
-  }, [coin, interval, chartReady, isExternalData, candleService, simplifiedView, enabledMacdTimeframes.join(','), macdSettings.showMultiTimeframe, stochasticSettings.showMultiVariant]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- enabledMacdTimeframes intentionally tracked via stable string key
+  }, [coin, interval, chartReady, isExternalData, candleService, simplifiedView, enabledMacdTimeframesKey, macdSettings.showMultiTimeframe, stochasticSettings.showMultiVariant]);
 
   const lastFitKeyRef = useRef<string>('');
   useEffect(() => {
@@ -890,11 +894,10 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
     try {
       chartRef.current.timeScale().fitContent();
       candleSeriesRef.current?.priceScale().applyOptions({ autoScale: true });
-    } catch (e) {}
+    } catch {}
   }, [coin, interval, chartReady, displayCandles.length]);
 
   const showForecast = !!chartSettings?.showForecast && !referenceMode;
-  const showWalls = chartSettings?.showWalls !== false && !simplifiedView && !referenceMode;
 
   useEffect(() => {
     if (!showForecast) return;
@@ -908,7 +911,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
   }, [coin, showForecast]);
 
   useEffect(() => {
-    if (!showForecast && !showWalls) return;
+    if (!showForecast) return;
 
     const { subscribeToOrderbook, unsubscribeFromOrderbook } = useOrderbookStore.getState();
     subscribeToOrderbook(coin, 4);
@@ -919,7 +922,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
       unsubscribeFromOrderbook(coin);
       if (subscribeBtc) unsubscribeFromOrderbook('BTC');
     };
-  }, [coin, showForecast, showWalls]);
+  }, [coin, showForecast]);
 
   const forecastTuningRef = useRef<ForecastTuningResult | null>(null);
   const tunedForKeyRef = useRef<string | null>(null);
@@ -940,6 +943,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
 
   const orderbookSnapshot = useOrderbookStore((state) => state.books[coin]);
   const btcOrderbookSnapshot = useOrderbookStore((state) => state.books['BTC']);
+
   const recentTrades = useTradesStore((state) => state.trades[coin]);
   const scannerResult = useScannerStore((state) =>
     state.results.find((r) => r.symbol === coin)
@@ -967,6 +971,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
     return ((!macdSettings.showMultiTimeframe || simplifiedView) && macdIntervalConfig?.enabled)
       ? calculateMACDMemoized(closePrices, macdIntervalConfig.fastPeriod, macdIntervalConfig.slowPeriod, macdIntervalConfig.signalPeriod)
       : { macd: [], signal: [], histogram: [] };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- macdSettings tracked through specific sub-fields to avoid re-running on unrelated settings changes
   }, [closePrices, macdSettings.showMultiTimeframe, macdSettings.timeframes, interval, simplifiedView]);
 
   const rsi = useMemo(() => {
@@ -988,10 +993,10 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
       : [];
   }, [divergencePoints, stochasticSettings.showDivergence]);
 
-  const macdReversalMarkers = useMemo(() => {
+  const macdReversalMarkers = useMemo<ChartMarker[]>(() => {
     return macdResult.macd.length > 0
       ? detectMacdReversals(macdResult, displayCandles).map(r => ({
-          time: r.time / 1000,
+          time: (r.time / 1000) as Time,
           position: r.position,
           color: SIGNAL_COLORS.macd,
           shape: 'circle' as const,
@@ -1000,10 +1005,10 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
       : [];
   }, [macdResult, displayCandles]);
 
-  const rsiReversalMarkers = useMemo(() => {
+  const rsiReversalMarkers = useMemo<ChartMarker[]>(() => {
     return rsi.length > 0
       ? detectRsiReversals(rsi, displayCandles, 30, 70).map(r => ({
-          time: r.time / 1000,
+          time: (r.time / 1000) as Time,
           position: r.position,
           color: SIGNAL_COLORS.rsi,
           shape: 'circle' as const,
@@ -1117,7 +1122,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
       if (displayStochCandles && displayStochCandles.length >= 50) {
         const currentDivergences: DivergencePoint[] = [];
 
-        Object.entries(stochasticSettings.variants).forEach(([variantName, variantConfig]) => {
+        Object.entries(stochasticSettings.variants).forEach(([, variantConfig]) => {
           if (!variantConfig.enabled) return;
 
           const stochData = calculateStochasticMemoized(displayStochCandles, variantConfig.period, variantConfig.smoothK, variantConfig.smoothD);
@@ -1148,6 +1153,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
 
   useEffect(() => {
     detectDivergencesDebounced();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- debounced callback is stable; listing inputs that should trigger redetection
   }, [displayCandles, simplifiedView, stochasticSettings.showMultiVariant, stochasticSettings.showDivergence, stochasticSettings.variants, interval, candles, isExternalData, allMacdCandles, coin, chartSettings]);
 
   useEffect(() => {
@@ -1156,7 +1162,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
     candlesBufferRef.current = displayCandles;
 
     const candleData = displayCandles.map(c => ({
-      time: (c.time / 1000) as any,
+      time: (c.time / 1000) as Time,
       open: c.open,
       high: c.high,
       low: c.low,
@@ -1165,7 +1171,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
 
     const colors = getThemeColors();
     const volumeData = displayCandles.map(c => ({
-      time: (c.time / 1000) as any,
+      time: (c.time / 1000) as Time,
       value: c.volume,
       color: c.close >= c.open ? colors.statusBullish + '80' : colors.statusBearish + '80',
     }));
@@ -1188,7 +1194,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
 
         if (emaSettings.ema1.enabled && ema1.length > 0) {
           const ema1Data = ema1.map((value, i) => ({
-            time: (displayCandles[i].time / 1000) as any,
+            time: (displayCandles[i].time / 1000) as Time,
             value,
           }));
           ema1SeriesRef.current?.setData(ema1Data);
@@ -1198,7 +1204,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
 
         if (emaSettings.ema2.enabled && ema2.length > 0) {
           const ema2Data = ema2.map((value, i) => ({
-            time: (displayCandles[i].time / 1000) as any,
+            time: (displayCandles[i].time / 1000) as Time,
             value,
           }));
           ema2SeriesRef.current?.setData(ema2Data);
@@ -1208,7 +1214,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
 
         if (emaSettings.ema3.enabled && ema3.length > 0) {
           const ema3Data = ema3.map((value, i) => ({
-            time: (displayCandles[i].time / 1000) as any,
+            time: (displayCandles[i].time / 1000) as Time,
             value,
           }));
           ema3SeriesRef.current?.setData(ema3Data);
@@ -1223,15 +1229,15 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
               : [...pivotMarkers, ...divergenceMarkers, ...macdReversalMarkers, ...rsiReversalMarkers])
           : [];
 
-        candleSeriesRef.current?.setMarkers(allMarkers.sort((a, b) => a.time - b.time));
+        candleSeriesRef.current?.setMarkers([...allMarkers].sort((a, b) => (a.time as number) - (b.time as number)));
       });
     } else {
       candleSeriesRef.current.update(candleData[candleData.length - 1]);
-      volumeSeriesRef.current.update(volumeData[volumeData.length - 1]);
+      volumeSeriesRef.current?.update(volumeData[volumeData.length - 1]);
 
       if (emaSettings.ema1.enabled && ema1.length > 0) {
-        ema1SeriesRef.current.update({
-          time: (lastCandle.time / 1000) as any,
+        ema1SeriesRef.current?.update({
+          time: (lastCandle.time / 1000) as Time,
           value: ema1[ema1.length - 1],
         });
       } else {
@@ -1239,8 +1245,8 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
       }
 
       if (emaSettings.ema2.enabled && ema2.length > 0) {
-        ema2SeriesRef.current.update({
-          time: (lastCandle.time / 1000) as any,
+        ema2SeriesRef.current?.update({
+          time: (lastCandle.time / 1000) as Time,
           value: ema2[ema2.length - 1],
         });
       } else {
@@ -1248,8 +1254,8 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
       }
 
       if (emaSettings.ema3.enabled && ema3.length > 0) {
-        ema3SeriesRef.current.update({
-          time: (lastCandle.time / 1000) as any,
+        ema3SeriesRef.current?.update({
+          time: (lastCandle.time / 1000) as Time,
           value: ema3[ema3.length - 1],
         });
       } else {
@@ -1261,6 +1267,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
     if (onPriceUpdate) {
       onPriceUpdate(lastCandle.close);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- markers/RAF callback intentionally not in deps to avoid re-runs that would reset chart data on every marker recompute
   }, [displayCandles, chartReady, onPriceUpdate, ema1, ema2, ema3, macdResult, rsi, emaSettings.ema1.enabled, emaSettings.ema2.enabled, emaSettings.ema3.enabled, stochasticSettings.showMultiVariant, stochasticSettings.showDivergence, stochasticSettings.variants, interval, allMacdCandles, coin, isExternalData, chartSettings]);
 
   useEffect(() => {
@@ -1301,11 +1308,11 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
       const maxExtension = baseHorizon;
       const extraBars = Math.round(strength * maxExtension);
 
-      const median: { time: any; value: number }[] = [
-        { time: (lastCandle.time / 1000) as any, value: lastCandle.close },
+      const median: { time: Time; value: number }[] = [
+        { time: (lastCandle.time / 1000) as Time, value: lastCandle.close },
       ];
       for (const p of forecastFan) {
-        median.push({ time: (p.time / 1000) as any, value: p.median });
+        median.push({ time: (p.time / 1000) as Time, value: p.median });
       }
 
       let tipTimeMs = forecastFan[baseHorizon - 1].time;
@@ -1316,7 +1323,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
         for (let i = 1; i <= extraBars; i++) {
           tipTimeMs += stepMs;
           tipMedian *= stepRatio;
-          median.push({ time: (tipTimeMs / 1000) as any, value: tipMedian });
+          median.push({ time: (tipTimeMs / 1000) as Time, value: tipMedian });
         }
       }
       ref2.median.setData(median);
@@ -1325,7 +1332,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
 
       const goingUp = tip.median >= lastCandle.close;
       const arrowColor = goingUp ? colors.statusBullish : colors.statusBearish;
-      const tipTime = (tip.time / 1000) as any;
+      const tipTime = (tip.time / 1000) as Time;
 
 
       ref2.markers.forEach((s, i) => {
@@ -1373,39 +1380,40 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
         const offset = displayMacdCandles.length - macdData.macd.length;
 
         macdSeriesRefsRef.current[timeframe].line.setData(macdData.macd.map((value, i) => ({
-          time: (displayMacdCandles[i + offset].time / 1000) as any,
+          time: (displayMacdCandles[i + offset].time / 1000) as Time,
           value,
         })));
 
         macdSeriesRefsRef.current[timeframe].signal.setData(macdData.signal.map((value, i) => ({
-          time: (displayMacdCandles[i + offset].time / 1000) as any,
+          time: (displayMacdCandles[i + offset].time / 1000) as Time,
           value,
         })));
 
         macdSeriesRefsRef.current[timeframe].histogram.setData(macdData.histogram.map((value, i) => ({
-          time: (displayMacdCandles[i + offset].time / 1000) as any,
+          time: (displayMacdCandles[i + offset].time / 1000) as Time,
           value,
           color: value >= 0 ? colors.statusBullish + '80' : colors.statusBearish + '80',
         })));
       }
     });
-  }, [chartReady, enabledMacdTimeframes.join(','), allMacdCandles, macdSettings, coin, isExternalData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- enabledMacdTimeframes via stable string key; chartSettings/invertedMode/simplifiedView are gated higher up
+  }, [chartReady, enabledMacdTimeframesKey, allMacdCandles, macdSettings, coin, isExternalData]);
 
   // Stochastic data update (simple for simplified view, multi-variant otherwise)
   useEffect(() => {
     if (!chartReady || Object.keys(stochSeriesRefsRef.current).length === 0 || hideStochastic) return;
 
     // Simple stochastic for simplified view
-    if (simplifiedView && simpleStochastic && simpleStochastic.length > 0 && stochSeriesRefsRef.current['simple']) {
+    if (simplifiedView && simpleStochastic && simpleStochastic.length > 0 && stochSeriesRefsRef.current['simple']?.k) {
       const offset = displayCandles.length - simpleStochastic.length;
 
-      stochSeriesRefsRef.current['simple'].k.setData(simpleStochastic.map((value, i) => ({
-        time: (displayCandles[i + offset].time / 1000) as any,
+      stochSeriesRefsRef.current['simple'].k!.setData(simpleStochastic.map((value, i) => ({
+        time: (displayCandles[i + offset].time / 1000) as Time,
         value: value.k,
       })));
 
       stochSeriesRefsRef.current['simple'].d.setData(simpleStochastic.map((value, i) => ({
-        time: (displayCandles[i + offset].time / 1000) as any,
+        time: (displayCandles[i + offset].time / 1000) as Time,
         value: value.d,
       })));
       return;
@@ -1418,9 +1426,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
 
     const displayStochCandles = displayCandles;
 
-    const colors = getThemeColors();
-    const enabledVariants = Object.entries(stochasticSettings.variants).filter(([_, config]) => config.enabled);
-    let slowestVariant: [string, { config: any; stochData: any; offset: number }] | null = null;
+    let slowestVariant: [string, { config: StochasticVariantConfig; stochData: StochasticData[]; offset: number }] | null = null;
 
     Object.entries(stochasticSettings.variants).forEach(([variantName, config]) => {
       if (!config.enabled || !stochSeriesRefsRef.current[variantName]) return;
@@ -1431,7 +1437,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
         const offset = displayStochCandles.length - stochData.length;
 
         stochSeriesRefsRef.current[variantName].d.setData(stochData.map((value, i) => ({
-          time: (displayStochCandles[i + offset].time / 1000) as any,
+          time: (displayStochCandles[i + offset].time / 1000) as Time,
           value: value.d,
         })));
 
@@ -1449,6 +1455,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
         : [];
       stochSeriesRefsRef.current[variantName].d.setMarkers(stochMarkers);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- hideStochastic gated via early return
   }, [chartReady, displayCandles, interval, allMacdCandles, stochasticSettings, chartSettings, coin, isExternalData, simplifiedView, simpleStochastic]);
 
   // Simple stochastic reference lines (20 and 80)
@@ -1460,7 +1467,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
         if (stochSeriesRefsRef.current['simple']?.d) {
           stochSeriesRefsRef.current['simple'].d.removePriceLine(line);
         }
-      } catch (e) {}
+      } catch {}
     });
     stochReferenceLinesRef.current = [];
 
@@ -1495,10 +1502,11 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
           if (stochSeriesRefsRef.current['simple']?.d) {
             stochSeriesRefsRef.current['simple'].d.removePriceLine(line);
           }
-        } catch (e) {}
+        } catch {}
       });
       stochReferenceLinesRef.current = [];
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- hideStochastic gated via early return
   }, [chartReady, simplifiedView]);
 
   // Multi-variant stochastic reference lines (0 and 100)
@@ -1512,7 +1520,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
         if (firstSeries) {
           firstSeries.removePriceLine(line);
         }
-      } catch (e) {}
+      } catch {}
     });
     stochReferenceLinesRef.current = [];
 
@@ -1548,11 +1556,12 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
           if (firstSeries) {
             firstSeries.removePriceLine(line);
           }
-        } catch (e) {}
+        } catch {}
       });
       stochReferenceLinesRef.current = [];
     };
-  }, [chartReady, stochasticSettings.showMultiVariant, Object.entries(stochasticSettings.variants).filter(([_, v]) => v.enabled).map(([k]) => k).join(',')]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- hideStochastic/simplifiedView intentionally omitted; this effect is gated on chartReady/showMultiVariant and refs handle teardown
+  }, [chartReady, stochasticSettings.showMultiVariant, enabledStochVariantsKey]);
 
   const trendlineCacheKeyRef = useRef<string>('');
   const trendlines = useMemo(() => {
@@ -1585,10 +1594,9 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
     cachedTrendlinesRef.current = newTrendlines;
     lastTrendlineCalculationRef.current = currentLength;
     return newTrendlines;
-  }, [displayCandles.length, displayCandles, coin, interval]);
+  }, [displayCandles, coin, interval]);
 
   useEffect(() => {
-    console.log('[projections] effect fired', { chartReady, hasRef: !!projectionSeriesRef.current, showForecast, candles: displayCandles.length });
     if (!chartReady || !projectionSeriesRef.current) return;
     const ref = projectionSeriesRef.current;
     const clearAll = () => {
@@ -1652,26 +1660,24 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
         return out;
       };
       const toSeriesData = (pts: Pt[]) =>
-        smoothPts(pts).map((p) => ({ time: (p.time / 1000) as any, value: p.value }));
+        smoothPts(pts).map((p) => ({ time: (p.time / 1000) as Time, value: p.value }));
       const prepend = (pts: Pt[]) => [
-        { time: (startTimeMs / 1000) as any, value: lastCandle.close },
+        { time: (startTimeMs / 1000) as Time, value: lastCandle.close },
         ...toSeriesData(pts),
       ];
 
-      const debug: Record<string, number> = {};
-      const setWithLog = (name: string, series: any, data: any[]) => {
-        debug[name] = data.length;
+      const setSeriesData = (_name: string, series: ISeriesApi<'Line'>, data: { time: Time; value: number }[]) => {
         series.setData(data);
       };
 
       const easeInOut = (t: number) => (t < 0.5 ? 2 * t * t : 1 - 2 * (1 - t) * (1 - t));
       const sCurveFromClose = (endValue: number | null | undefined) => {
         if (endValue == null || !Number.isFinite(endValue) || horizon <= 0) return [];
-        const out: any[] = [{ time: (startTimeMs / 1000) as any, value: lastCandle.close }];
+        const out: { time: Time; value: number }[] = [{ time: (startTimeMs / 1000) as Time, value: lastCandle.close }];
         for (let k = 1; k <= horizon; k++) {
           const t = k / horizon;
           const v = lastCandle.close + (endValue - lastCandle.close) * easeInOut(t);
-          out.push({ time: ((startTimeMs + intervalMs * k) / 1000) as any, value: v });
+          out.push({ time: ((startTimeMs + intervalMs * k) / 1000) as Time, value: v });
         }
         return out;
       };
@@ -1680,25 +1686,24 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
         return pts[pts.length - 1]?.value;
       };
 
-      setWithLog('ema1', ref2.ema1,
+      setSeriesData('ema1', ref2.ema1,
         emaSettings.ema1.enabled && ema1.length >= 1
           ? sCurveFromClose(emaEndpoint(ema1, emaSettings.ema1.period))
           : []);
-      setWithLog('ema2', ref2.ema2,
+      setSeriesData('ema2', ref2.ema2,
         emaSettings.ema2.enabled && ema2.length >= 1
           ? sCurveFromClose(emaEndpoint(ema2, emaSettings.ema2.period))
           : []);
-      setWithLog('ema3', ref2.ema3,
+      setSeriesData('ema3', ref2.ema3,
         emaSettings.ema3.enabled && ema3.length >= 1
           ? sCurveFromClose(emaEndpoint(ema3, emaSettings.ema3.period))
           : []);
 
-      setWithLog('rsi', ref2.rsi, closePrices.length >= 15
+      setSeriesData('rsi', ref2.rsi, closePrices.length >= 15
         ? prepend(projectRSIAlongPath(closePrices, forecastCloses, startTimeMs, intervalMs))
         : []);
 
       const variantNames = ['ultraFast', 'fast', 'medium', 'slow'] as const;
-      let totalStochPts = 0;
       for (const variantName of variantNames) {
         const series = ref2.stoch[variantName];
         if (!series) continue;
@@ -1716,12 +1721,10 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
           variantConfig.smoothK,
         ));
         series.setData(data);
-        totalStochPts += data.length;
       }
-      debug.stoch = totalStochPts;
 
       const macdInterval = macdSettings.timeframes?.[interval as keyof typeof macdSettings.timeframes];
-      setWithLog('macd', ref2.macd, macdInterval?.enabled && closePrices.length >= macdInterval.slowPeriod
+      setSeriesData('macd', ref2.macd, macdInterval?.enabled && closePrices.length >= macdInterval.slowPeriod
         ? prepend(projectMACDAlongPath(
             closePrices,
             forecastCloses,
@@ -1734,16 +1737,6 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
 
       ref2.support.setData([]);
       ref2.resistance.setData([]);
-      debug.support = 0;
-      debug.resistance = 0;
-      console.log('[projections]', debug, {
-        forecastLen: forecastFan.length,
-        emaEnabled: [emaSettings.ema1.enabled, emaSettings.ema2.enabled, emaSettings.ema3.enabled],
-        macdEnabled: macdInterval?.enabled,
-        closesLen: closePrices.length,
-        candlesLen: displayCandles.length,
-        stochVariantsEnabled: Object.entries(stochasticSettings.variants ?? {}).filter(([, v]: any) => v?.enabled).map(([k]) => k),
-      });
     };
     const raf = requestAnimationFrame(run);
     return () => cancelAnimationFrame(raf);
@@ -1757,14 +1750,14 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
     supportLineSeriesRef.current.forEach((series) => {
       try {
         chartRef.current?.removeSeries(series);
-      } catch (e) {}
+      } catch {}
     });
     supportLineSeriesRef.current = [];
 
     resistanceLineSeriesRef.current.forEach((series) => {
       try {
         chartRef.current?.removeSeries(series);
-      } catch (e) {}
+      } catch {}
     });
     resistanceLineSeriesRef.current = [];
 
@@ -1779,7 +1772,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
           lastValueVisible: false,
           priceLineVisible: false,
         });
-        supportSeries.setData(line.points);
+        supportSeries.setData(line.points.map((p) => ({ time: p.time as Time, value: p.value })));
         supportLineSeriesRef.current.push(supportSeries);
       }
     });
@@ -1793,7 +1786,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
           lastValueVisible: false,
           priceLineVisible: false,
         });
-        resistanceSeries.setData(line.points);
+        resistanceSeries.setData(line.points.map((p) => ({ time: p.time as Time, value: p.value })));
         resistanceLineSeriesRef.current.push(resistanceSeries);
       }
     });
@@ -1802,120 +1795,19 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
       supportLineSeriesRef.current.forEach((series) => {
         try {
           chartRef.current?.removeSeries(series);
-        } catch (e) {}
+        } catch {}
       });
       supportLineSeriesRef.current = [];
 
       resistanceLineSeriesRef.current.forEach((series) => {
         try {
           chartRef.current?.removeSeries(series);
-        } catch (e) {}
+        } catch {}
       });
       resistanceLineSeriesRef.current = [];
     };
   }, [chartReady, trendlines]);
 
-  useEffect(() => {
-    const series = candleSeriesRef.current;
-    if (!series) return;
-
-    wallLinesRef.current.forEach((line) => {
-      try { series.removePriceLine(line); } catch (e) {}
-    });
-    wallLinesRef.current = [];
-
-    if (!chartReady || !showWalls || !orderbookSnapshot) return;
-    const { bids, asks, bestBid, bestAsk } = orderbookSnapshot;
-    if (!bids?.length || !asks?.length) return;
-
-    const sample = [...bids.slice(0, 8), ...asks.slice(0, 8)]
-      .map((l) => l.price)
-      .sort((a, b) => a - b);
-    let nativeTick = Infinity;
-    for (let i = 1; i < sample.length; i++) {
-      const gap = sample[i] - sample[i - 1];
-      if (gap > 0 && gap < nativeTick) nativeTick = gap;
-    }
-    if (!Number.isFinite(nativeTick) || nativeTick <= 0) nativeTick = 0.01;
-
-    const refMid = (bestBid != null && bestAsk != null)
-      ? (bestBid + bestAsk) / 2
-      : (bids[0]?.price ?? asks[0]?.price ?? 0);
-
-    const rawStep = nativeTick * 8;
-    const exp = Math.floor(Math.log10(rawStep));
-    const base = rawStep / Math.pow(10, exp);
-    const niceBase = base >= 5 ? 5 : base >= 2 ? 2 : 1;
-    const bucketStep = niceBase * Math.pow(10, exp);
-    const decimalsForKey = Math.max(0, -exp + 2);
-
-    const bucketize = (
-      levels: typeof bids,
-      side: 'bid' | 'ask',
-    ): { price: number; size: number }[] => {
-      const buckets = new Map<number, number>();
-      for (const lvl of levels) {
-        const bucketed = side === 'bid'
-          ? Math.floor(lvl.price / bucketStep) * bucketStep
-          : Math.ceil(lvl.price / bucketStep) * bucketStep;
-        const key = Number(bucketed.toFixed(decimalsForKey));
-        buckets.set(key, (buckets.get(key) ?? 0) + lvl.size);
-      }
-      return Array.from(buckets.entries()).map(([price, size]) => ({ price, size }));
-    };
-
-    const topN = 3;
-    const topBids = bucketize(bids, 'bid')
-      .sort((a, b) => b.size - a.size)
-      .slice(0, topN);
-    const topAsks = bucketize(asks, 'ask')
-      .sort((a, b) => b.size - a.size)
-      .slice(0, topN);
-
-    const colors = getThemeColors();
-    const inverted = !!chartSettings?.invertedMode;
-    const bullColor = inverted ? colors.statusBearish : colors.statusBullish;
-    const bearColor = inverted ? colors.statusBullish : colors.statusBearish;
-    const referencePrice = inverted && candles.length > 0 ? candles[0].close : null;
-    const flipPrice = (price: number) =>
-      referencePrice != null ? 2 * referencePrice - price : price;
-
-    const drawWall = (price: number, size: number, side: 'buy' | 'sell') => {
-      if (!Number.isFinite(price) || price <= 0 || size <= 0) return;
-      const displayPrice = flipPrice(price);
-      const displaySide = inverted ? (side === 'buy' ? 'sell' : 'buy') : side;
-      const color = displaySide === 'buy' ? bullColor : bearColor;
-      const label = `${displaySide === 'buy' ? 'BUY' : 'SELL'} ${formatSize(size, decimals.size)}`;
-      try {
-        const line = series.createPriceLine({
-          price: displayPrice,
-          color,
-          lineWidth: 3,
-          lineStyle: 0,
-          axisLabelVisible: true,
-          title: label,
-        });
-        wallLinesRef.current.push(line);
-      } catch (e) {}
-    };
-
-    topBids.forEach((b) => drawWall(b.price, b.size, 'buy'));
-    topAsks.forEach((a) => drawWall(a.price, a.size, 'sell'));
-
-    return () => {
-      wallLinesRef.current.forEach((line) => {
-        try { series.removePriceLine(line); } catch (e) {}
-      });
-      wallLinesRef.current = [];
-    };
-  }, [
-    chartReady,
-    showWalls,
-    orderbookSnapshot,
-    chartSettings?.invertedMode,
-    candles,
-    decimals.size,
-  ]);
 
   // Position price line overlay
   useEffect(() => {
@@ -1931,7 +1823,6 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
     if (position) {
       const colors = getThemeColors();
       const isLong = position.side === 'long';
-      const isProfitable = position.pnl >= 0;
 
       let displayPrice = position.entryPrice;
       let displaySide = position.side;
@@ -1956,12 +1847,13 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
       if (positionLineRef.current && candleSeriesRef.current) {
         try {
           candleSeriesRef.current.removePriceLine(positionLineRef.current);
-        } catch (e) {
+        } catch {
           // Ignore errors during cleanup
         }
         positionLineRef.current = null;
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- displayCandles tracked via .length to avoid re-creating line on every candle tick
   }, [position, chartReady, chartSettings?.invertedMode, displayCandles.length, candles]);
 
   // Breakeven band overlay
@@ -1972,7 +1864,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
     if (breakevenBandSeriesRef.current) {
       try {
         chartRef.current.removeSeries(breakevenBandSeriesRef.current);
-      } catch (e) {
+      } catch {
         // Ignore errors
       }
       breakevenBandSeriesRef.current = null;
@@ -2002,8 +1894,9 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
         topFillColor2: 'rgba(255, 255, 0, 0.05)',
         bottomFillColor1: 'rgba(255, 255, 0, 0.15)',
         bottomFillColor2: 'rgba(255, 255, 0, 0.05)',
-        lineColor: 'rgba(255, 255, 0, 0)',
-        lineWidth: 0,
+        topLineColor: 'rgba(255, 255, 0, 0)',
+        bottomLineColor: 'rgba(255, 255, 0, 0)',
+        lineWidth: 1 as const,
         lastValueVisible: false,
         priceLineVisible: false,
         crosshairMarkerVisible: false,
@@ -2016,7 +1909,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
 
       // Set data points at breakeven price spanning all candles
       const breakevenData = displayCandles.map((candle) => ({
-        time: (candle.time / 1000) as any,
+        time: (candle.time / 1000) as Time,
         value: displayBreakevenPrice,
       }));
 
@@ -2029,7 +1922,7 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
       if (breakevenBandSeriesRef.current && chartRef.current) {
         try {
           chartRef.current.removeSeries(breakevenBandSeriesRef.current);
-        } catch (e) {
+        } catch {
           // Ignore errors during cleanup
         }
         breakevenBandSeriesRef.current = null;
@@ -2100,15 +1993,15 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
             try {
               existing.line.applyOptions(opts);
               existing.sig = sig;
-            } catch (e) {
+            } catch {
               // ignore
             }
           }
         } else {
           try {
-            const line = candleSeriesRef.current.createPriceLine(opts);
+            const line = candleSeriesRef.current!.createPriceLine(opts);
             orderLinesRef.current.set(id, { line, sig });
-          } catch (e) {
+          } catch {
             return;
           }
         }
@@ -2119,29 +2012,31 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
     orderLinesRef.current.forEach((entry, id) => {
       if (!seenIds.has(id)) {
         try {
-          candleSeriesRef.current.removePriceLine(entry.line);
-        } catch (e) {
+          candleSeriesRef.current!.removePriceLine(entry.line);
+        } catch {
           // ignore
         }
         orderLinesRef.current.delete(id);
       }
     });
 
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- candles/displayCandles intentionally excluded; order line diffing is keyed off orders only
   }, [orders, chartReady, chartSettings?.invertedMode]);
 
   useEffect(() => {
+    const linesMap = orderLinesRef.current;
     return () => {
       const series = candleSeriesRef.current;
       if (series) {
-        orderLinesRef.current.forEach((entry) => {
+        linesMap.forEach((entry) => {
           try {
             series.removePriceLine(entry.line);
-          } catch (e) {
+          } catch {
             // ignore
           }
         });
       }
-      orderLinesRef.current.clear();
+      linesMap.clear();
     };
   }, []);
 
@@ -2217,11 +2112,11 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
             </div>
           </>
         )}
-        {!simplifiedView && stochasticSettings.showMultiVariant && Object.entries(stochasticSettings.variants).some(([_, v]) => v.enabled) && (
+        {!simplifiedView && stochasticSettings.showMultiVariant && Object.entries(stochasticSettings.variants).some(([, v]) => v.enabled) && (
           <>
             <div className="w-px h-4 bg-frame mx-1"></div>
             {Object.entries(stochasticSettings.variants)
-              .filter(([_, config]) => config.enabled)
+              .filter(([, config]) => config.enabled)
               .map(([variantName]) => (
                 <div key={variantName} className="flex items-center gap-1">
                   <div className="w-6 h-0.5" style={{ backgroundColor: variantColorVars[variantName] }}></div>

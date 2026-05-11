@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useWebSocketStatusStore, type WebSocketStreamType } from '@/stores/useWebSocketStatusStore';
+import { useEffect, useState } from 'react';
 import { useSettingsStore } from '@/stores/useSettingsStore';
 
 interface TerminalHeaderProps {
@@ -14,7 +13,6 @@ interface TerminalHeaderProps {
 export default function TerminalHeader({ coin, onRefreshCharts, onAutoZoom, onZoomTo50 }: TerminalHeaderProps) {
   const [currentTime, setCurrentTime] = useState('');
 
-  const streams = useWebSocketStatusStore((state) => state.streams);
   const isMultiChartView = useSettingsStore((state) => state.isMultiChartView);
   const toggleMultiChartView = useSettingsStore((state) => state.toggleMultiChartView);
   const showForecast = useSettingsStore((state) => state.settings.chart.showForecast);
@@ -31,49 +29,6 @@ export default function TerminalHeader({ coin, onRefreshCharts, onAutoZoom, onZo
     return () => clearInterval(interval);
   }, []);
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'connected':
-        return 'text-bullish';
-      case 'connecting':
-        return 'text-accent-orange';
-      case 'error':
-        return 'text-bearish';
-      default:
-        return 'text-primary-muted';
-    }
-  };
-
-  const getStatusSymbol = (status: string) => {
-    switch (status) {
-      case 'connected':
-        return '●';
-      case 'connecting':
-        return '◐';
-      case 'error':
-        return '✕';
-      default:
-        return '○';
-    }
-  };
-
-  const renderStreamIndicator = (streamType: WebSocketStreamType, label: string) => {
-    const stream = streams[streamType];
-    const colorClass = getStatusColor(stream.status);
-    const symbol = getStatusSymbol(stream.status);
-    const count = stream.subscriptionCount;
-
-    return (
-      <div
-        className={`flex items-center gap-1 ${colorClass}`}
-        title={`${label}: ${stream.status} (${count} ${count === 1 ? 'subscription' : 'subscriptions'})`}
-      >
-        <span className="text-[10px]">{symbol}</span>
-        <span className="text-[9px] font-bold uppercase tracking-wide">{label}</span>
-      </div>
-    );
-  };
-
   return (
     <div className="terminal-border p-1.5">
       <div className="flex justify-between items-center">
@@ -83,11 +38,6 @@ export default function TerminalHeader({ coin, onRefreshCharts, onAutoZoom, onZo
         <div className="flex items-center gap-4">
           <div className="text-right text-[10px]">
             <div className="text-primary-muted">{currentTime || '--'}</div>
-          </div>
-          <div className="hidden md:flex items-center gap-3 px-2 py-1 terminal-border">
-            {renderStreamIndicator('candles', 'CANDLES')}
-            {renderStreamIndicator('trades', 'TRADES')}
-            {renderStreamIndicator('prices', 'PRICES')}
           </div>
           {onRefreshCharts && (
             <button

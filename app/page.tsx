@@ -1,7 +1,9 @@
 'use client';
+/* eslint-disable @next/next/no-img-element -- landing page uses raw <img> for animated gifs and parallax hero; next/image rewrites would change layout behavior */
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useCredentials } from '@/lib/context/credentials-context';
 import { CredentialsSettings } from '@/components/settings/CredentialsSettings';
 
@@ -10,7 +12,6 @@ export default function LandingPage() {
   const { credentials, isLoaded } = useCredentials();
   const [showCredentials, setShowCredentials] = useState(false);
   const [scrollY, setScrollY] = useState(0);
-  const [visibleSections, setVisibleSections] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     const handleScroll = () => {
@@ -19,25 +20,6 @@ export default function LandingPage() {
 
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            const index = parseInt(entry.target.getAttribute('data-section-index') || '0');
-            setVisibleSections((prev) => new Set([...prev, index]));
-          }
-        });
-      },
-      { threshold: 0.1 }
-    );
-
-    const sections = document.querySelectorAll('[data-section-index]');
-    sections.forEach((section) => observer.observe(section));
-
-    return () => observer.disconnect();
   }, []);
 
   useEffect(() => {
@@ -127,13 +109,13 @@ export default function LandingPage() {
               No backend. No middleman. Direct connection to Hyperliquid DEX. Your keys never leave your browser.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 md:gap-4 justify-center px-4">
-              <a
+              <Link
                 href="/0xb83de012dba672c76a7dbbbf3e459cb59d7d6e36/btc/"
                 className="group relative px-8 py-4 bg-gradient-to-r from-gray-700 to-gray-600 hover:from-gray-600 hover:to-gray-500 font-mono uppercase tracking-wider transition-all text-sm rounded-xl shadow-lg hover:shadow-xl hover:scale-105"
               >
                 <span className="relative z-10">View Demo</span>
                 <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-              </a>
+              </Link>
               <button
                 onClick={() => setShowCredentials(true)}
                 className="group relative px-8 py-4 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary font-mono uppercase tracking-wider transition-all text-sm rounded-xl shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:scale-105"
@@ -155,7 +137,7 @@ export default function LandingPage() {
                 ✕
               </button>
               <div className="mb-6">
-                <h2 className="text-xl md:text-2xl font-bold font-mono text-primary mb-2">LET'S GO</h2>
+                <h2 className="text-xl md:text-2xl font-bold font-mono text-primary mb-2">LET&apos;S GO</h2>
                 <p className="text-gray-400 text-xs md:text-sm">Connect your Hyperliquid wallet</p>
               </div>
               <CredentialsSettings />
@@ -200,7 +182,7 @@ export default function LandingPage() {
               <div className="backdrop-blur-lg bg-white/5 border border-white/10 rounded-xl p-5 md:p-6 hover:bg-white/10 transition-all md:hover:scale-105">
                 <h3 className="text-lg md:text-xl font-mono text-primary mb-2 md:mb-3">TRACKING</h3>
                 <p className="text-gray-300 text-sm md:text-base leading-relaxed">
-                  Know your stats. Track P&L, win rate, profit factor. See what works, cut what doesn't.
+                  Know your stats. Track P&L, win rate, profit factor. See what works, cut what doesn&apos;t.
                 </p>
               </div>
             </div>
@@ -522,13 +504,13 @@ export default function LandingPage() {
               <h3 className="text-2xl md:text-3xl font-bold mb-3 md:mb-4 font-mono">READY TO TRADE?</h3>
               <p className="text-gray-300 text-sm md:text-base mb-6 md:mb-8 max-w-md mx-auto">Start scalping smarter with zero setup. Just connect your wallet and go.</p>
               <div className="flex flex-col sm:flex-row gap-3 md:gap-4 justify-center">
-                <a
+                <Link
                   href="/0xb83de012dba672c76a7dbbbf3e459cb59d7d6e36/btc/"
                   className="group relative px-8 py-4 bg-gradient-to-r from-gray-700 to-gray-600 hover:from-gray-600 hover:to-gray-500 font-mono uppercase tracking-wider transition-all text-sm rounded-xl shadow-lg hover:shadow-xl hover:scale-105"
                 >
                   <span className="relative z-10">View Demo</span>
                   <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                </a>
+                </Link>
                 <button
                   onClick={() => setShowCredentials(true)}
                   className="group relative px-8 py-4 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary font-mono uppercase tracking-wider transition-all text-sm rounded-xl shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:scale-105"

@@ -97,58 +97,62 @@ const ScannerResultItem = ({
               const baseBadgeBg = signals.signalType === 'bullish' ? 'bg-bullish' : 'bg-bearish';
               const badgeBg = getInvertedColorClass(baseBadgeBg, invertedMode);
 
+              const badges: React.ReactNode[] = [];
+              const badgeClass = `${badgeBg} text-bg-primary px-1.5 py-0.5 rounded font-bold text-center truncate`;
+              if (signals.stoch) badges.push(<span key="stoch" className={badgeClass}>STOCH</span>);
+              if (signals.ema) badges.push(<span key="ema" className={badgeClass}>EMA</span>);
+              if (signals.macd) badges.push(<span key="macd" className={badgeClass}>MACD</span>);
+              if (signals.rsi) badges.push(<span key="rsi" className={badgeClass}>RSI</span>);
+              if (signals.vol) badges.push(<span key="vol" className={badgeClass}>VOL</span>);
+              if (signals.channel) badges.push(<span key="ch" className={badgeClass}>{signals.channel}CH</span>);
+              if (signals.sr) {
+                const baseSrBg = signals.sr === 'support' ? 'bg-bullish' : 'bg-bearish';
+                const srBg = getInvertedColorClass(baseSrBg, invertedMode);
+                const displaySrType = invertedMode
+                  ? (signals.sr === 'support' ? 'resistance' : 'support')
+                  : signals.sr;
+                const displayLabel = displaySrType === 'support' ? 'S' : 'R';
+                badges.push(
+                  <span
+                    key="sr"
+                    className={`${srBg} text-bg-primary px-1.5 py-0.5 rounded font-bold text-center truncate`}
+                    title={`${displaySrType === 'support' ? 'Support' : 'Resistance'} level at $${signals.srPrice?.toFixed(2)}: ${signals.srDistance?.toFixed(2)}% away, ${signals.srTouches} touches`}
+                  >
+                    {displayLabel} ${signals.srPrice?.toFixed(2)} {signals.srDistance?.toFixed(1)}% ({signals.srTouches})
+                  </span>
+                );
+              }
+              if (signals.tri) {
+                badges.push(
+                  <span
+                    key="tri"
+                    className={badgeClass}
+                    title={`Ascending triangle forming — ceiling $${signals.triCeiling?.toFixed(4)} (score ${signals.triScore?.toFixed(2)})`}
+                  >
+                    TRI {signals.triScore?.toFixed(2)}
+                  </span>
+                );
+              }
+              if (signals.cup) {
+                badges.push(
+                  <span
+                    key="cup"
+                    className={badgeClass}
+                    title={`Cup and handle forming — resistance $${signals.cupResistance?.toFixed(4)} (score ${signals.cupScore?.toFixed(2)})`}
+                  >
+                    CUP {signals.cupScore?.toFixed(2)}
+                  </span>
+                );
+              }
+
+              const useGrid = badges.length > 1;
+
               return (
                 <div key={timeframe} className="flex items-center gap-1 text-[10px]">
                   <span className={`${arrowColor} font-bold`}>{arrow}</span>
                   <span className="text-primary-muted font-mono w-8">{timeframe}:</span>
-                  <div className="flex gap-1 flex-wrap">
-                    {signals.stoch && (
-                      <span className={`${badgeBg} text-bg-primary px-1.5 py-0.5 rounded font-bold`}>STOCH</span>
-                    )}
-                    {signals.ema && (
-                      <span className={`${badgeBg} text-bg-primary px-1.5 py-0.5 rounded font-bold`}>EMA</span>
-                    )}
-                    {signals.macd && (
-                      <span className={`${badgeBg} text-bg-primary px-1.5 py-0.5 rounded font-bold`}>MACD</span>
-                    )}
-                    {signals.rsi && (
-                      <span className={`${badgeBg} text-bg-primary px-1.5 py-0.5 rounded font-bold`}>RSI</span>
-                    )}
-                    {signals.vol && (
-                      <span className={`${badgeBg} text-bg-primary px-1.5 py-0.5 rounded font-bold`}>VOL</span>
-                    )}
-                    {signals.channel && (
-                      <span className={`${badgeBg} text-bg-primary px-1.5 py-0.5 rounded font-bold`}>{signals.channel}CH</span>
-                    )}
-                    {signals.sr && (() => {
-                      const baseSrBg = signals.sr === 'support' ? 'bg-bullish' : 'bg-bearish';
-                      const srBg = getInvertedColorClass(baseSrBg, invertedMode);
-                      const displaySrType = invertedMode
-                        ? (signals.sr === 'support' ? 'resistance' : 'support')
-                        : signals.sr;
-                      const displayLabel = displaySrType === 'support' ? 'S' : 'R';
-                      return (
-                        <span className={`${srBg} text-bg-primary px-1.5 py-0.5 rounded font-bold`} title={`${displaySrType === 'support' ? 'Support' : 'Resistance'} level at $${signals.srPrice?.toFixed(2)}: ${signals.srDistance?.toFixed(2)}% away, ${signals.srTouches} touches`}>
-                          {displayLabel} ${signals.srPrice?.toFixed(2)} {signals.srDistance?.toFixed(1)}% ({signals.srTouches})
-                        </span>
-                      );
-                    })()}
-                    {signals.tri && (
-                      <span
-                        className={`${badgeBg} text-bg-primary px-1.5 py-0.5 rounded font-bold`}
-                        title={`Ascending triangle forming — ceiling $${signals.triCeiling?.toFixed(4)} (score ${signals.triScore?.toFixed(2)})`}
-                      >
-                        TRI {signals.triScore?.toFixed(2)}
-                      </span>
-                    )}
-                    {signals.cup && (
-                      <span
-                        className={`${badgeBg} text-bg-primary px-1.5 py-0.5 rounded font-bold`}
-                        title={`Cup and handle forming — resistance $${signals.cupResistance?.toFixed(4)} (score ${signals.cupScore?.toFixed(2)})`}
-                      >
-                        CUP {signals.cupScore?.toFixed(2)}
-                      </span>
-                    )}
+                  <div className={useGrid ? 'grid grid-cols-2 gap-1 flex-1 min-w-0' : 'flex gap-1 flex-wrap min-w-0'}>
+                    {badges}
                   </div>
                 </div>
               );

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
+import type { IChartApi, Time } from 'lightweight-charts';
 import ScalpingChart from '@/components/ScalpingChart';
 import MultiTimeframeChart from '@/components/MultiTimeframeChart';
 import TerminalHeader from '@/components/layout/TerminalHeader';
@@ -14,7 +15,6 @@ import { playNotificationSound } from '@/lib/sound-utils';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { KeyBinding } from '@/lib/keyboard-utils';
 import { useSettingsStore } from '@/stores/useSettingsStore';
-import { useSymbolMetaStore } from '@/stores/useSymbolMetaStore';
 import { calculateAverageCandleHeight } from '@/lib/trading-utils';
 import { getCandleTimeWindow } from '@/lib/time-utils';
 import { DEFAULT_CANDLE_COUNT } from '@/lib/constants';
@@ -28,11 +28,11 @@ const CHART_INTERVALS: TimeInterval[] = ['1m', '5m', '15m', '1h'];
 
 function SymbolView({ coin }: SymbolViewProps) {
   const [currentPrice, setCurrentPrice] = useState(0);
-  const [newTradeKeys, setNewTradeKeys] = useState<Set<string>>(new Set());
-  const chartRef = useRef<any>(null);
-  const crosshairStateRef = useRef({ active: false, type: null as any });
+  const chartRef = useRef<IChartApi | null>(null);
+  const crosshairStateRef = useRef<{ active: boolean; type: string | null }>({ active: false, type: null });
 
-  const trades = useTradesStore((state) => state.trades[coin]) || [];
+  const tradesRaw = useTradesStore((state) => state.trades[coin]);
+  const trades = useMemo(() => tradesRaw || [], [tradesRaw]);
   const subscribeToTrades = useTradesStore((state) => state.subscribeToTrades);
   const unsubscribeFromTrades = useTradesStore((state) => state.unsubscribeFromTrades);
   const seenTimestampsRef = useRef<Set<number>>(new Set());
@@ -47,14 +47,17 @@ function SymbolView({ coin }: SymbolViewProps) {
 
   const position = usePositionStore((state) => state.positions[coin]);
 
-  const confirmedOrders = useOrderStore((state) => state.orders[coin]) || [];
-  const optimisticOrders = useOrderStore((state) => state.optimisticOrders[coin]) || [];
+  const confirmedOrdersRaw = useOrderStore((state) => state.orders[coin]);
+  const optimisticOrdersRaw = useOrderStore((state) => state.optimisticOrders[coin]);
+  const confirmedOrders = useMemo(() => confirmedOrdersRaw || [], [confirmedOrdersRaw]);
+  const optimisticOrders = useMemo(() => optimisticOrdersRaw || [], [optimisticOrdersRaw]);
   const orders = useMemo(() => [...confirmedOrders, ...optimisticOrders], [confirmedOrders, optimisticOrders]);
   const subscribeToOrders = useOrderStore((state) => state.subscribeToOrders);
   const unsubscribeFromOrders = useOrderStore((state) => state.unsubscribeFromOrders);
 
   const candleKey = `${coin}-${chartInterval}`;
-  const candles = useCandleStore((state) => state.candles[candleKey]) || [];
+  const candlesRaw = useCandleStore((state) => state.candles[candleKey]);
+  const candles = useMemo(() => candlesRaw || [], [candlesRaw]);
   const fetchCandles = useCandleStore((state) => state.fetchCandles);
   const subscribeToCandles = useCandleStore((state) => state.subscribeToCandles);
   const unsubscribeFromCandles = useCandleStore((state) => state.unsubscribeFromCandles);
@@ -73,9 +76,6 @@ function SymbolView({ coin }: SymbolViewProps) {
   }, [crosshairActive, crosshairType]);
   const candleService = useCandleStore((state) => state.service);
 
-  const getDecimals = useSymbolMetaStore((state) => state.getDecimals);
-  const decimals = useMemo(() => getDecimals(coin), [getDecimals, coin]);
-
   const buyCloud = useTradingStore((state) => state.buyCloud);
   const sellCloud = useTradingStore((state) => state.sellCloud);
   const smLong = useTradingStore((state) => state.smLong);
@@ -84,8 +84,6 @@ function SymbolView({ coin }: SymbolViewProps) {
   const bigShort = useTradingStore((state) => state.bigShort);
   const closePosition = useTradingStore((state) => state.closePosition);
   const moveStopLoss = useTradingStore((state) => state.moveStopLoss);
-  const cancelEntryOrders = useTradingStore((state) => state.cancelEntryOrders);
-  const cancelAllOrders = useTradingStore((state) => state.cancelAllOrders);
 
   useEffect(() => {
     seenTimestampsRef.current.clear();
@@ -104,6 +102,7 @@ function SymbolView({ coin }: SymbolViewProps) {
       unsubscribeFromOrders(coin);
       setActiveSymbol(null);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- subscribe/unsubscribe functions are stable zustand actions
   }, [coin, setActiveSymbol]);
 
   useEffect(() => {
@@ -125,57 +124,47 @@ function SymbolView({ coin }: SymbolViewProps) {
         unsubscribeFromCandles(coin, interval);
       });
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fetch/subscribe/unsubscribe functions are stable zustand actions
   }, [coin, candleService]);
 
   useEffect(() => {
     if (trades.length === 0) return;
 
-    const newKeys = new Set<string>();
     const seenTimestamps = seenTimestampsRef.current;
     const newTrades: typeof trades = [];
 
-    trades.forEach((trade, index) => {
+    trades.forEach((trade) => {
       if (!seenTimestamps.has(trade.time)) {
-        const key = `${trade.time}-${index}`;
-        newKeys.add(key);
         seenTimestamps.add(trade.time);
         newTrades.push(trade);
       }
     });
 
-    if (newKeys.size > 0) {
-      setNewTradeKeys(newKeys);
+    if (newTrades.length > 0 && playTradeSound) {
+      tradeSoundTimeoutsRef.current.forEach(timeout => clearTimeout(timeout));
+      tradeSoundTimeoutsRef.current = [];
 
-      if (playTradeSound && newTrades.length > 0) {
-        tradeSoundTimeoutsRef.current.forEach(timeout => clearTimeout(timeout));
-        tradeSoundTimeoutsRef.current = [];
+      const MAX_SOUNDS = 3;
+      const soundsToPlay = Math.min(newTrades.length, MAX_SOUNDS);
+      const SOUND_DURATION = 300;
+      const delayBetweenSounds = soundsToPlay === 1 ? 0 : SOUND_DURATION / soundsToPlay;
 
-        const MAX_SOUNDS = 3;
-        const soundsToPlay = Math.min(newTrades.length, MAX_SOUNDS);
-        const SOUND_DURATION = 300;
-        const delayBetweenSounds = soundsToPlay === 1 ? 0 : SOUND_DURATION / soundsToPlay;
+      for (let i = 0; i < soundsToPlay; i++) {
+        const trade = newTrades[i];
+        const delay = i * delayBetweenSounds;
+        const side = trade.side === 'buy' ? 'bullish' : 'bearish';
 
-        for (let i = 0; i < soundsToPlay; i++) {
-          const trade = newTrades[i];
-          const delay = i * delayBetweenSounds;
-          const side = trade.side === 'buy' ? 'bullish' : 'bearish';
+        const timeout = setTimeout(() => {
+          playNotificationSound(side, 'standard');
+        }, delay);
 
-          const timeout = setTimeout(() => {
-            playNotificationSound(side, 'standard');
-          }, delay);
-
-          tradeSoundTimeoutsRef.current.push(timeout);
-        }
+        tradeSoundTimeoutsRef.current.push(timeout);
       }
 
-      const timer = setTimeout(() => {
-        setNewTradeKeys(new Set());
-      }, 500);
-
+      const timeouts = tradeSoundTimeoutsRef;
       return () => {
-        clearTimeout(timer);
-        tradeSoundTimeoutsRef.current.forEach(timeout => clearTimeout(timeout));
-        tradeSoundTimeoutsRef.current = [];
+        timeouts.current.forEach(timeout => clearTimeout(timeout));
+        timeouts.current = [];
       };
     }
   }, [trades, playTradeSound]);
@@ -199,7 +188,7 @@ function SymbolView({ coin }: SymbolViewProps) {
         priceInterval,
         percentage: orderSettings.cloudPercentage
       });
-    } catch (error) {
+    } catch {
       // Error executing buy cloud
     }
   }, [coin, candles, orderSettings.cloudPercentage, buyCloud, sellCloud, invertedMode]);
@@ -223,7 +212,7 @@ function SymbolView({ coin }: SymbolViewProps) {
         priceInterval,
         percentage: orderSettings.cloudPercentage
       });
-    } catch (error) {
+    } catch {
       // Error executing sell cloud
     }
   }, [coin, candles, orderSettings.cloudPercentage, sellCloud, buyCloud, invertedMode]);
@@ -247,7 +236,7 @@ function SymbolView({ coin }: SymbolViewProps) {
         priceInterval,
         percentage: orderSettings.smallPercentage
       });
-    } catch (error) {
+    } catch {
       // Error executing sm long
     }
   }, [coin, candles, orderSettings.smallPercentage, smLong, smShort, invertedMode]);
@@ -271,7 +260,7 @@ function SymbolView({ coin }: SymbolViewProps) {
         priceInterval,
         percentage: orderSettings.smallPercentage
       });
-    } catch (error) {
+    } catch {
       // Error executing sm short
     }
   }, [coin, candles, orderSettings.smallPercentage, smShort, smLong, invertedMode]);
@@ -295,7 +284,7 @@ function SymbolView({ coin }: SymbolViewProps) {
         priceInterval,
         percentage: orderSettings.bigPercentage
       });
-    } catch (error) {
+    } catch {
       // Error executing big long
     }
   }, [coin, candles, orderSettings.bigPercentage, bigLong, bigShort, invertedMode]);
@@ -319,7 +308,7 @@ function SymbolView({ coin }: SymbolViewProps) {
         priceInterval,
         percentage: orderSettings.bigPercentage
       });
-    } catch (error) {
+    } catch {
       // Error executing big short
     }
   }, [coin, candles, orderSettings.bigPercentage, bigShort, bigLong, invertedMode]);
@@ -327,7 +316,7 @@ function SymbolView({ coin }: SymbolViewProps) {
   const handleClose25 = useCallback(async () => {
     try {
       await closePosition({ symbol: coin, percentage: 25 });
-    } catch (error) {
+    } catch {
       // Error closing 25% position
     }
   }, [coin, closePosition]);
@@ -335,7 +324,7 @@ function SymbolView({ coin }: SymbolViewProps) {
   const handleClose50 = useCallback(async () => {
     try {
       await closePosition({ symbol: coin, percentage: 50 });
-    } catch (error) {
+    } catch {
       // Error closing 50% position
     }
   }, [coin, closePosition]);
@@ -343,7 +332,7 @@ function SymbolView({ coin }: SymbolViewProps) {
   const handleClose75 = useCallback(async () => {
     try {
       await closePosition({ symbol: coin, percentage: 75 });
-    } catch (error) {
+    } catch {
       // Error closing 75% position
     }
   }, [coin, closePosition]);
@@ -351,7 +340,7 @@ function SymbolView({ coin }: SymbolViewProps) {
   const handleClose100 = useCallback(async () => {
     try {
       await closePosition({ symbol: coin, percentage: 100 });
-    } catch (error) {
+    } catch {
       // Error closing 100% position
     }
   }, [coin, closePosition]);
@@ -359,7 +348,7 @@ function SymbolView({ coin }: SymbolViewProps) {
   const handleCloseBest = useCallback(async () => {
     const positions = usePositionStore.getState().positions;
     const profitablePositions = Object.entries(positions)
-      .filter(([_, pos]) => pos && pos.pnl > 0)
+      .filter(([, pos]) => pos && pos.pnl > 0)
       .map(([symbol, pos]) => ({ ...pos!, symbol }))
       .sort((a, b) => b.pnl - a.pnl);
 
@@ -370,7 +359,7 @@ function SymbolView({ coin }: SymbolViewProps) {
 
     try {
       await closePosition({ symbol: mostProfitable.symbol, percentage: 100 });
-    } catch (error) {
+    } catch {
       // Error closing best position
     }
   }, [closePosition]);
@@ -378,7 +367,7 @@ function SymbolView({ coin }: SymbolViewProps) {
   const handleCloseAllProfitable = useCallback(async () => {
     const positions = usePositionStore.getState().positions;
     const profitablePositions = Object.entries(positions)
-      .filter(([_, pos]) => pos && pos.pnl > 0)
+      .filter(([, pos]) => pos && pos.pnl > 0)
       .map(([symbol, pos]) => ({ ...pos!, symbol }));
 
     if (profitablePositions.length === 0) return;
@@ -390,33 +379,15 @@ function SymbolView({ coin }: SymbolViewProps) {
       for (const pos of profitablePositions) {
         await closePosition({ symbol: pos.symbol, percentage: 100 });
       }
-    } catch (error) {
+    } catch {
       // Error closing profitable positions
     }
   }, [closePosition]);
 
-  const handleCancelEntryOrders = useCallback(async () => {
-    playNotificationSound('bearish', 'standard');
-    try {
-      await cancelEntryOrders(coin);
-    } catch (error) {
-      // Error cancelling entry orders
-    }
-  }, [coin, cancelEntryOrders]);
-
-  const handleCancelAllOrders = useCallback(async () => {
-    try {
-      await cancelAllOrders(coin);
-      playNotificationSound('bearish', 'standard');
-    } catch (error) {
-      // Error cancelling all orders
-    }
-  }, [coin, cancelAllOrders]);
-
   const handleMoveSL25 = useCallback(async () => {
     try {
       await moveStopLoss({ coin, percentage: 25 });
-    } catch (error) {
+    } catch {
       // Error moving stop loss 25%
     }
   }, [coin, moveStopLoss]);
@@ -424,7 +395,7 @@ function SymbolView({ coin }: SymbolViewProps) {
   const handleMoveSL50 = useCallback(async () => {
     try {
       await moveStopLoss({ coin, percentage: 50 });
-    } catch (error) {
+    } catch {
       // Error moving stop loss 50%
     }
   }, [coin, moveStopLoss]);
@@ -432,7 +403,7 @@ function SymbolView({ coin }: SymbolViewProps) {
   const handleMoveSL75 = useCallback(async () => {
     try {
       await moveStopLoss({ coin, percentage: 75 });
-    } catch (error) {
+    } catch {
       // Error moving stop loss 75%
     }
   }, [coin, moveStopLoss]);
@@ -440,7 +411,7 @@ function SymbolView({ coin }: SymbolViewProps) {
   const handleMoveSLBreakeven = useCallback(async () => {
     try {
       await moveStopLoss({ coin, percentage: 0 });
-    } catch (error) {
+    } catch {
       // Error moving stop loss to breakeven
     }
   }, [coin, moveStopLoss]);
@@ -481,8 +452,8 @@ function SymbolView({ coin }: SymbolViewProps) {
           const rightPadding = 10 * 60; // 10 candles worth of time (10 minutes)
 
           chartRef.current.timeScale().setVisibleRange({
-            from: fromTime,
-            to: toTime + rightPadding,
+            from: fromTime as Time,
+            to: (toTime + rightPadding) as Time,
           });
         } else {
           chartRef.current.timeScale().fitContent();
@@ -507,8 +478,8 @@ function SymbolView({ coin }: SymbolViewProps) {
           const rightPadding = 10 * 60; // 10 candles worth of time (10 minutes)
 
           chartRef.current.timeScale().setVisibleRange({
-            from: fromTime,
-            to: toTime + rightPadding,
+            from: fromTime as Time,
+            to: (toTime + rightPadding) as Time,
           });
           console.log('[SymbolView] Zoomed to last 50 candles');
         }

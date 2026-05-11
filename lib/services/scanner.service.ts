@@ -1,7 +1,6 @@
 import type { HyperliquidService } from './hyperliquid.service';
-import type { TimeInterval } from '@/types';
+import type { CandleData as FullCandleData, TimeInterval } from '@/types';
 import type {
-  StochasticValue,
   ScanResult,
   VolumeValue,
   EmaAlignmentValue,
@@ -36,7 +35,6 @@ import {
   calculateRSI,
   detectChannels,
   detectPivots,
-  detectStochasticPivots,
   detectRSIPivots,
   detectDivergence,
   calculateTrendlines,
@@ -46,7 +44,6 @@ import {
   type DivergenceOptions
 } from '@/lib/indicators';
 import { aggregate1mTo5m } from '@/lib/candle-aggregator';
-import { downsampleCandles } from '@/lib/candle-utils';
 import { useCandleStore } from '@/stores/useCandleStore';
 import { yieldToMain } from '@/lib/performance-utils';
 
@@ -181,7 +178,7 @@ export class ScannerService {
   async scanStochastic(params: StochasticScanParams): Promise<ScanResult | null> {
     const { symbol, timeframes, config, variants } = params;
 
-    const enabledVariants = Object.entries(variants).filter(([_, variantConfig]) => variantConfig.enabled);
+    const enabledVariants = Object.entries(variants).filter(([, variantConfig]) => variantConfig.enabled);
     const enabledVariantCount = enabledVariants.length;
 
     if (enabledVariantCount === 0) {
@@ -203,7 +200,7 @@ export class ScannerService {
 
         const timeframeResults: { k: number; d: number; signalType: 'bullish' | 'bearish' }[] = [];
 
-        for (const [variantKey, variantConfig] of enabledVariants) {
+        for (const [, variantConfig] of enabledVariants) {
           const stochData = calculateStochastic(
             candles,
             variantConfig.period,
@@ -333,7 +330,7 @@ export class ScannerService {
         }
 
         const emaAlignment = detectEmaAlignment(
-          candles as any,
+          candles,
           config.ema1Period,
           config.ema2Period,
           config.ema3Period,
@@ -401,8 +398,6 @@ export class ScannerService {
         let signalType: 'bullish' | 'bearish' | null = null;
 
         for (let i = 1; i < recentHistogram.length; i++) {
-          const prev = recentHistogram[i - 1];
-          const curr = recentHistogram[i];
           const prevMacd = macdResult.macd[macdResult.macd.length - config.recentReversalLookback + i - 1];
           const currMacd = macdResult.macd[macdResult.macd.length - config.recentReversalLookback + i];
           const prevSignal = macdResult.signal[macdResult.signal.length - config.recentReversalLookback + i - 1];
@@ -548,7 +543,7 @@ export class ScannerService {
           continue;
         }
 
-        const channels = detectChannels(candles as any, {
+        const channels = detectChannels(candles as unknown as FullCandleData[], {
           pivotStrength: config.pivotStrength,
           lookbackBars: config.lookbackBars,
           minTouches: config.minTouches,
@@ -623,17 +618,17 @@ export class ScannerService {
           continue;
         }
 
-        const pricePivots = detectPivots(candles as any, config.pivotStrength);
+        const pricePivots = detectPivots(candles as unknown as FullCandleData[], config.pivotStrength);
 
         const closePricesForRsi = candles.map(c => c.close);
         const rsiData = calculateRSI(closePricesForRsi, 14);
-        const rsiPivots = detectRSIPivots(rsiData, candles as any, config.pivotStrength);
+        const rsiPivots = detectRSIPivots(rsiData, candles as unknown as FullCandleData[], config.pivotStrength);
 
         let divergenceOptions: DivergenceOptions | undefined = undefined;
 
         if (config.useDynamicThresholds) {
           const atrPeriod = config.atrPeriod || 14;
-          const atrValues = calculateATR(candles as any, atrPeriod);
+          const atrValues = calculateATR(candles as unknown as FullCandleData[], atrPeriod);
 
           divergenceOptions = {
             minPriceChangeATR: config.minPriceChangeATR,
@@ -643,7 +638,7 @@ export class ScannerService {
           };
         }
 
-        const divergences = detectDivergence(pricePivots, rsiPivots, candles as any, divergenceOptions);
+        const divergences = detectDivergence(pricePivots, rsiPivots, candles as unknown as FullCandleData[], divergenceOptions);
 
         if (divergences.length > 0) {
           const recentDivergence = divergences[divergences.length - 1];
@@ -654,7 +649,7 @@ export class ScannerService {
             (config.scanHidden && (recentDivergence.type === 'hidden-bullish' || recentDivergence.type === 'hidden-bearish'));
 
           if (shouldReport) {
-            const minStrength = (config as any).minStrength ?? 30;
+            const minStrength = config.minStrength ?? 30;
             const strength = recentDivergence.strength ?? 0;
 
             if (strength < minStrength) {
@@ -723,7 +718,7 @@ export class ScannerService {
           continue;
         }
 
-        const trendlines = calculateTrendlines(candles as any);
+        const trendlines = calculateTrendlines(candles as unknown as FullCandleData[]);
 
         if (trendlines.supportLine.length === 0 && trendlines.resistanceLine.length === 0) {
           continue;
@@ -869,8 +864,6 @@ export class ScannerService {
         const touches = nearLevel === 'support' ? supportTouches : resistanceTouches;
 
         // Determine proximity description
-        const isNear = distance <= config.distanceThreshold;
-        const proximityText = isNear ? 'near' : 'approaching';
         const priceDirection = nearLevel === 'support'
           ? (currentPrice > supportLevel! ? 'above' : 'at')
           : (currentPrice < resistanceLevel! ? 'below' : 'at');
@@ -886,7 +879,7 @@ export class ScannerService {
           scanType: 'supportResistance',
           closePrices,
         };
-      } catch (error) {
+      } catch {
         continue;
       }
     }
@@ -1093,11 +1086,11 @@ function evaluateAscendingTriangle(
   const n = candles.length;
   if (n < config.lookbackBars) return null;
 
-  const atrSeries = calculateATR(candles as any, 14);
+  const atrSeries = calculateATR(candles as unknown as FullCandleData[], 14);
   const atr = atrSeries.length > 0 ? atrSeries[atrSeries.length - 1] : 0;
   if (atr <= 0) return null;
 
-  const pivots = detectPivots(candles as any, config.pivotStrength);
+  const pivots = detectPivots(candles as unknown as FullCandleData[], config.pivotStrength);
   const highPivots = pivots.filter(p => p.type === 'high');
   const lowPivots = pivots.filter(p => p.type === 'low');
 
@@ -1210,11 +1203,11 @@ function evaluateCupAndHandle(
   const n = candles.length;
   if (n < config.lookbackBars) return null;
 
-  const atrSeries = calculateATR(candles as any, 14);
+  const atrSeries = calculateATR(candles as unknown as FullCandleData[], 14);
   const atr = atrSeries.length > 0 ? atrSeries[atrSeries.length - 1] : 0;
   if (atr <= 0) return null;
 
-  const pivots = detectPivots(candles as any, config.pivotStrength);
+  const pivots = detectPivots(candles as unknown as FullCandleData[], config.pivotStrength);
   const highPivots = pivots.filter(p => p.type === 'high');
   const lowPivots = pivots.filter(p => p.type === 'low');
 

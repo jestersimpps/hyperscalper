@@ -64,7 +64,7 @@ export interface StochasticScannerConfig {
 
 export interface EmaAlignmentScannerConfig {
   enabled: boolean;
-  timeframes: ('1m' | '5m')[];
+  timeframes: ('1m' | '5m' | '15m' | '1h')[];
   lookbackBars: number;
   ema1Period: number;
   ema2Period: number;
@@ -95,7 +95,7 @@ export interface DivergenceScannerConfig {
 
 export interface MacdReversalScannerConfig {
   enabled: boolean;
-  timeframes: ('1m' | '5m')[];
+  timeframes: ('1m' | '5m' | '15m' | '1h')[];
   fastPeriod: number;
   slowPeriod: number;
   signalPeriod: number;
@@ -105,7 +105,7 @@ export interface MacdReversalScannerConfig {
 
 export interface RsiReversalScannerConfig {
   enabled: boolean;
-  timeframes: ('1m' | '5m')[];
+  timeframes: ('1m' | '5m' | '15m' | '1h')[];
   period: number;
   oversoldLevel: number;
   overboughtLevel: number;
@@ -115,7 +115,7 @@ export interface RsiReversalScannerConfig {
 
 export interface VolumeSpikeConfig {
   enabled: boolean;
-  timeframes: ('1m' | '5m')[];
+  timeframes: ('1m' | '5m' | '15m' | '1h')[];
   volumeThreshold: number;
   priceChangeThreshold: number;
   lookbackPeriod: number;
@@ -123,7 +123,7 @@ export interface VolumeSpikeConfig {
 
 export interface SupportResistanceScannerConfig {
   enabled: boolean;
-  timeframes: ('1m' | '5m')[];
+  timeframes: ('1m' | '5m' | '15m' | '1h')[];
   distanceThreshold: number;
   minTouches: number;
 }
@@ -213,7 +213,6 @@ export interface ChartSettings {
   schmecklesMode: boolean;
   invertedMode: boolean;
   showForecast: boolean;
-  showWalls: boolean;
   defaultInterval: TimeInterval;
 }
 
@@ -420,7 +419,6 @@ export const DEFAULT_SETTINGS: AppSettings = {
     schmecklesMode: false,
     invertedMode: false,
     showForecast: false,
-    showWalls: true,
     defaultInterval: '1m',
   },
   pinnedSymbols: [],

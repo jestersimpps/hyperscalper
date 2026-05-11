@@ -64,13 +64,14 @@ const getLiveMid = async (service: HyperliquidService, symbol: string): Promise<
 const reconcileSingleOrder = (
   symbol: string,
   tempId: string,
-  response: any,
+  response: unknown,
   successMessage: string,
   failurePrefix: string,
 ): boolean => {
   const orderStore = useOrderStore.getState();
-  const status = response?.status === 'ok'
-    ? response?.response?.data?.statuses?.[0]
+  const resp = response as { status?: string; response?: { data?: { statuses?: Array<{ resting?: { oid?: number | string }; error?: unknown }> } } } | null | undefined;
+  const status = resp?.status === 'ok'
+    ? resp?.response?.data?.statuses?.[0]
     : null;
 
   if (status && typeof status === 'object' && 'resting' in status && status.resting?.oid) {
@@ -174,7 +175,7 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
     }));
 
     const batchTempId = `batch_${Date.now()}`;
-    const optimisticOrders: any[] = [];
+    const optimisticOrders: Partial<Order>[] = [];
 
     const priceLevels: number[] = [];
     for (let i = 1; i <= ORDER_COUNT; i++) {
@@ -182,7 +183,7 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
       priceLevels.push(level);
     }
 
-    const previewOrders: any[] = priceLevels.map((level, i) => ({
+    const previewOrders: Partial<Order>[] = priceLevels.map((level, i) => ({
       oid: `${batchTempId}_limit_${i}`,
       coin: symbol,
       side: 'buy',
@@ -333,10 +334,10 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
       const response = await service.placeBatchMixedOrders(batchOrders);
 
       if (response?.status === 'ok' && response.response?.data?.statuses) {
-        response.response.data.statuses.forEach((status: any, index: number) => {
-          if (status?.resting?.oid) {
+        response.response.data.statuses.forEach((status, index) => {
+          if ('resting' in status && status.resting?.oid !== undefined) {
             const tempId = optimisticOrders[index].tempId;
-            orderStore.confirmOptimisticOrder(symbol, tempId, status.resting.oid);
+            if (tempId) orderStore.confirmOptimisticOrder(symbol, tempId, String(status.resting.oid));
           }
         });
       }
@@ -350,7 +351,7 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
       }
     } catch (error) {
       previewOrders.forEach(order => {
-        orderStore.rollbackOptimisticOrder(symbol, order.tempId);
+        if (order.tempId) orderStore.rollbackOptimisticOrder(symbol, order.tempId);
       });
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       toast.error(`Buy cloud failed: ${errorMessage}`);
@@ -378,7 +379,7 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
     }));
 
     const batchTempId = `batch_${Date.now()}`;
-    const optimisticOrders: any[] = [];
+    const optimisticOrders: Partial<Order>[] = [];
 
     const priceLevels: number[] = [];
     for (let i = 1; i <= ORDER_COUNT; i++) {
@@ -386,7 +387,7 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
       priceLevels.push(level);
     }
 
-    const previewOrders: any[] = priceLevels.map((level, i) => ({
+    const previewOrders: Partial<Order>[] = priceLevels.map((level, i) => ({
       oid: `${batchTempId}_limit_${i}`,
       coin: symbol,
       side: 'sell',
@@ -536,10 +537,10 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
       const response = await service.placeBatchMixedOrders(batchOrders);
 
       if (response?.status === 'ok' && response.response?.data?.statuses) {
-        response.response.data.statuses.forEach((status: any, index: number) => {
-          if (status?.resting?.oid) {
+        response.response.data.statuses.forEach((status, index) => {
+          if ('resting' in status && status.resting?.oid !== undefined) {
             const tempId = optimisticOrders[index].tempId;
-            orderStore.confirmOptimisticOrder(symbol, tempId, status.resting.oid);
+            if (tempId) orderStore.confirmOptimisticOrder(symbol, tempId, String(status.resting.oid));
           }
         });
       }
@@ -553,7 +554,7 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
       }
     } catch (error) {
       previewOrders.forEach(order => {
-        orderStore.rollbackOptimisticOrder(symbol, order.tempId);
+        if (order.tempId) orderStore.rollbackOptimisticOrder(symbol, order.tempId);
       });
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       toast.error(`Sell cloud failed: ${errorMessage}`);
@@ -575,14 +576,14 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
     const { symbol, currentPrice, priceInterval, percentage } = params;
     const orderStore = useOrderStore.getState();
     const batchTempId = `batch_${Date.now()}`;
-    const optimisticOrders: any[] = [];
+    const optimisticOrders: Partial<Order>[] = [];
 
     set((state) => ({
       isExecuting: { ...state.isExecuting, [`smLong_${symbol}`]: true },
       errors: { ...state.errors, [`smLong_${symbol}`]: null },
     }));
 
-    const previewOrders: any[] = [
+    const previewOrders: Partial<Order>[] = [
       {
         oid: `${batchTempId}_sl`,
         coin: symbol,
@@ -702,7 +703,7 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
       toast.success(wasBumped ? 'Market long placed (size bumped to meet $10 minimum)' : 'Market long placed');
     } catch (error) {
       previewOrders.forEach(order => {
-        orderStore.rollbackOptimisticOrder(symbol, order.tempId);
+        if (order.tempId) orderStore.rollbackOptimisticOrder(symbol, order.tempId);
       });
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       toast.error(`Market long failed: ${errorMessage}`);
@@ -724,14 +725,14 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
     const { symbol, currentPrice, priceInterval, percentage } = params;
     const orderStore = useOrderStore.getState();
     const batchTempId = `batch_${Date.now()}`;
-    const optimisticOrders: any[] = [];
+    const optimisticOrders: Partial<Order>[] = [];
 
     set((state) => ({
       isExecuting: { ...state.isExecuting, [`smShort_${symbol}`]: true },
       errors: { ...state.errors, [`smShort_${symbol}`]: null },
     }));
 
-    const previewOrders: any[] = [
+    const previewOrders: Partial<Order>[] = [
       {
         oid: `${batchTempId}_sl`,
         coin: symbol,
@@ -851,7 +852,7 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
       toast.success(wasBumped ? 'Market short placed (size bumped to meet $10 minimum)' : 'Market short placed');
     } catch (error) {
       previewOrders.forEach(order => {
-        orderStore.rollbackOptimisticOrder(symbol, order.tempId);
+        if (order.tempId) orderStore.rollbackOptimisticOrder(symbol, order.tempId);
       });
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       toast.error(`Market short failed: ${errorMessage}`);
@@ -873,14 +874,14 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
     const { symbol, currentPrice, priceInterval, percentage } = params;
     const orderStore = useOrderStore.getState();
     const batchTempId = `batch_${Date.now()}`;
-    const optimisticOrders: any[] = [];
+    const optimisticOrders: Partial<Order>[] = [];
 
     set((state) => ({
       isExecuting: { ...state.isExecuting, [`bigLong_${symbol}`]: true },
       errors: { ...state.errors, [`bigLong_${symbol}`]: null },
     }));
 
-    const previewOrders: any[] = [
+    const previewOrders: Partial<Order>[] = [
       {
         oid: `${batchTempId}_sl`,
         coin: symbol,
@@ -1000,7 +1001,7 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
       toast.success(wasBumped ? 'Big long placed (size bumped to meet $10 minimum)' : 'Big long placed');
     } catch (error) {
       previewOrders.forEach(order => {
-        orderStore.rollbackOptimisticOrder(symbol, order.tempId);
+        if (order.tempId) orderStore.rollbackOptimisticOrder(symbol, order.tempId);
       });
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       toast.error(`Big long failed: ${errorMessage}`);
@@ -1022,14 +1023,14 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
     const { symbol, currentPrice, priceInterval, percentage } = params;
     const orderStore = useOrderStore.getState();
     const batchTempId = `batch_${Date.now()}`;
-    const optimisticOrders: any[] = [];
+    const optimisticOrders: Partial<Order>[] = [];
 
     set((state) => ({
       isExecuting: { ...state.isExecuting, [`bigShort_${symbol}`]: true },
       errors: { ...state.errors, [`bigShort_${symbol}`]: null },
     }));
 
-    const previewOrders: any[] = [
+    const previewOrders: Partial<Order>[] = [
       {
         oid: `${batchTempId}_sl`,
         coin: symbol,
@@ -1149,7 +1150,7 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
       toast.success(wasBumped ? 'Big short placed (size bumped to meet $10 minimum)' : 'Big short placed');
     } catch (error) {
       previewOrders.forEach(order => {
-        orderStore.rollbackOptimisticOrder(symbol, order.tempId);
+        if (order.tempId) orderStore.rollbackOptimisticOrder(symbol, order.tempId);
       });
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       toast.error(`Big short failed: ${errorMessage}`);
@@ -1303,7 +1304,6 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
 
     const isTakeProfit = (isLong && priceAboveCurrent) || (!isLong && !priceAboveCurrent);
     const orderType = isTakeProfit ? 'tp' : 'stop';
-    const tpslType = isTakeProfit ? 'tp' : 'sl';
 
     console.log('[placeExitOrderAtPrice] Starting:', {
       symbol,
@@ -1485,15 +1485,15 @@ export const useTradingStore = create<TradingStore>((set, get) => ({
       }
 
       const allOrders = await service.getOpenOrders();
-      const stopLossOrders = allOrders.filter((order: any) => {
+      const stopLossOrders = allOrders.filter((order) => {
         if (order.coin !== coin) return false;
         if (!order.isTrigger || !order.isPositionTpsl) return false;
         const ot = order.orderType?.toLowerCase() || '';
         return ot.includes('stop market') || order.reduceOnly;
       });
 
-      stopLossOrders.forEach((order: any) => {
-        orderStore.markPendingCancellation(coin, order.oid);
+      stopLossOrders.forEach((order) => {
+        orderStore.markPendingCancellation(coin, String(order.oid));
       });
 
       const formattedStopLoss = service.formatPriceCached(newStopLossPrice, metadata);
