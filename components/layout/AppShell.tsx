@@ -6,6 +6,7 @@ import RightTradingPanel from '@/components/symbol/RightTradingPanel';
 import OpenOrdersList from '@/components/orders/OpenOrdersList';
 import Sidepanel from '@/components/layout/Sidepanel';
 import WalletIndicator from '@/components/layout/WalletIndicator';
+import WalletStats from '@/components/layout/WalletStats';
 import { MobileTabBar } from '@/components/layout/MobileTabBar';
 import CalendarIcon from '@/components/icons/CalendarIcon';
 import EyeIcon from '@/components/icons/EyeIcon';
@@ -307,6 +308,7 @@ export default function AppShell({ selectedSymbol, children }: AppShellProps) {
 
         {/* Right: Navigation Icons + Wallet Indicator */}
         <div className="flex items-center gap-1 md:gap-3 flex-shrink-0">
+          <WalletStats />
           <button
             onClick={() => address && router.push(`/${address}/trades`)}
             className={`hidden md:flex px-2 py-1.5 active:scale-95 cursor-pointer transition-all rounded-sm ${
