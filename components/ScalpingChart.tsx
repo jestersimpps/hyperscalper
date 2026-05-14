@@ -1881,12 +1881,12 @@ export default function ScalpingChart({ coin, interval, onPriceUpdate, onChartRe
       // Create baseline series with entry as baseline and breakeven as data
       const breakevenBandSeries = chartRef.current.addBaselineSeries({
         baseValue: { type: 'price', price: displayEntryPrice },
-        topFillColor1: 'rgba(255, 255, 0, 0.15)',
-        topFillColor2: 'rgba(255, 255, 0, 0.05)',
-        bottomFillColor1: 'rgba(255, 255, 0, 0.15)',
-        bottomFillColor2: 'rgba(255, 255, 0, 0.05)',
-        topLineColor: 'rgba(255, 255, 0, 0)',
-        bottomLineColor: 'rgba(255, 255, 0, 0)',
+        topFillColor1: 'rgba(255, 215, 0, 0.35)',
+        topFillColor2: 'rgba(255, 215, 0, 0.18)',
+        bottomFillColor1: 'rgba(255, 215, 0, 0.35)',
+        bottomFillColor2: 'rgba(255, 215, 0, 0.18)',
+        topLineColor: 'rgba(255, 215, 0, 0.6)',
+        bottomLineColor: 'rgba(255, 215, 0, 0.6)',
         lineWidth: 1 as const,
         lastValueVisible: false,
         priceLineVisible: false,
